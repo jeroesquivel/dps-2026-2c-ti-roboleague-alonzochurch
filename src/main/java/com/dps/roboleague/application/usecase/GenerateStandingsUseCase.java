@@ -55,7 +55,8 @@ public final class GenerateStandingsUseCase implements GenerateStandings {
         Rulebook rulebook = rulebooks.find(competition.id(), version)
                 .orElseThrow(() -> NotFoundException.of("Rulebook", version.toString()));
         List<StandingEntry> entries = rankingService.rank(
-                scoringService.collect(competition.id(), command.categoryId()), rulebook.tiebreakRules());
+                scoringService.collect(competition.id(), command.categoryId(), rulebook.attemptAggregation()),
+                rulebook.tiebreakRules());
 
         Standings generated = Standings.provisional(competition.id(), command.categoryId(), version, clock.instant(),
                 entries);

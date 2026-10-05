@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.dps.roboleague.domain.challenge.MeasurementSet;
 import com.dps.roboleague.domain.challenge.MetricKey;
 import com.dps.roboleague.domain.challenge.MetricValue;
+import com.dps.roboleague.domain.ranking.aggregation.BestAttempt;
+import com.dps.roboleague.domain.ranking.aggregation.SumOfAttempts;
 import com.dps.roboleague.domain.ranking.rule.FastestMetricTiebreak;
 import com.dps.roboleague.domain.ranking.rule.FewestPenaltiesTiebreak;
 import com.dps.roboleague.domain.ranking.rule.HighestSingleRunTiebreak;
@@ -37,6 +39,24 @@ class RankingServiceTest {
 
         assertEquals(List.of("BETA", "ALPHA"), teamsOf(standings));
         assertEquals(List.of(1, 2), positionsOf(standings));
+    }
+
+    @Test
+    void theAggregationPolicyDecidesWhetherTwoModestAttemptsBeatOneStrongAttempt() {
+        List<TeamScoreSummary> bestAttempt = List.of(
+                summary(new BestAttempt(), "STEADY", run("R1", "30", null, "90"), run("R2", "30", null, "91")),
+                summary(new BestAttempt(), "STRONG", run("R3", "50", null, "92")));
+        List<TeamScoreSummary> sumOfAttempts = List.of(
+                summary(new SumOfAttempts(), "STEADY", run("R1", "30", null, "90"), run("R2", "30", null, "91")),
+                summary(new SumOfAttempts(), "STRONG", run("R3", "50", null, "92")));
+
+        List<StandingEntry> byBest = rankingService.rank(bestAttempt, TIEBREAKS);
+        List<StandingEntry> bySum = rankingService.rank(sumOfAttempts, TIEBREAKS);
+
+        assertEquals(List.of("STRONG", "STEADY"), teamsOf(byBest));
+        assertEquals(Points.of("50"), byBest.getFirst().totalPoints());
+        assertEquals(List.of("STEADY", "STRONG"), teamsOf(bySum));
+        assertEquals(Points.of("60"), bySum.getFirst().totalPoints());
     }
 
     @Test
@@ -111,7 +131,11 @@ class RankingServiceTest {
     }
 
     private TeamScoreSummary summary(String teamId, ScoredRun... runs) {
-        return new TeamScoreSummary(TeamId.of(teamId), List.of(runs));
+        return summary(new SumOfAttempts(), teamId, runs);
+    }
+
+    private TeamScoreSummary summary(AttemptAggregation aggregation, String teamId, ScoredRun... runs) {
+        return new TeamScoreSummary(TeamId.of(teamId), List.of(runs), aggregation);
     }
 
     private ScoredRun run(String runId, String basePoints, String penaltyPoints, String seconds) {

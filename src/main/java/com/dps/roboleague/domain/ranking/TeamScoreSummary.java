@@ -10,15 +10,16 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public record TeamScoreSummary(TeamId teamId, List<ScoredRun> runs) {
+public record TeamScoreSummary(TeamId teamId, List<ScoredRun> runs, AttemptAggregation aggregation) {
 
     public TeamScoreSummary {
         Objects.requireNonNull(teamId, "team id is required");
+        Objects.requireNonNull(aggregation, "attempt aggregation is required");
         runs = List.copyOf(runs);
     }
 
     public Points totalPoints() {
-        return runs.stream().map(ScoredRun::total).reduce(Points.ZERO, Points::plus);
+        return aggregation.aggregate(runs);
     }
 
     public Optional<Points> bestRunPoints() {

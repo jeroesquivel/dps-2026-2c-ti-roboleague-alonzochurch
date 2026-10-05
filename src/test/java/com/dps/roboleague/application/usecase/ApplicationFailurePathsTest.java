@@ -235,7 +235,7 @@ class ApplicationFailurePathsTest {
     private Rulebook rulebook() {
         return Rulebook.of(COMPETITION_ID, RulebookVersion.first(), LocalDate.of(2026, 3, 1),
                 List.of(RescueEditionFixture.rescueChallenge()), RescueEditionFixture.eligibilityPolicy(),
-                RescueEditionFixture.tiebreaks());
+                RescueEditionFixture.attemptAggregation(), RescueEditionFixture.tiebreaks());
     }
 
     private Round scheduledRound() {

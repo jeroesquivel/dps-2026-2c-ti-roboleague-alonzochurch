@@ -181,8 +181,8 @@ class RulebookEvolutionTest {
 
     private RulebookVersion publish(CompetitionId competitionId, List<ChallengeSpec> challenges) {
         return edition.module().publishRulebookUseCase().execute(new PublishRulebook.Command(competitionId,
-                challenges, RescueEditionFixture.eligibilityPolicy(), RescueEditionFixture.tiebreaks(),
-                TestEdition.ACTOR));
+                challenges, RescueEditionFixture.eligibilityPolicy(), RescueEditionFixture.attemptAggregation(),
+                RescueEditionFixture.tiebreaks(), TestEdition.ACTOR));
     }
 
     private RulebookVersion activeVersion() {

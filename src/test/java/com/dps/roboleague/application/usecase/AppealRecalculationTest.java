@@ -109,7 +109,7 @@ class AppealRecalculationTest {
                 .execute(new PublishRulebook.Command(edition.competitionId(),
                         List.of(RescueEditionFixture.challengeScoredBy(
                                 List.of(new ObjectiveScoringRule(RescueEditionFixture.OBJECTIVES, Points.of(100), 5)))),
-                        RescueEditionFixture.eligibilityPolicy(),
+                        RescueEditionFixture.eligibilityPolicy(), RescueEditionFixture.attemptAggregation(),
                         List.of(new FastestMetricTiebreak(RescueEditionFixture.TIME)), TestEdition.ACTOR));
 
         Standings recalculated = edition.module().recalculateStandingsUseCase()

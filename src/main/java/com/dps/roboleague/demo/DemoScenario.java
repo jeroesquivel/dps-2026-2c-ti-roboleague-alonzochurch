@@ -72,8 +72,8 @@ public final class DemoScenario {
         CompetitionId competitionId = competition.competitionId();
         CategoryId categoryId = competition.firstCategory();
         module.publishRulebookUseCase().execute(new PublishRulebook.Command(competitionId,
-                List.of(DemoRulebook.rescueChallenge()), DemoRulebook.eligibilityPolicy(), DemoRulebook.tiebreaks(),
-                ORGANISER));
+                List.of(DemoRulebook.rescueChallenge()), DemoRulebook.eligibilityPolicy(),
+                DemoRulebook.attemptAggregation(), DemoRulebook.tiebreaks(), ORGANISER));
 
         TeamId delta = register(competitionId, categoryId, "Delta Bots");
         TeamId omega = register(competitionId, categoryId, "Omega Crew");

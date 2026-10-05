@@ -39,7 +39,7 @@ public final class PublishRulebookUseCase implements PublishRulebook {
                 .orElseGet(RulebookVersion::first);
 
         Rulebook rulebook = Rulebook.of(competition.id(), version, LocalDate.now(clock), command.challenges(),
-                command.eligibilityPolicy(), command.tiebreakRules());
+                command.eligibilityPolicy(), command.attemptAggregation(), command.tiebreakRules());
         rulebooks.save(rulebook);
         competition.activateRulebook(version);
         competitions.save(competition);

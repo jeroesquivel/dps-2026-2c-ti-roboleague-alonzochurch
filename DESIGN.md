@@ -273,8 +273,8 @@ el total, lo que las dejaría fuera de la explicación y obligaría a un orden i
 
 **Dónde:** `domain/rulebook/Rulebook`, `RulebookVersion` y `Rulebook.of`.
 
-Un `Rulebook` reúne los desafíos, la política de elegibilidad y los criterios de desempate de una
-versión. En el flujo normal, publicar un reglamento no modifica el anterior:
+Un `Rulebook` reúne los desafíos, la política de elegibilidad, la política de agregación de intentos
+(3.5) y los criterios de desempate de una versión. En el flujo normal, publicar un reglamento no modifica el anterior:
 `PublishRulebookUseCase` crea la versión siguiente y `Competition.activateRulebook` sólo acepta
 versiones que superen a la vigente.
 `PublishRulebookUseCase` ya recibe todos los componentes juntos y los pasa a `Rulebook.of`, que
@@ -321,8 +321,8 @@ falla si ya es definitiva; `supersede()` abre una revisión nueva provisional co
 de reglamento. Generar dos veces la misma tabla se rechaza con un mensaje que indica usar el
 recálculo, y el repositorio conserva todas las revisiones.
 
-Al generar, la versión activa determina los desempates de la tabla. Al recalcular, se conserva la
-versión de la tabla anterior para esos desempates; cada corrida se puntúa por separado con su propia
+Al generar, la versión activa determina la agregación de intentos y los desempates de la tabla. Al
+recalcular, se conserva la versión de la tabla anterior para ambos; cada corrida se puntúa por separado con su propia
 versión fijada. No se fuerza a todas las corridas de una categoría a usar una única fórmula, ni se
 congela el conjunto de resultados: el servicio vuelve a consultar las corridas disponibles.
 
@@ -353,7 +353,8 @@ implementaciones del mismo puerto signifiquen cosas distintas.
 **Dónde:** `domain/ranking/TiebreakRule` (extiende `Comparator<TeamScoreSummary>`), sus
 implementaciones en `domain/ranking/rule` y `RankingService`.
 
-`RankingService` arma el comparador final: puntaje total descendente y luego, en orden, cada regla de
+`RankingService` arma el comparador final: puntaje total (según la agregación del reglamento, ver
+3.5) descendente y luego, en orden, cada regla de
 desempate del reglamento. Si ninguna regla separa a dos equipos, comparten posición y la siguiente
 posición salta. El ID del equipo sólo da un orden determinista a los empates completos; no les
 asigna posiciones distintas.
@@ -373,6 +374,40 @@ registrar la regla aplicada mantiene la coherencia con el requisito de explicabi
 **Alternativas descartadas:** un comparador único con toda la lógica (no configurable por edición);
 Chain of Responsibility con objetos propios (equivalente en comportamiento pero reimplementando lo
 que `Comparator.thenComparing` ya ofrece).
+
+### 3.5 Agregación de intentos como política del reglamento
+
+**Patrón / principio:** Strategy, regla de negocio configurable por versión.
+
+**Dónde:** `domain/ranking/AttemptAggregation`, sus implementaciones en `domain/ranking/aggregation`
+(`BestAttempt`, `SumOfAttempts`), `Rulebook.attemptAggregation` y `TeamScoreSummary.totalPoints`.
+
+Cuántos de los intentos de un equipo cuentan para su posición es una decisión del reglamento, no del
+código: con dos intentos de 30 y uno de 50, la suma pone primero al equipo constante y el mejor
+intento al de 50. `AttemptAggregation.aggregate` recibe las corridas puntuadas del equipo y devuelve
+el total que ordena el ranking. `BestAttempt` toma el mayor total individual; `SumOfAttempts` los
+suma. Ambas devuelven cero si el equipo no tiene corridas.
+
+El reglamento exige una política (el constructor rechaza `null`), `PublishRulebook.Command` la
+recibe junto con los desafíos y desempates, y `GenerateStandingsUseCase` /
+`RecalculateStandingsUseCase` la pasan a `CategoryScoringService.collect`, que la entrega a cada
+`TeamScoreSummary`. Como el reglamento está versionado, una tabla se genera y se recalcula con la
+política de su versión (ver 3.3), aunque después se publique otra. El demo y los fixtures de test
+publican `BestAttempt`.
+
+Los desempates no cambian: `HighestSingleRunTiebreak` y `FewestPenaltiesTiebreak` siguen mirando
+todas las corridas del equipo, también las que la agregación no cuenta; un reglamento que quiera
+otra cosa agrega su propia `TiebreakRule`.
+
+**Por qué:** documentar la suma como decisión (versión anterior de 4.8) no la hacía correcta para un
+reglamento que exige el mejor intento. Al ser una política versionada, ambas reglas conviven y se
+recalculan de forma determinista.
+
+**Alternativas descartadas:** un flag booleano `bestOnly` en el reglamento (no escala a una tercera
+política, como promedio o los dos mejores); aplicar la política en `RankingService` (el servicio
+tendría que recibir el reglamento completo, cuando sólo necesita el total del equipo); elegir el mejor
+intento en `CategoryScoringService` descartando corridas (el resumen perdería los intentos que los
+desempates sí consultan).
 
 ## 4. Elegibilidad, agenda y resultados
 
@@ -550,9 +585,10 @@ determinísticos.
 Recorre las rondas de una categoría, puntúa cada corrida con su reglamento fijado y arma los
 `TeamScoreSummary` que consume `RankingService`. `GenerateStandingsUseCase` y
 `RecalculateStandingsUseCase` usan `collect`; `CalculateRunScoreUseCase` reutiliza `scoreRun` para una
-corrida individual. `TeamScoreSummary.totalPoints` suma todos los intentos capturados de todas las
-rondas de la categoría; no selecciona sólo el mejor intento. Un equipo sin corridas capturadas no
-aparece en la colección ni en el ranking generado.
+corrida individual. `collect` recibe la `AttemptAggregation` del reglamento y la entrega a cada
+`TeamScoreSummary`, que reúne todos los intentos capturados de todas las rondas de la categoría;
+`totalPoints` delega en la política para decidir cuáles cuentan (ver 3.5). Un equipo sin corridas
+capturadas no aparece en la colección ni en el ranking generado.
 
 **Por qué:** si cada caso de uso armara la tabla por su cuenta, generar y recalcular podrían divergir,
 que es exactamente el error que el requisito de recálculo busca evitar.
@@ -678,7 +714,7 @@ sublista, sin cambiar la interfaz. Esto no elimina Composite de todo el sistema:
 | Programación | `ScheduleRoundUseCase`, `Round`, `Heat`, `TimeSlot`, `ScheduleConflictDetector`, `Competition.requireDateWithinPeriod` |
 | Captura de resultados | `CaptureRunResultUseCase`, `RunResult`, `MeasurementSet`, `JudgeEvaluation`, `IncidentReport` |
 | Cálculo explicable | `CalculateRunScoreUseCase`, `ScoreBreakdown`, `ScoreContribution`, `ContributionKind` |
-| Ranking | `RankingService`, `TiebreakRule`, `domain/ranking/rule/*` y `AppliedTiebreak` |
+| Ranking | `RankingService`, `AttemptAggregation`, `domain/ranking/aggregation/*`, `TiebreakRule`, `domain/ranking/rule/*` y `AppliedTiebreak` |
 | Publicación | `Standings`, `PublicationStatus`, `GenerateStandingsUseCase`, `PublishStandingsUseCase`, `GetStandingsUseCase` |
 | Apelaciones | `Appeal`, `SubmitAppealUseCase`, `ResolveAppealUseCase` |
 | Recálculo | `RecalculateStandingsUseCase`, `CategoryScoringService` |
@@ -739,7 +775,7 @@ requisito concreto, no componentes HTTP ya implementados.
 | Cambia un coeficiente o umbral | Configuración de una nueva versión del reglamento | Probar resultado esperado y conservación del cálculo anterior |
 | Aparece una fórmula nueva | Nueva `ScoringRule`, configuración y pruebas | Conservar contribuciones explicadas, tipos y comportamiento con datos ausentes |
 | Aparece una restricción o desempate | Nueva `EligibilityRule` o `TiebreakRule` | Verificar composición, prioridad y contratos |
-| Se exige tomar sólo el mejor intento | Política de agregación en lugar de la suma fija de `TeamScoreSummary` | Cambio de negocio aún no configurable; probar escenarios donde suma y mejor intento producen ganadores distintos |
+| Cambia cómo cuentan los intentos (mejor intento, suma, promedio) | Nueva versión del reglamento con otra `AttemptAggregation` | Probar escenarios donde las políticas producen ganadores distintos y la conservación de la tabla anterior |
 | Cambian permisos, plazos o etapas de apelación | Reglas, casos de uso y, si corresponde, estados de dominio | Probar transiciones permitidas y prohibidas; el DTO HTTP no decide estas políticas |
 
 Una API de entrada debería recorrer `HTTP DTO → mapper → entrada tipada → caso de uso` y mapear la
@@ -793,6 +829,7 @@ estado y motivos; no todo camino alternativo debe lanzar una excepción.
 | Capturar | Datos válidos y último intento permitido sin reemplazar el primero | Métrica ausente, intento inválido/repetido, equipo sin turno, incidente desconocido | `CaptureRunResultUseCaseTest`, `ChallengeSpecTest` |
 | Puntuar | Fórmulas, bonos, deducciones, combinación y suma explicada | Datos ausentes con cero explicado; topes y bono no otorgado | `ScoringRulesTest`, `ChallengeSpecTest`, `CalculateRunScoreUseCaseTest` |
 | Ordenar | Totales y desempates, incluido tiempo | Empate completo; métrica ausente en uno o ambos equipos | `RankingServiceTest` |
+| Agregar intentos | Mejor intento y suma de intentos; la política viaja en el reglamento y se conserva al recalcular | Equipo sin corridas; suma y mejor intento con ganadores distintos | `AttemptAggregationTest`, `RankingServiceTest`, `StandingsLifecycleTest` |
 | Publicar posiciones | Provisional a definitiva | Generación y publicación repetidas | `StandingsLifecycleTest`, `StandingsTest` |
 | Apelar | Aceptación con corrección y sin corrección | Rechazo, equipo ajeno, corrección inválida, decisión repetida/fecha inválida | `AppealRecalculationTest`, `AppealTest` |
 | Recalcular | Nueva revisión y reglas históricas | Revisiones anteriores conservadas aun publicando otro reglamento | `AppealRecalculationTest`, `StandingsRepositoryContractTest` |
@@ -803,8 +840,8 @@ verifican conservación del estado: corregir un incidente desconocido permite ca
 intento después de quitar el incidente inválido; un conflicto dentro del comando no deja reservados
 los primeros turnos. Eso no implica atomicidad frente a todos los fallos posteriores.
 
-Verificación del código actual el 18 de septiembre de 2026: Maven recompiló los 152
-archivos Java de producción y los 24 de pruebas, y ejecutó **119 tests, 0 fallos, 0 errores y 0
+Verificación del código actual el 5 de octubre de 2026: Maven recompiló los 155
+archivos Java de producción y los 25 de pruebas, y ejecutó **127 tests, 0 fallos, 0 errores y 0
 omitidos**. Es una comprobación fechada, no un total garantizado para futuras versiones.
 No se establece una proporción obligatoria de tests exitosos/negativos ni se equipara cantidad con
 porcentaje de cobertura.

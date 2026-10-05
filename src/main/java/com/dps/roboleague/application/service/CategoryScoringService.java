@@ -4,6 +4,7 @@ import com.dps.roboleague.application.NotFoundException;
 import com.dps.roboleague.application.port.out.RoundRepository;
 import com.dps.roboleague.application.port.out.RulebookRepository;
 import com.dps.roboleague.application.port.out.RunResultRepository;
+import com.dps.roboleague.domain.ranking.AttemptAggregation;
 import com.dps.roboleague.domain.ranking.ScoredRun;
 import com.dps.roboleague.domain.ranking.TeamScoreSummary;
 import com.dps.roboleague.domain.result.RunResult;
@@ -30,7 +31,8 @@ public final class CategoryScoringService {
         this.rulebooks = rulebooks;
     }
 
-    public List<TeamScoreSummary> collect(CompetitionId competitionId, CategoryId categoryId) {
+    public List<TeamScoreSummary> collect(CompetitionId competitionId, CategoryId categoryId,
+            AttemptAggregation aggregation) {
         Map<TeamId, List<ScoredRun>> runsByTeam = new LinkedHashMap<>();
         for (Round round : rounds.findByCategory(competitionId, categoryId)) {
             for (RunResult run : runResults.findByRound(round.id())) {
@@ -39,7 +41,7 @@ public final class CategoryScoringService {
             }
         }
         return runsByTeam.entrySet().stream()
-                .map(entry -> new TeamScoreSummary(entry.getKey(), entry.getValue()))
+                .map(entry -> new TeamScoreSummary(entry.getKey(), entry.getValue(), aggregation))
                 .toList();
     }
 

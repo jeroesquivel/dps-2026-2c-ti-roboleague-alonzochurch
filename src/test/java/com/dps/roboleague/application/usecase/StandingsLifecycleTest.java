@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.dps.roboleague.application.port.in.GenerateStandings;
 import com.dps.roboleague.application.port.in.PublishStandings;
+import com.dps.roboleague.application.port.in.RecalculateStandings;
+import com.dps.roboleague.domain.ranking.aggregation.SumOfAttempts;
 import com.dps.roboleague.support.RescueEditionFixture;
 import com.dps.roboleague.domain.ranking.StandingEntry;
 import com.dps.roboleague.domain.ranking.Standings;
@@ -26,9 +28,11 @@ class StandingsLifecycleTest {
     private final TeamId delta = edition.registerEligibleTeam("Delta Bots");
     private final TeamId omega = edition.registerEligibleTeam("Omega Crew");
 
+    private RoundId roundId;
+
     @BeforeEach
     void captureTheRoundResults() {
-        RoundId roundId = edition.scheduleRoundFor(1, List.of(delta, omega));
+        roundId = edition.scheduleRoundFor(1, List.of(delta, omega));
         edition.capture(roundId, delta, "95.5", 4, "42", List.of(8, 9), List.of());
         edition.capture(roundId, omega, "105", 5, "55", List.of(7, 7),
                 List.of(IncidentReport.once(RescueEditionFixture.RESTART)));
@@ -64,6 +68,34 @@ class StandingsLifecycleTest {
         DomainException error = assertThrows(DomainException.class, this::generate);
 
         assertTrue(error.getMessage().contains("recalculation"));
+    }
+
+    @Test
+    void recalculationKeepsTheAttemptPolicyOfTheRulebookThatGeneratedTheStandings() {
+        edition.capture(roundId, delta, 2, "95.5", 4, "42", List.of(8, 9), List.of());
+
+        Standings best = generate();
+
+        assertEquals(Points.of("60.75"), best.entryFor(delta).orElseThrow().totalPoints());
+        assertEquals(omega, best.entries().getFirst().teamId());
+
+        edition.publishRulebookWith(new SumOfAttempts());
+        Standings summed = edition.module().recalculateStandingsUseCase()
+                .execute(new RecalculateStandings.Command(edition.competitionId(), edition.categoryId(),
+                        "recalculated under the rulebook that was in force", TestEdition.ACTOR));
+
+        assertEquals(Points.of("60.75"), summed.entryFor(delta).orElseThrow().totalPoints());
+    }
+
+    @Test
+    void aRulebookPublishedAfterwardsAppliesItsPolicyToNewStandings() {
+        edition.capture(roundId, delta, 2, "95.5", 4, "42", List.of(8, 9), List.of());
+        edition.publishRulebookWith(new SumOfAttempts());
+
+        Standings summed = generate();
+
+        assertEquals(Points.of("121.50"), summed.entryFor(delta).orElseThrow().totalPoints());
+        assertEquals(delta, summed.entries().getFirst().teamId());
     }
 
     private Standings generate() {

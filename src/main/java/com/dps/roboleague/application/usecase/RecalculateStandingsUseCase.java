@@ -43,7 +43,8 @@ public final class RecalculateStandingsUseCase implements RecalculateStandings {
                 .orElseThrow(() -> NotFoundException.of("Rulebook", current.rulebookVersion().toString()));
 
         List<StandingEntry> entries = rankingService.rank(
-                scoringService.collect(command.competitionId(), command.categoryId()), rulebook.tiebreakRules());
+                scoringService.collect(command.competitionId(), command.categoryId(), rulebook.attemptAggregation()),
+                rulebook.tiebreakRules());
         Standings recalculated = current.supersede(entries, clock.instant());
         standings.save(recalculated);
 

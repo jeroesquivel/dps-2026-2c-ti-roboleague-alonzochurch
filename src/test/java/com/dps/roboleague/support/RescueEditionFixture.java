@@ -10,7 +10,9 @@ import com.dps.roboleague.domain.eligibility.rule.RequiredDocumentsRule;
 import com.dps.roboleague.domain.eligibility.rule.RobotClassRule;
 import com.dps.roboleague.domain.eligibility.rule.RobotSpecificationRule;
 import com.dps.roboleague.domain.eligibility.rule.TeamCompositionRule;
+import com.dps.roboleague.domain.ranking.AttemptAggregation;
 import com.dps.roboleague.domain.ranking.TiebreakRule;
+import com.dps.roboleague.domain.ranking.aggregation.BestAttempt;
 import com.dps.roboleague.domain.ranking.rule.FastestMetricTiebreak;
 import com.dps.roboleague.domain.ranking.rule.FewestPenaltiesTiebreak;
 import com.dps.roboleague.domain.ranking.rule.HighestSingleRunTiebreak;
@@ -83,6 +85,10 @@ public final class RescueEditionFixture {
                 new RobotClassRule(),
                 new RobotSpecificationRule(new BigDecimal("3.000"), new Dimensions(200, 200, 200)),
                 new RequiredDocumentsRule(Set.of(DocumentType.PARENTAL_CONSENT, DocumentType.TECHNICAL_SHEET)));
+    }
+
+    public static AttemptAggregation attemptAggregation() {
+        return new BestAttempt();
     }
 
     public static List<TiebreakRule> tiebreaks() {

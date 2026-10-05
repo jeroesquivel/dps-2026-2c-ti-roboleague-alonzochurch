@@ -26,7 +26,7 @@
 
 #### Regla de negocio mal modelada: agregación de intentos
 
-**Estado: Pendiente**
+**Estado: Resuelta** — la agregación es ahora una política versionada del reglamento: `AttemptAggregation` (`BestAttempt`, `SumOfAttempts`) en `Rulebook.attemptAggregation`, aplicada por `TeamScoreSummary.totalPoints()`. Ver `DESIGN.md` 3.5, `AttemptAggregationTest`, `RankingServiceTest` y `StandingsLifecycleTest`.
 
 El ranking suma todos los intentos, así que **dos intentos de 30 le ganan a uno de 50**. La agregación tiene que ser una política del reglamento (`BestAttempt`, `SumOfAttempts`…).
 
@@ -189,7 +189,7 @@ Valida que el equipo apele una corrida propia.
 
 #### GenerateStandings
 
-- ❌ Es donde se ve la [regla mal modelada](#regla-de-negocio-mal-modelada-agregación-de-intentos): entre `collect` (todos los intentos de cada equipo, sin filtrar) y `totalPoints()` no hay ningún paso que elija "el mejor intento". — **Estado: Pendiente**
+- ❌ Es donde se ve la [regla mal modelada](#regla-de-negocio-mal-modelada-agregación-de-intentos): entre `collect` (todos los intentos de cada equipo, sin filtrar) y `totalPoints()` no hay ningún paso que elija "el mejor intento". — **Estado: Resuelta** (`GenerateStandingsUseCase` pasa `rulebook.attemptAggregation()` a `collect`)
 - ❌ "No generar dos veces la misma tabla" es otra regla de negocio que se decide en el caso de uso consultando el repositorio (`standings.findLatest(...).isPresent()`). — **Estado: Pendiente**
 
 #### RecalculateStandings

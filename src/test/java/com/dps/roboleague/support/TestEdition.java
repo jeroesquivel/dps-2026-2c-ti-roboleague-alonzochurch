@@ -14,6 +14,7 @@ import com.dps.roboleague.domain.audit.AuditEvent;
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.challenge.MeasurementSet;
 import com.dps.roboleague.domain.challenge.MetricValue;
+import com.dps.roboleague.domain.ranking.AttemptAggregation;
 import com.dps.roboleague.domain.ranking.Standings;
 import com.dps.roboleague.domain.result.RunResult;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
@@ -91,10 +92,19 @@ public final class TestEdition {
         return publishRulebook(module, competitionId, RescueEditionFixture.challengeScoredBy(List.of(scoringRule)));
     }
 
+    public RulebookVersion publishRulebookWith(AttemptAggregation aggregation) {
+        return publishRulebook(module, competitionId, RescueEditionFixture.rescueChallenge(), aggregation);
+    }
+
     private static RulebookVersion publishRulebook(RoboLeagueCompositionRoot module, CompetitionId competitionId,
             ChallengeSpec challenge) {
+        return publishRulebook(module, competitionId, challenge, RescueEditionFixture.attemptAggregation());
+    }
+
+    private static RulebookVersion publishRulebook(RoboLeagueCompositionRoot module, CompetitionId competitionId,
+            ChallengeSpec challenge, AttemptAggregation aggregation) {
         return module.publishRulebookUseCase().execute(new PublishRulebook.Command(competitionId, List.of(challenge),
-                RescueEditionFixture.eligibilityPolicy(), RescueEditionFixture.tiebreaks(), ACTOR));
+                RescueEditionFixture.eligibilityPolicy(), aggregation, RescueEditionFixture.tiebreaks(), ACTOR));
     }
 
 
@@ -129,7 +139,12 @@ public final class TestEdition {
 
     public RunId capture(RoundId roundId, TeamId teamId, String seconds, int objectives, String energy,
             List<Integer> judgeScores, List<IncidentReport> incidents) {
-        return module.captureRunResultUseCase().execute(new CaptureRunResult.Command(roundId, teamId, 1,
+        return capture(roundId, teamId, 1, seconds, objectives, energy, judgeScores, incidents);
+    }
+
+    public RunId capture(RoundId roundId, TeamId teamId, int attempt, String seconds, int objectives, String energy,
+            List<Integer> judgeScores, List<IncidentReport> incidents) {
+        return module.captureRunResultUseCase().execute(new CaptureRunResult.Command(roundId, teamId, attempt,
                 measurements(seconds, objectives, energy), evaluations(judgeScores), incidents, ACTOR));
     }
 

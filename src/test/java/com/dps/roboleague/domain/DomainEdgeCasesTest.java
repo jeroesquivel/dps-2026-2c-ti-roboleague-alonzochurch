@@ -250,7 +250,8 @@ class DomainEdgeCasesTest {
                 List.of(scoringRule), List.of(), 2);
         assertThrows(DomainException.class, () -> challenge.requireAttemptWithinLimit(0));
         Rulebook rulebook = Rulebook.of(CompetitionId.of("COMP-1"), RulebookVersion.first(), TODAY,
-                List.of(challenge), RescueEditionFixture.eligibilityPolicy(), RescueEditionFixture.tiebreaks());
+                List.of(challenge), RescueEditionFixture.eligibilityPolicy(), RescueEditionFixture.attemptAggregation(),
+                RescueEditionFixture.tiebreaks());
         assertThrows(DomainException.class, () -> rulebook.challenge(ChallengeId.of("UNKNOWN")));
     }
 
