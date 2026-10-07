@@ -1,6 +1,6 @@
 package com.dps.roboleague.domain.scoring;
 
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.InvalidValueException;
 import com.dps.roboleague.domain.shared.Points;
 import java.util.Objects;
 
@@ -12,7 +12,7 @@ public record ScoreContribution(ScoringRuleCode ruleCode, ContributionKind kind,
         Objects.requireNonNull(kind, "contribution kind is required");
         Objects.requireNonNull(points, "points are required");
         if (explanation == null || explanation.isBlank()) {
-            throw new DomainException("a score contribution requires an explanation");
+            throw new InvalidValueException("a score contribution requires an explanation");
         }
     }
 

@@ -11,6 +11,7 @@ import com.dps.roboleague.application.port.in.ScheduleRound;
 import com.dps.roboleague.domain.appeal.Appeal;
 import com.dps.roboleague.domain.audit.AuditAction;
 import com.dps.roboleague.domain.audit.AuditEvent;
+import com.dps.roboleague.domain.challenge.AttemptNumber;
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.challenge.MeasurementSet;
 import com.dps.roboleague.domain.challenge.MetricValue;
@@ -19,25 +20,29 @@ import com.dps.roboleague.domain.ranking.Standings;
 import com.dps.roboleague.domain.result.RunResult;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.schedule.Round;
+import com.dps.roboleague.domain.schedule.RoundOrdinal;
 import com.dps.roboleague.domain.schedule.TimeSlot;
 import com.dps.roboleague.domain.scoring.IncidentReport;
 import com.dps.roboleague.domain.scoring.JudgeEvaluation;
+import com.dps.roboleague.domain.scoring.JudgeEvaluations;
+import com.dps.roboleague.domain.scoring.JudgeScore;
 import com.dps.roboleague.domain.scoring.ScoringRule;
+import com.dps.roboleague.domain.shared.Actor;
 import com.dps.roboleague.domain.shared.AgeRange;
 import com.dps.roboleague.domain.shared.AppealId;
 import com.dps.roboleague.domain.shared.ArenaId;
 import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.CompetitionId;
 import com.dps.roboleague.domain.shared.DateRange;
+import com.dps.roboleague.domain.shared.Identifier;
 import com.dps.roboleague.domain.shared.JudgeId;
-import com.dps.roboleague.domain.shared.Points;
 import com.dps.roboleague.domain.shared.RoundId;
 import com.dps.roboleague.domain.shared.RunId;
 import com.dps.roboleague.domain.shared.SeasonId;
 import com.dps.roboleague.domain.shared.TeamId;
-import com.dps.roboleague.domain.team.Member;
 import com.dps.roboleague.domain.team.Robot;
 import com.dps.roboleague.domain.team.TeamDocument;
+import com.dps.roboleague.domain.team.TeamMembers;
 import com.dps.roboleague.domain.team.TeamRegistration;
 import com.dps.roboleague.infrastructure.config.RoboLeagueCompositionRoot;
 import java.time.Clock;
@@ -52,7 +57,7 @@ import java.util.stream.IntStream;
 
 public final class TestEdition {
 
-    public static final String ACTOR = "test-actor";
+    public static final Actor ACTOR = Actor.of("test-actor");
     public static final Instant NOW = Instant.parse("2026-03-02T10:00:00Z");
     public static final LocalDate FIRST_DAY = LocalDate.of(2026, 3, 1);
     public static final LocalDate LAST_DAY = LocalDate.of(2026, 3, 5);
@@ -108,10 +113,16 @@ public final class TestEdition {
     }
 
 
-    public RegisterTeam.Outcome register(String name, List<Member> members, Robot robot,
+    public RegisterTeam.Outcome register(String name, TeamMembers members, Robot robot,
             List<TeamDocument> documents) {
-        return module.registerTeamUseCase().execute(new RegisterTeam.Command(competitionId, categoryId, name, members,
-                robot, documents, ACTOR));
+        return module.registerTeamUseCase().execute(new RegisterTeam.Command(competitionId, categoryId, name,
+                draftsOf(members), robot, documents, ACTOR));
+    }
+
+    public static List<RegisterTeam.MemberDraft> draftsOf(TeamMembers members) {
+        return members.members().stream()
+                .map(member -> new RegisterTeam.MemberDraft(member.fullName(), member.birthDate(), member.role()))
+                .toList();
     }
 
     public TeamId registerEligibleTeam(String name) {
@@ -121,7 +132,7 @@ public final class TestEdition {
 
     public RoundId scheduleRound(int ordinal, List<ScheduleRound.HeatDraft> heats) {
         return module.scheduleRoundUseCase().execute(new ScheduleRound.Command(competitionId, categoryId,
-                RescueEditionFixture.CHALLENGE_ID, ordinal, heats, ACTOR));
+                RescueEditionFixture.CHALLENGE_ID, RoundOrdinal.of(ordinal), heats, ACTOR));
     }
 
     public RoundId scheduleRoundFor(int ordinal, List<TeamId> teams) {
@@ -144,15 +155,16 @@ public final class TestEdition {
 
     public RunId capture(RoundId roundId, TeamId teamId, int attempt, String seconds, int objectives, String energy,
             List<Integer> judgeScores, List<IncidentReport> incidents) {
-        return module.captureRunResultUseCase().execute(new CaptureRunResult.Command(roundId, teamId, attempt,
-                measurements(seconds, objectives, energy), evaluations(judgeScores), incidents, ACTOR));
+        return module.captureRunResultUseCase().execute(new CaptureRunResult.Command(roundId, teamId,
+                AttemptNumber.of(attempt), measurements(seconds, objectives, energy), evaluations(judgeScores),
+                incidents, ACTOR));
     }
 
-    public List<JudgeEvaluation> evaluations(List<Integer> judgeScores) {
-        return IntStream.range(0, judgeScores.size())
+    public JudgeEvaluations evaluations(List<Integer> judgeScores) {
+        return new JudgeEvaluations(IntStream.range(0, judgeScores.size())
                 .mapToObj(index -> new JudgeEvaluation(JudgeId.of("J" + (index + 1)), RescueEditionFixture.DESIGN,
-                        Points.of(judgeScores.get(index).longValue())))
-                .toList();
+                        JudgeScore.of(judgeScores.get(index).longValue())))
+                .toList());
     }
 
     public MeasurementSet measurements(String seconds, int objectives, String energy) {
@@ -187,7 +199,7 @@ public final class TestEdition {
         return module.getStandingsUseCase().execute(new GetStandings.Command(competitionId, categoryId)).history();
     }
 
-    public List<AuditAction> auditActionsFor(String subject) {
+    public List<AuditAction> auditActionsFor(Identifier subject) {
         return actionsOf(
                 module.findAuditTrailUseCase().execute(new FindAuditTrail.Command(subject)));
     }

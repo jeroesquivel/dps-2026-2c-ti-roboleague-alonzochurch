@@ -1,17 +1,18 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.application.NotFoundException;
 import com.dps.roboleague.application.port.in.RecalculateStandings;
 import com.dps.roboleague.application.port.out.AuditLog;
 import com.dps.roboleague.application.port.out.RulebookRepository;
 import com.dps.roboleague.application.port.out.StandingsRepository;
 import com.dps.roboleague.application.service.CategoryScoringService;
 import com.dps.roboleague.domain.audit.AuditAction;
+import com.dps.roboleague.domain.audit.AuditDetail;
 import com.dps.roboleague.domain.audit.AuditEvent;
 import com.dps.roboleague.domain.ranking.RankingService;
 import com.dps.roboleague.domain.ranking.StandingEntry;
 import com.dps.roboleague.domain.ranking.Standings;
 import com.dps.roboleague.domain.rulebook.Rulebook;
+import com.dps.roboleague.domain.shared.NotFoundException;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
@@ -49,9 +50,9 @@ public final class RecalculateStandingsUseCase implements RecalculateStandings {
         standings.save(recalculated);
 
         auditLog.record(new AuditEvent(clock.instant(), AuditAction.STANDINGS_RECALCULATED,
-                command.categoryId().value(), command.actor(),
-                Map.of("reason", command.reason(), "revision", String.valueOf(recalculated.revision()),
-                        "rulebook", current.rulebookVersion().toString())));
+                command.categoryId(), command.actor(),
+                Map.of(AuditDetail.REASON, command.reason(), AuditDetail.REVISION, recalculated.revision().toString(),
+                        AuditDetail.RULEBOOK, current.rulebookVersion().toString())));
         return recalculated;
     }
 }

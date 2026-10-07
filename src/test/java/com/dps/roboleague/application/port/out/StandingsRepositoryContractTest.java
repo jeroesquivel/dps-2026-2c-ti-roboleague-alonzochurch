@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.dps.roboleague.domain.ranking.PublicationStatus;
+import com.dps.roboleague.domain.ranking.Revision;
 import com.dps.roboleague.domain.ranking.StandingEntry;
 import com.dps.roboleague.domain.ranking.Standings;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
@@ -50,9 +51,9 @@ public abstract class StandingsRepositoryContractTest {
         repository.save(published.supersede(List.of(entry(1, "OMEGA")), NOW.plusSeconds(60)));
 
         List<Standings> history = repository.findHistory(COMPETITION, CATEGORY);
-        assertEquals(List.of(1, 2), history.stream().map(Standings::revision).toList());
+        assertEquals(List.of(Revision.of(1), Revision.of(2)), history.stream().map(Standings::revision).toList());
         assertEquals(PublicationStatus.FINAL, history.getFirst().status());
-        assertEquals(2, repository.findLatest(COMPETITION, CATEGORY).orElseThrow().revision());
+        assertEquals(Revision.of(2), repository.findLatest(COMPETITION, CATEGORY).orElseThrow().revision());
     }
 
     @Test
@@ -63,7 +64,7 @@ public abstract class StandingsRepositoryContractTest {
         repository.save(second);
         repository.save(first);
 
-        assertEquals(List.of(1, 2), repository.findHistory(COMPETITION, CATEGORY).stream()
+        assertEquals(List.of(Revision.of(1), Revision.of(2)), repository.findHistory(COMPETITION, CATEGORY).stream()
                 .map(Standings::revision).toList());
         assertEquals(second, repository.findLatest(COMPETITION, CATEGORY).orElseThrow());
     }

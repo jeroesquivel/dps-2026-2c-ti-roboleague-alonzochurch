@@ -12,8 +12,8 @@ import com.dps.roboleague.domain.ranking.rule.FastestMetricTiebreak;
 import com.dps.roboleague.domain.ranking.rule.FewestPenaltiesTiebreak;
 import com.dps.roboleague.domain.ranking.rule.HighestSingleRunTiebreak;
 import com.dps.roboleague.domain.scoring.ScoreBreakdown;
-import com.dps.roboleague.domain.scoring.ScoringRuleCode;
 import com.dps.roboleague.domain.scoring.ScoreContribution;
+import com.dps.roboleague.domain.scoring.ScoringRuleCode;
 import com.dps.roboleague.domain.shared.ChallengeId;
 import com.dps.roboleague.domain.shared.Points;
 import com.dps.roboleague.domain.shared.RunId;
@@ -135,7 +135,7 @@ class RankingServiceTest {
     }
 
     private TeamScoreSummary summary(AttemptAggregation aggregation, String teamId, ScoredRun... runs) {
-        return new TeamScoreSummary(TeamId.of(teamId), List.of(runs), aggregation);
+        return new TeamScoreSummary(TeamId.of(teamId), new TeamRuns(List.of(runs), aggregation));
     }
 
     private ScoredRun run(String runId, String basePoints, String penaltyPoints, String seconds) {

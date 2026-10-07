@@ -13,13 +13,13 @@ import com.dps.roboleague.application.port.in.ResolveAppeal;
 import com.dps.roboleague.application.port.in.SubmitAppeal;
 import com.dps.roboleague.application.port.out.AppealRepository;
 import com.dps.roboleague.application.port.out.AuditLog;
-import com.dps.roboleague.support.RescueEditionFixture;
 import com.dps.roboleague.domain.appeal.Appeal;
 import com.dps.roboleague.domain.appeal.AppealStatus;
 import com.dps.roboleague.domain.audit.AuditAction;
 import com.dps.roboleague.domain.audit.AuditEvent;
 import com.dps.roboleague.domain.challenge.MeasurementSet;
 import com.dps.roboleague.domain.challenge.MetricValue;
+import com.dps.roboleague.domain.ranking.Revision;
 import com.dps.roboleague.domain.ranking.StandingEntry;
 import com.dps.roboleague.domain.ranking.Standings;
 import com.dps.roboleague.domain.ranking.rule.FastestMetricTiebreak;
@@ -30,15 +30,19 @@ import com.dps.roboleague.domain.result.RunStatus;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.scoring.IncidentReport;
 import com.dps.roboleague.domain.scoring.PenaltyCode;
+import com.dps.roboleague.domain.scoring.PointsRate;
 import com.dps.roboleague.domain.scoring.rule.ObjectiveScoringRule;
+import com.dps.roboleague.domain.shared.Actor;
 import com.dps.roboleague.domain.shared.AppealId;
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.Identifier;
 import com.dps.roboleague.domain.shared.Points;
 import com.dps.roboleague.domain.shared.RoundId;
+import com.dps.roboleague.domain.shared.RuleViolationException;
 import com.dps.roboleague.domain.shared.RunId;
 import com.dps.roboleague.domain.shared.TeamId;
 import com.dps.roboleague.infrastructure.id.SequentialIdGenerator;
 import com.dps.roboleague.infrastructure.memory.InMemoryRunResultRepository;
+import com.dps.roboleague.support.RescueEditionFixture;
 import com.dps.roboleague.support.TestEdition;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,6 +51,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class AppealRecalculationTest {
+
+    private static final Actor HEAD_JUDGE = Actor.of("head-judge");
 
     private final TestEdition edition = TestEdition.start();
     private final TeamId delta = edition.registerEligibleTeam("Delta Bots");
@@ -74,14 +80,14 @@ class AppealRecalculationTest {
                 edition.measurements("95.5", 5, "42"), List.of())));
 
         RunResult run = edition.runResult(deltaRun);
-        ResultCorrection correction = run.corrections().getFirst();
+        ResultCorrection correction = run.corrections().entries().getFirst();
 
         assertEquals(RunStatus.CORRECTED, run.status());
         assertEquals(MetricValue.of(4), run.originalMeasurements().require(RescueEditionFixture.OBJECTIVES));
         assertEquals(MetricValue.of(5), run.currentMeasurements().require(RescueEditionFixture.OBJECTIVES));
         assertTrue(correction.sourceAppeal().isPresent());
         assertEquals(List.of(AuditAction.RESULT_CAPTURED, AuditAction.RESULT_CORRECTED),
-                edition.auditActionsFor(deltaRun.value()));
+                edition.auditActionsFor(deltaRun));
     }
 
     @Test
@@ -93,7 +99,7 @@ class AppealRecalculationTest {
                 .execute(new RecalculateStandings.Command(edition.competitionId(), edition.categoryId(),
                         "objective granted on appeal", TestEdition.ACTOR));
 
-        assertEquals(2, recalculated.revision());
+        assertEquals(Revision.of(2), recalculated.revision());
         assertFalse(recalculated.isFinal());
         assertEquals(RulebookVersion.first(), recalculated.rulebookVersion());
         assertEquals(List.of(delta, omega), recalculated.entries().stream().map(StandingEntry::teamId).toList());
@@ -108,7 +114,7 @@ class AppealRecalculationTest {
         RulebookVersion newVersion = edition.module().publishRulebookUseCase()
                 .execute(new PublishRulebook.Command(edition.competitionId(),
                         List.of(RescueEditionFixture.challengeScoredBy(
-                                List.of(new ObjectiveScoringRule(RescueEditionFixture.OBJECTIVES, Points.of(100), 5)))),
+                                List.of(new ObjectiveScoringRule(RescueEditionFixture.OBJECTIVES, PointsRate.of(100), 5)))),
                         RescueEditionFixture.eligibilityPolicy(), RescueEditionFixture.attemptAggregation(),
                         List.of(new FastestMetricTiebreak(RescueEditionFixture.TIME)), TestEdition.ACTOR));
 
@@ -118,7 +124,7 @@ class AppealRecalculationTest {
 
         assertEquals(RulebookVersion.of(2), newVersion);
         assertEquals(RulebookVersion.first(), recalculated.rulebookVersion());
-        assertEquals(2, recalculated.revision());
+        assertEquals(Revision.of(2), recalculated.revision());
         assertFalse(recalculated.isFinal());
         assertEquals(Points.of("71.50"), recalculated.entryFor(delta).orElseThrow().totalPoints());
         assertEquals(Points.of("71.50"), recalculated.entryFor(omega).orElseThrow().totalPoints());
@@ -154,16 +160,16 @@ class AppealRecalculationTest {
             }
 
             @Override
-            public List<AuditEvent> findBySubject(String subject) {
+            public List<AuditEvent> findBySubject(Identifier subject) {
                 return recordedEvents.stream().filter(event -> event.subject().equals(subject)).toList();
             }
         };
         SubmitAppeal submit = new SubmitAppealUseCase(runs, appeals, new SequentialIdGenerator(), auditLog,
                 TestEdition.fixedClock());
 
-        assertThrows(DomainException.class,
+        assertThrows(RuleViolationException.class,
                 () -> submit.execute(new SubmitAppeal.Command(deltaRun, omega, "claim on another team's run",
-                        "omega-captain")));
+                        Actor.of("omega-captain"))));
 
         assertTrue(savedAppeals.isEmpty());
         assertTrue(recordedEvents.isEmpty());
@@ -186,8 +192,8 @@ class AppealRecalculationTest {
         assertEquals(published, edition.latestStandings());
         assertEquals(1, edition.standingsHistory().size());
         assertEquals(List.of(AuditAction.APPEAL_SUBMITTED, AuditAction.APPEAL_RESOLVED),
-                edition.auditActionsFor(appealId.value()));
-        assertEquals(List.of(AuditAction.RESULT_CAPTURED), edition.auditActionsFor(deltaRun.value()));
+                edition.auditActionsFor(appealId));
+        assertEquals(List.of(AuditAction.RESULT_CAPTURED), edition.auditActionsFor(deltaRun));
     }
 
     @Test
@@ -209,7 +215,7 @@ class AppealRecalculationTest {
                 .with(RescueEditionFixture.OBJECTIVES, MetricValue.of("4.5"))
                 .with(RescueEditionFixture.ENERGY, MetricValue.of("42"));
 
-        assertThrows(DomainException.class,
+        assertThrows(RuleViolationException.class,
                 () -> resolve(appealId, true, Optional.of(new ResolveAppeal.Correction(invalid, List.of()))));
 
         assertEquals(AppealStatus.SUBMITTED, edition.appeal(appealId).status());
@@ -222,7 +228,7 @@ class AppealRecalculationTest {
         AppealId appealId = submitAppeal();
         List<IncidentReport> unknown = List.of(IncidentReport.once(PenaltyCode.of("SABOTAGE")));
 
-        assertThrows(DomainException.class, () -> resolve(appealId, true, Optional.of(
+        assertThrows(RuleViolationException.class, () -> resolve(appealId, true, Optional.of(
                 new ResolveAppeal.Correction(edition.measurements("95.5", 5, "42"), unknown))));
 
         assertEquals(AppealStatus.SUBMITTED, edition.appeal(appealId).status());
@@ -230,13 +236,13 @@ class AppealRecalculationTest {
 
     private AppealId submitAppeal() {
         return edition.module().submitAppealUseCase().execute(new SubmitAppeal.Command(deltaRun, delta,
-                "the fourth objective was completed before the buzzer", "delta-captain"));
+                "the fourth objective was completed before the buzzer", Actor.of("delta-captain")));
     }
 
     private AppealStatus resolve(AppealId appealId, boolean accepted,
             Optional<ResolveAppeal.Correction> correction) {
-        return edition.module().resolveAppealUseCase().execute(new ResolveAppeal.Command(appealId, accepted, "head-judge",
-                "decision based on the video review", correction, "head-judge"));
+        return edition.module().resolveAppealUseCase().execute(new ResolveAppeal.Command(appealId, accepted,
+                HEAD_JUDGE, "decision based on the video review", correction, HEAD_JUDGE));
     }
 
     private List<AuditAction> actionsOf(List<AuditEvent> events) {

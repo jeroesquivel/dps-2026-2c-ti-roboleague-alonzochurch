@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.dps.roboleague.support.RescueEditionFixture;
 import com.dps.roboleague.domain.competition.Category;
 import com.dps.roboleague.domain.eligibility.rule.AgeRangeRule;
 import com.dps.roboleague.domain.eligibility.rule.RequiredDocumentsRule;
@@ -15,10 +14,11 @@ import com.dps.roboleague.domain.shared.AgeRange;
 import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.CompetitionId;
 import com.dps.roboleague.domain.shared.TeamId;
-import com.dps.roboleague.domain.team.Member;
 import com.dps.roboleague.domain.team.Robot;
 import com.dps.roboleague.domain.team.TeamDocument;
+import com.dps.roboleague.domain.team.TeamMembers;
 import com.dps.roboleague.domain.team.TeamRegistration;
+import com.dps.roboleague.support.RescueEditionFixture;
 import com.dps.roboleague.support.TeamFixtures;
 import java.time.LocalDate;
 import java.util.List;
@@ -79,13 +79,13 @@ class EligibilityPolicyTest {
         assertEquals(3, verdict.reasons().size());
     }
 
-    private EligibilityVerdict evaluate(List<Member> members, Robot robot, List<TeamDocument> documents) {
+    private EligibilityVerdict evaluate(TeamMembers members, Robot robot, List<TeamDocument> documents) {
         TeamRegistration registration = new TeamRegistration(TeamId.of("TEAM-1"), CompetitionId.of("COMP-1"),
                 junior.id(), "Delta Bots", members, robot, documents);
         return policy.verdictFor(new EligibilityRequest(registration, junior, REFERENCE_DATE));
     }
 
-    private List<String> codesOf(EligibilityVerdict verdict) {
+    private List<EligibilityRuleCode> codesOf(EligibilityVerdict verdict) {
         return verdict.violations().stream().map(EligibilityViolation::ruleCode).distinct().toList();
     }
 }

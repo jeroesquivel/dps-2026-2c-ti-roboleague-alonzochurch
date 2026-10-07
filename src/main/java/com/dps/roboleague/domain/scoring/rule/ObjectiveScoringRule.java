@@ -1,17 +1,19 @@
 package com.dps.roboleague.domain.scoring.rule;
 
 import com.dps.roboleague.domain.challenge.MetricKey;
+import com.dps.roboleague.domain.scoring.PointsRate;
 import com.dps.roboleague.domain.scoring.ScoreContribution;
 import com.dps.roboleague.domain.scoring.ScoringContext;
 import com.dps.roboleague.domain.scoring.ScoringRule;
 import com.dps.roboleague.domain.scoring.ScoringRuleCode;
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.InvalidValueException;
 import com.dps.roboleague.domain.shared.Points;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
-public record ObjectiveScoringRule(MetricKey metric, Points pointsPerObjective, int maximumObjectives)
+public record ObjectiveScoringRule(MetricKey metric, PointsRate pointsPerObjective, int maximumObjectives)
         implements ScoringRule {
 
     public static final ScoringRuleCode CODE = ScoringRuleCode.of("OBJECTIVES");
@@ -20,7 +22,7 @@ public record ObjectiveScoringRule(MetricKey metric, Points pointsPerObjective, 
         Objects.requireNonNull(metric, "metric is required");
         Objects.requireNonNull(pointsPerObjective, "points per objective are required");
         if (maximumObjectives < 1) {
-            throw new DomainException("the maximum number of objectives must be positive");
+            throw new InvalidValueException("the maximum number of objectives must be positive");
         }
     }
 
@@ -30,6 +32,11 @@ public record ObjectiveScoringRule(MetricKey metric, Points pointsPerObjective, 
                 .map(this::contributionFor)
                 .orElseGet(() -> List.of(ScoreContribution.earned(CODE,
                         "no measurement recorded for " + metric.value(), Points.ZERO)));
+    }
+
+    @Override
+    public Set<MetricKey> referencedMetrics() {
+        return Set.of(metric);
     }
 
     private List<ScoreContribution> contributionFor(BigDecimal reported) {

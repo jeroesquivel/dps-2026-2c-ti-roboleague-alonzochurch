@@ -1,18 +1,22 @@
 package com.dps.roboleague.domain.scoring.rule;
 
 import com.dps.roboleague.domain.challenge.MetricKey;
+import com.dps.roboleague.domain.scoring.PointsAmount;
+import com.dps.roboleague.domain.scoring.PointsRate;
 import com.dps.roboleague.domain.scoring.ScoreContribution;
 import com.dps.roboleague.domain.scoring.ScoringContext;
 import com.dps.roboleague.domain.scoring.ScoringRule;
 import com.dps.roboleague.domain.scoring.ScoringRuleCode;
+import com.dps.roboleague.domain.shared.InvalidValueException;
 import com.dps.roboleague.domain.shared.Points;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
-public record TimeScoringRule(MetricKey metric, Duration reference, Points pointsPerSecondSaved, Points maximumPoints)
-        implements ScoringRule {
+public record TimeScoringRule(MetricKey metric, Duration reference, PointsRate pointsPerSecondSaved,
+        PointsAmount maximumPoints) implements ScoringRule {
 
     public static final ScoringRuleCode CODE = ScoringRuleCode.of("TIME");
 
@@ -21,6 +25,9 @@ public record TimeScoringRule(MetricKey metric, Duration reference, Points point
         Objects.requireNonNull(reference, "reference time is required");
         Objects.requireNonNull(pointsPerSecondSaved, "points per second saved are required");
         Objects.requireNonNull(maximumPoints, "maximum points are required");
+        if (reference.isZero() || reference.isNegative()) {
+            throw new InvalidValueException("the reference time must be positive");
+        }
     }
 
     @Override
@@ -31,10 +38,17 @@ public record TimeScoringRule(MetricKey metric, Duration reference, Points point
                         "no measurement recorded for " + metric.value(), Points.ZERO)));
     }
 
+    @Override
+    public Set<MetricKey> referencedMetrics() {
+        return Set.of(metric);
+    }
+
     private List<ScoreContribution> contributionFor(BigDecimal elapsed) {
         BigDecimal referenceSeconds = BigDecimal.valueOf(reference.toMillis()).movePointLeft(3);
         BigDecimal saved = referenceSeconds.subtract(elapsed);
-        Points earned = saved.signum() <= 0 ? Points.ZERO : pointsPerSecondSaved.times(saved).cappedAt(maximumPoints);
+        Points earned = saved.signum() <= 0
+                ? Points.ZERO
+                : pointsPerSecondSaved.times(saved).cappedAt(maximumPoints.asPoints());
         String explanation = "%s s against a reference of %s s".formatted(elapsed.toPlainString(),
                 referenceSeconds.toPlainString());
         return List.of(ScoreContribution.earned(CODE, explanation, earned));

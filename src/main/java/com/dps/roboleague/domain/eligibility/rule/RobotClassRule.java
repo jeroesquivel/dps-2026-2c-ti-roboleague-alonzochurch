@@ -3,12 +3,13 @@ package com.dps.roboleague.domain.eligibility.rule;
 import com.dps.roboleague.domain.competition.RobotClass;
 import com.dps.roboleague.domain.eligibility.EligibilityRequest;
 import com.dps.roboleague.domain.eligibility.EligibilityRule;
+import com.dps.roboleague.domain.eligibility.EligibilityRuleCode;
 import com.dps.roboleague.domain.eligibility.EligibilityViolation;
 import java.util.List;
 
 public final class RobotClassRule implements EligibilityRule {
 
-    public static final String CODE = "ROBOT_CLASS";
+    public static final EligibilityRuleCode CODE = EligibilityRuleCode.of("ROBOT_CLASS");
 
     @Override
     public List<EligibilityViolation> evaluate(EligibilityRequest request) {

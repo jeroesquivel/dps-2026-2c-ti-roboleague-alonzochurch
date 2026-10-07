@@ -1,6 +1,5 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.application.NotFoundException;
 import com.dps.roboleague.application.port.in.GenerateStandings;
 import com.dps.roboleague.application.port.out.AuditLog;
 import com.dps.roboleague.application.port.out.CompetitionRepository;
@@ -8,6 +7,7 @@ import com.dps.roboleague.application.port.out.RulebookRepository;
 import com.dps.roboleague.application.port.out.StandingsRepository;
 import com.dps.roboleague.application.service.CategoryScoringService;
 import com.dps.roboleague.domain.audit.AuditAction;
+import com.dps.roboleague.domain.audit.AuditDetail;
 import com.dps.roboleague.domain.audit.AuditEvent;
 import com.dps.roboleague.domain.competition.Competition;
 import com.dps.roboleague.domain.ranking.RankingService;
@@ -15,7 +15,8 @@ import com.dps.roboleague.domain.ranking.StandingEntry;
 import com.dps.roboleague.domain.ranking.Standings;
 import com.dps.roboleague.domain.rulebook.Rulebook;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.ConflictException;
+import com.dps.roboleague.domain.shared.NotFoundException;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +49,7 @@ public final class GenerateStandingsUseCase implements GenerateStandings {
                 .orElseThrow(() -> NotFoundException.of("Competition", command.competitionId().value()));
         competition.category(command.categoryId());
         if (standings.findLatest(competition.id(), command.categoryId()).isPresent()) {
-            throw new DomainException("standings already exist for this category, use a recalculation instead");
+            throw new ConflictException("standings already exist for this category, use a recalculation instead");
         }
 
         RulebookVersion version = competition.requireActiveRulebookVersion();
@@ -62,7 +63,7 @@ public final class GenerateStandingsUseCase implements GenerateStandings {
                 entries);
         standings.save(generated);
         auditLog.record(new AuditEvent(clock.instant(), AuditAction.STANDINGS_GENERATED,
-                command.categoryId().value(), command.actor(), Map.of("rulebook", version.toString())));
+                command.categoryId(), command.actor(), Map.of(AuditDetail.RULEBOOK, version.toString())));
         return generated;
     }
 }

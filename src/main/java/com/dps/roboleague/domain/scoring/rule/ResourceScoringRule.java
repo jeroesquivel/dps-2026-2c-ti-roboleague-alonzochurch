@@ -1,6 +1,8 @@
 package com.dps.roboleague.domain.scoring.rule;
 
 import com.dps.roboleague.domain.challenge.MetricKey;
+import com.dps.roboleague.domain.challenge.MetricValue;
+import com.dps.roboleague.domain.scoring.PointsRate;
 import com.dps.roboleague.domain.scoring.ScoreContribution;
 import com.dps.roboleague.domain.scoring.ScoringContext;
 import com.dps.roboleague.domain.scoring.ScoringRule;
@@ -9,8 +11,9 @@ import com.dps.roboleague.domain.shared.Points;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
-public record ResourceScoringRule(MetricKey metric, BigDecimal allowance, Points pointsPerUnitOver)
+public record ResourceScoringRule(MetricKey metric, MetricValue allowance, PointsRate pointsPerUnitOver)
         implements ScoringRule {
 
     public static final ScoringRuleCode CODE = ScoringRuleCode.of("RESOURCE");
@@ -29,17 +32,21 @@ public record ResourceScoringRule(MetricKey metric, BigDecimal allowance, Points
                         "no measurement recorded for " + metric.value(), Points.ZERO)));
     }
 
+    @Override
+    public Set<MetricKey> referencedMetrics() {
+        return Set.of(metric);
+    }
+
     private List<ScoreContribution> contributionFor(BigDecimal consumed) {
-        BigDecimal excess = consumed.subtract(allowance);
+        BigDecimal excess = consumed.subtract(allowance.amount());
         if (excess.signum() <= 0) {
             return List.of(ScoreContribution.penalty(CODE,
-                    "consumption %s within the allowance of %s".formatted(consumed.toPlainString(),
-                            allowance.toPlainString()),
+                    "consumption %s within the allowance of %s".formatted(consumed.toPlainString(), allowance),
                     Points.ZERO));
         }
         Points deduction = pointsPerUnitOver.times(excess).negated();
         String explanation = "consumption %s exceeds the allowance of %s by %s"
-                .formatted(consumed.toPlainString(), allowance.toPlainString(), excess.toPlainString());
+                .formatted(consumed.toPlainString(), allowance, excess.stripTrailingZeros().toPlainString());
         return List.of(ScoreContribution.penalty(CODE, explanation, deduction));
     }
 }

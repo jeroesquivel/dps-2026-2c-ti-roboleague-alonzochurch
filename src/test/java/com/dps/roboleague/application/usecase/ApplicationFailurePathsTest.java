@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.dps.roboleague.Main;
-import com.dps.roboleague.application.NotFoundException;
 import com.dps.roboleague.application.port.in.CalculateRunScore;
 import com.dps.roboleague.application.port.in.CaptureRunResult;
 import com.dps.roboleague.application.port.in.GenerateStandings;
@@ -16,9 +15,11 @@ import com.dps.roboleague.application.port.in.ScheduleRound;
 import com.dps.roboleague.application.port.in.SubmitAppeal;
 import com.dps.roboleague.application.service.CategoryScoringService;
 import com.dps.roboleague.domain.appeal.Appeal;
+import com.dps.roboleague.domain.challenge.AttemptNumber;
 import com.dps.roboleague.domain.challenge.MeasurementSet;
 import com.dps.roboleague.domain.competition.Category;
 import com.dps.roboleague.domain.competition.Competition;
+import com.dps.roboleague.domain.eligibility.EligibilityVerdict;
 import com.dps.roboleague.domain.ranking.RankingService;
 import com.dps.roboleague.domain.ranking.Standings;
 import com.dps.roboleague.domain.result.RunResult;
@@ -26,8 +27,11 @@ import com.dps.roboleague.domain.rulebook.Rulebook;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.schedule.Heat;
 import com.dps.roboleague.domain.schedule.Round;
+import com.dps.roboleague.domain.schedule.RoundOrdinal;
 import com.dps.roboleague.domain.schedule.ScheduleConflictDetector;
 import com.dps.roboleague.domain.schedule.TimeSlot;
+import com.dps.roboleague.domain.scoring.JudgeEvaluations;
+import com.dps.roboleague.domain.shared.Actor;
 import com.dps.roboleague.domain.shared.AgeRange;
 import com.dps.roboleague.domain.shared.AppealId;
 import com.dps.roboleague.domain.shared.ArenaId;
@@ -36,7 +40,9 @@ import com.dps.roboleague.domain.shared.CompetitionId;
 import com.dps.roboleague.domain.shared.DateRange;
 import com.dps.roboleague.domain.shared.HeatId;
 import com.dps.roboleague.domain.shared.JudgeId;
+import com.dps.roboleague.domain.shared.NotFoundException;
 import com.dps.roboleague.domain.shared.RoundId;
+import com.dps.roboleague.domain.shared.RuleViolationException;
 import com.dps.roboleague.domain.shared.RunId;
 import com.dps.roboleague.domain.shared.SeasonId;
 import com.dps.roboleague.domain.shared.TeamId;
@@ -77,6 +83,7 @@ class ApplicationFailurePathsTest {
     private static final AppealId APPEAL_ID = AppealId.of("APPEAL-1");
     private static final Instant NOW = Instant.parse("2026-03-02T10:00:00Z");
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
+    private static final Actor ACTOR = Actor.of("actor");
 
     private InMemoryCompetitionRepository competitions;
     private InMemoryRulebookRepository rulebooks;
@@ -118,22 +125,22 @@ class ApplicationFailurePathsTest {
                 .execute(new GetStandings.Command(COMPETITION_ID, CATEGORY_ID)));
         assertThrows(NotFoundException.class, () -> module.publishStandingsUseCase()
                 .execute(new com.dps.roboleague.application.port.in.PublishStandings.Command(
-                        COMPETITION_ID, CATEGORY_ID, "actor")));
+                        COMPETITION_ID, CATEGORY_ID, ACTOR)));
         assertThrows(NotFoundException.class, () -> module.recalculateStandingsUseCase()
-                .execute(new RecalculateStandings.Command(COMPETITION_ID, CATEGORY_ID, "reason", "actor")));
+                .execute(new RecalculateStandings.Command(COMPETITION_ID, CATEGORY_ID, "reason", ACTOR)));
         assertThrows(NotFoundException.class, () -> module.calculateRunScoreUseCase()
                 .execute(new CalculateRunScore.Command(RUN_ID)));
         assertThrows(NotFoundException.class, () -> module.captureRunResultUseCase()
-                .execute(new CaptureRunResult.Command(ROUND_ID, TEAM_ID, 1, MeasurementSet.empty(), List.of(),
-                        List.of(), "actor")));
+                .execute(new CaptureRunResult.Command(ROUND_ID, TEAM_ID, AttemptNumber.first(),
+                        MeasurementSet.empty(), JudgeEvaluations.none(), List.of(), ACTOR)));
         assertThrows(NotFoundException.class, () -> module.submitAppealUseCase()
-                .execute(new SubmitAppeal.Command(RUN_ID, TEAM_ID, "claim", "actor")));
+                .execute(new SubmitAppeal.Command(RUN_ID, TEAM_ID, "claim", ACTOR)));
         assertThrows(NotFoundException.class, () -> module.resolveAppealUseCase()
                 .execute(resolveCommand()));
         assertThrows(NotFoundException.class, () -> module.registerTeamUseCase()
                 .execute(registerCommand(COMPETITION_ID)));
         assertThrows(NotFoundException.class, () -> module.generateStandingsUseCase()
-                .execute(new GenerateStandings.Command(COMPETITION_ID, CATEGORY_ID, "actor")));
+                .execute(new GenerateStandings.Command(COMPETITION_ID, CATEGORY_ID, ACTOR)));
         assertThrows(NotFoundException.class, () -> module.scheduleRoundUseCase()
                 .execute(scheduleCommand(TEAM_ID, CATEGORY_ID)));
     }
@@ -152,7 +159,7 @@ class ApplicationFailurePathsTest {
 
         assertThrows(NotFoundException.class, () -> register.execute(registerCommand(COMPETITION_ID)));
         assertThrows(NotFoundException.class,
-                () -> generate.execute(new GenerateStandings.Command(COMPETITION_ID, CATEGORY_ID, "actor")));
+                () -> generate.execute(new GenerateStandings.Command(COMPETITION_ID, CATEGORY_ID, ACTOR)));
         assertThrows(NotFoundException.class, () -> schedule.execute(scheduleCommand(TEAM_ID, CATEGORY_ID)));
 
         Standings current = Standings.provisional(COMPETITION_ID, CATEGORY_ID, RulebookVersion.first(), NOW,
@@ -162,15 +169,15 @@ class ApplicationFailurePathsTest {
                 new RankingService(), auditLog, CLOCK);
         assertThrows(NotFoundException.class,
                 () -> recalculate.execute(new RecalculateStandings.Command(COMPETITION_ID, CATEGORY_ID, "reason",
-                        "actor")));
+                        ACTOR)));
 
         Round round = scheduledRound();
         rounds.save(round);
         CaptureRunResultUseCase capture = new CaptureRunResultUseCase(rounds, rulebooks, runResults, ids, auditLog,
                 CLOCK);
         assertThrows(NotFoundException.class,
-                () -> capture.execute(new CaptureRunResult.Command(ROUND_ID, TEAM_ID, 1, MeasurementSet.empty(),
-                        List.of(), List.of(), "actor")));
+                () -> capture.execute(new CaptureRunResult.Command(ROUND_ID, TEAM_ID, AttemptNumber.first(),
+                        MeasurementSet.empty(), JudgeEvaluations.none(), List.of(), ACTOR)));
         assertThrows(NotFoundException.class, () -> scoring.scoreRun(run(), COMPETITION_ID));
     }
 
@@ -185,9 +192,9 @@ class ApplicationFailurePathsTest {
 
         TeamRegistration registration = new TeamRegistration(TEAM_ID, COMPETITION_ID, OTHER_CATEGORY_ID, "Team",
                 TeamFixtures.eligibleMembers(), TeamFixtures.eligibleRobot(), TeamFixtures.completeDocuments());
-        registration.accept();
+        registration.resolveWith(new EligibilityVerdict(List.of()));
         registrations.save(registration);
-        assertThrows(com.dps.roboleague.domain.shared.DomainException.class,
+        assertThrows(RuleViolationException.class,
                 () -> schedule.execute(scheduleCommand(TEAM_ID, CATEGORY_ID)));
     }
 
@@ -239,8 +246,8 @@ class ApplicationFailurePathsTest {
     }
 
     private Round scheduledRound() {
-        Round round = new Round(ROUND_ID, COMPETITION_ID, CATEGORY_ID, RescueEditionFixture.CHALLENGE_ID, 1,
-                RulebookVersion.first());
+        Round round = new Round(ROUND_ID, COMPETITION_ID, CATEGORY_ID, RescueEditionFixture.CHALLENGE_ID,
+                RoundOrdinal.of(1), RulebookVersion.first());
         round.schedule(new Heat(HeatId.of("HEAT-1"), ROUND_ID, TEAM_ID, ArenaId.of("A1"),
                 new TimeSlot(LocalDateTime.of(2026, 3, 2, 10, 0), Duration.ofMinutes(15)),
                 Set.of(JudgeId.of("J1"))));
@@ -249,26 +256,26 @@ class ApplicationFailurePathsTest {
 
     private RunResult run() {
         return new RunResult(RUN_ID, ROUND_ID, HeatId.of("HEAT-1"), TEAM_ID,
-                RescueEditionFixture.CHALLENGE_ID, RulebookVersion.first(), 1, NOW, MeasurementSet.empty(),
-                List.of(), List.of());
+                RescueEditionFixture.CHALLENGE_ID, RulebookVersion.first(), AttemptNumber.first(), NOW,
+                MeasurementSet.empty(), JudgeEvaluations.none(), List.of());
     }
 
     private RegisterTeam.Command registerCommand(CompetitionId competitionId) {
-        return new RegisterTeam.Command(competitionId, CATEGORY_ID, "Team", TeamFixtures.eligibleMembers(),
-                TeamFixtures.eligibleRobot(), TeamFixtures.completeDocuments(), "actor");
+        return new RegisterTeam.Command(competitionId, CATEGORY_ID, "Team",
+                TestEdition.draftsOf(TeamFixtures.eligibleMembers()), TeamFixtures.eligibleRobot(),
+                TeamFixtures.completeDocuments(), ACTOR);
     }
 
     private ScheduleRound.Command scheduleCommand(TeamId teamId, CategoryId categoryId) {
         ScheduleRound.HeatDraft heat = new ScheduleRound.HeatDraft(teamId, ArenaId.of("A1"),
                 new TimeSlot(LocalDateTime.of(2026, 3, 2, 10, 0), Duration.ofMinutes(15)),
                 Set.of(JudgeId.of("J1")));
-        return new ScheduleRound.Command(COMPETITION_ID, categoryId, RescueEditionFixture.CHALLENGE_ID, 1,
-                List.of(heat), "actor");
+        return new ScheduleRound.Command(COMPETITION_ID, categoryId, RescueEditionFixture.CHALLENGE_ID,
+                RoundOrdinal.of(1), List.of(heat), ACTOR);
     }
 
     private ResolveAppeal.Command resolveCommand() {
         ResolveAppeal.Correction correction = new ResolveAppeal.Correction(MeasurementSet.empty(), List.of());
-        return new ResolveAppeal.Command(APPEAL_ID, true, "reviewer", "rationale", Optional.of(correction),
-                "actor");
+        return new ResolveAppeal.Command(APPEAL_ID, true, ACTOR, "rationale", Optional.of(correction), ACTOR);
     }
 }

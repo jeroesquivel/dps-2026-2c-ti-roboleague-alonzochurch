@@ -8,15 +8,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.dps.roboleague.application.port.in.GenerateStandings;
 import com.dps.roboleague.application.port.in.PublishStandings;
 import com.dps.roboleague.application.port.in.RecalculateStandings;
-import com.dps.roboleague.domain.ranking.aggregation.SumOfAttempts;
-import com.dps.roboleague.support.RescueEditionFixture;
+import com.dps.roboleague.domain.ranking.Revision;
 import com.dps.roboleague.domain.ranking.StandingEntry;
 import com.dps.roboleague.domain.ranking.Standings;
+import com.dps.roboleague.domain.ranking.aggregation.SumOfAttempts;
 import com.dps.roboleague.domain.scoring.IncidentReport;
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.ConflictException;
 import com.dps.roboleague.domain.shared.Points;
 import com.dps.roboleague.domain.shared.RoundId;
 import com.dps.roboleague.domain.shared.TeamId;
+import com.dps.roboleague.support.RescueEditionFixture;
 import com.dps.roboleague.support.TestEdition;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,7 +44,7 @@ class StandingsLifecycleTest {
         Standings standings = generate();
 
         assertFalse(standings.isFinal());
-        assertEquals(1, standings.revision());
+        assertEquals(Revision.first(), standings.revision());
         assertEquals(List.of(omega, delta), standings.entries().stream().map(StandingEntry::teamId).toList());
         assertEquals(Points.of("71.50"), standings.entryFor(omega).orElseThrow().totalPoints());
         assertEquals(Points.of("60.75"), standings.entryFor(delta).orElseThrow().totalPoints());
@@ -65,7 +66,7 @@ class StandingsLifecycleTest {
     void refusesToGenerateTwiceSoThatCorrectionsGoThroughARecalculation() {
         generate();
 
-        DomainException error = assertThrows(DomainException.class, this::generate);
+        ConflictException error = assertThrows(ConflictException.class, this::generate);
 
         assertTrue(error.getMessage().contains("recalculation"));
     }

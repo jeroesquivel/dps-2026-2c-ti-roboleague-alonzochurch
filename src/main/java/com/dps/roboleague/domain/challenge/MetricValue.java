@@ -1,6 +1,6 @@
 package com.dps.roboleague.domain.challenge;
 
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.InvalidValueException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
@@ -13,7 +13,7 @@ public record MetricValue(BigDecimal amount) {
     public MetricValue {
         Objects.requireNonNull(amount, "metric amount is required");
         if (amount.signum() < 0) {
-            throw new DomainException("metric amount cannot be negative");
+            throw new InvalidValueException("metric amount cannot be negative");
         }
         amount = amount.setScale(SCALE, RoundingMode.HALF_UP);
     }

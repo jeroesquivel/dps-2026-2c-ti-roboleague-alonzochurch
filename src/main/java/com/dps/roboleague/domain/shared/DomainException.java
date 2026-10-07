@@ -1,8 +1,8 @@
 package com.dps.roboleague.domain.shared;
 
-public class DomainException extends RuntimeException {
+public abstract class DomainException extends RuntimeException {
 
-    public DomainException(String message) {
+    protected DomainException(String message) {
         super(message);
     }
 }

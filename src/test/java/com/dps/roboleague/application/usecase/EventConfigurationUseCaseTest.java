@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.dps.roboleague.application.NotFoundException;
 import com.dps.roboleague.application.port.in.CreateCompetition;
 import com.dps.roboleague.application.port.in.CreateSeason;
 import com.dps.roboleague.application.port.in.FindAuditTrail;
@@ -13,9 +12,13 @@ import com.dps.roboleague.application.port.in.FindCompetition;
 import com.dps.roboleague.domain.audit.AuditAction;
 import com.dps.roboleague.domain.audit.AuditEvent;
 import com.dps.roboleague.domain.competition.RobotClass;
+import com.dps.roboleague.domain.shared.Actor;
 import com.dps.roboleague.domain.shared.AgeRange;
 import com.dps.roboleague.domain.shared.DateRange;
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.Identifier;
+import com.dps.roboleague.domain.shared.InvalidValueException;
+import com.dps.roboleague.domain.shared.NotFoundException;
+import com.dps.roboleague.domain.shared.RuleViolationException;
 import com.dps.roboleague.domain.shared.SeasonId;
 import com.dps.roboleague.infrastructure.config.RoboLeagueCompositionRoot;
 import java.time.Clock;
@@ -27,7 +30,7 @@ import org.junit.jupiter.api.Test;
 
 class EventConfigurationUseCaseTest {
 
-    private static final String ACTOR = "competition-organizer";
+    private static final Actor ACTOR = Actor.of("competition-organizer");
     private static final Instant NOW = Instant.parse("2026-02-01T12:00:00Z");
     private static final LocalDate FIRST_DAY = LocalDate.of(2026, 3, 1);
     private static final LocalDate LAST_DAY = LocalDate.of(2026, 11, 30);
@@ -59,8 +62,8 @@ class EventConfigurationUseCaseTest {
                         JUNIOR.robotClass()),
                 new FindCompetition.CategoryView(created.categoryIds().get(1), SENIOR.name(), SENIOR.ageRange(),
                         SENIOR.robotClass())), competition.categories());
-        assertCreationAudited(seasonId.value(), AuditAction.SEASON_CREATED);
-        assertCreationAudited(created.competitionId().value(), AuditAction.COMPETITION_CREATED);
+        assertCreationAudited(seasonId, AuditAction.SEASON_CREATED);
+        assertCreationAudited(created.competitionId(), AuditAction.COMPETITION_CREATED);
     }
 
     @Test
@@ -71,7 +74,7 @@ class EventConfigurationUseCaseTest {
                 .execute(created.competitionId());
 
         assertEquals(SEASON_PERIOD, competition.period());
-        assertCreationAudited(created.competitionId().value(), AuditAction.COMPETITION_CREATED);
+        assertCreationAudited(created.competitionId(), AuditAction.COMPETITION_CREATED);
     }
 
     @Test
@@ -83,12 +86,12 @@ class EventConfigurationUseCaseTest {
                 .execute(created.competitionId());
 
         assertEquals(singleDay, competition.period());
-        assertCreationAudited(created.competitionId().value(), AuditAction.COMPETITION_CREATED);
+        assertCreationAudited(created.competitionId(), AuditAction.COMPETITION_CREATED);
     }
 
     @Test
     void rejectsASeasonWhosePeriodDoesNotStartInItsDeclaredYear() {
-        assertThrows(DomainException.class, () -> module.createSeasonUseCase()
+        assertThrows(InvalidValueException.class, () -> module.createSeasonUseCase()
                 .execute(new CreateSeason.Command("Season 2025", 2025, SEASON_PERIOD, ACTOR)));
     }
 
@@ -97,7 +100,7 @@ class EventConfigurationUseCaseTest {
         SeasonId seasonId = createSeason();
         DateRange outsideAtStart = DateRange.of(FIRST_DAY.minusDays(1), FIRST_DAY.plusDays(2));
 
-        assertThrows(DomainException.class, () -> createCompetition(seasonId, outsideAtStart));
+        assertThrows(RuleViolationException.class, () -> createCompetition(seasonId, outsideAtStart));
     }
 
     @Test
@@ -105,7 +108,7 @@ class EventConfigurationUseCaseTest {
         SeasonId seasonId = createSeason();
         DateRange outsideAtEnd = DateRange.of(LAST_DAY.minusDays(2), LAST_DAY.plusDays(1));
 
-        assertThrows(DomainException.class, () -> createCompetition(seasonId, outsideAtEnd));
+        assertThrows(RuleViolationException.class, () -> createCompetition(seasonId, outsideAtEnd));
     }
 
     @Test
@@ -128,7 +131,7 @@ class EventConfigurationUseCaseTest {
                 seasonId, "National Open", period, List.of(JUNIOR, SENIOR), ACTOR));
     }
 
-    private void assertCreationAudited(String subject, AuditAction action) {
+    private void assertCreationAudited(Identifier subject, AuditAction action) {
         List<AuditEvent> events = module.findAuditTrailUseCase().execute(new FindAuditTrail.Command(subject));
         assertEquals(1, events.size());
         AuditEvent event = events.getFirst();

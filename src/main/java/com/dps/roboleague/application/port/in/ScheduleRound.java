@@ -1,6 +1,8 @@
 package com.dps.roboleague.application.port.in;
 
+import com.dps.roboleague.domain.schedule.RoundOrdinal;
 import com.dps.roboleague.domain.schedule.TimeSlot;
+import com.dps.roboleague.domain.shared.Actor;
 import com.dps.roboleague.domain.shared.ArenaId;
 import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.ChallengeId;
@@ -15,8 +17,8 @@ public interface ScheduleRound {
 
     RoundId execute(Command command);
 
-    record Command(CompetitionId competitionId, CategoryId categoryId, ChallengeId challengeId, int ordinal,
-            List<HeatDraft> heats, String actor) {
+    record Command(CompetitionId competitionId, CategoryId categoryId, ChallengeId challengeId, RoundOrdinal ordinal,
+            List<HeatDraft> heats, Actor actor) {
     }
 
     record HeatDraft(TeamId teamId, ArenaId arenaId, TimeSlot slot, Set<JudgeId> judges) {

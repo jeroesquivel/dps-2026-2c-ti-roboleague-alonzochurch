@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.CompetitionId;
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.ConflictException;
 import com.dps.roboleague.domain.shared.Points;
 import com.dps.roboleague.domain.shared.TeamId;
 import java.time.Instant;
@@ -25,7 +25,8 @@ class StandingsTest {
     @Test
     void isProvisionalUntilItIsPublished() {
         assertFalse(provisional.isFinal());
-        assertEquals(1, provisional.revision());
+        assertEquals(Revision.first(), provisional.revision());
+        assertEquals(GENERATED_AT, provisional.generatedAt());
     }
 
     @Test
@@ -33,7 +34,7 @@ class StandingsTest {
         Standings published = provisional.publish();
 
         assertTrue(published.isFinal());
-        assertThrows(DomainException.class, published::publish);
+        assertThrows(ConflictException.class, published::publish);
     }
 
     @Test
@@ -41,7 +42,7 @@ class StandingsTest {
         Standings recalculated = provisional.publish().supersede(entries("TEAM-2", "TEAM-1"),
                 GENERATED_AT.plusSeconds(3600));
 
-        assertEquals(2, recalculated.revision());
+        assertEquals(Revision.of(2), recalculated.revision());
         assertEquals(PublicationStatus.PROVISIONAL, recalculated.status());
         assertEquals(RulebookVersion.first(), recalculated.rulebookVersion());
         assertEquals(1, recalculated.entryFor(TeamId.of("TEAM-2")).orElseThrow().position());

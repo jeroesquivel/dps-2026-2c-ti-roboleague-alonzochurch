@@ -144,9 +144,22 @@ pruebas; el algoritmo que consume reglas no necesita conocer esa clase nueva. Ca
 mantiene su configuración inmutable y se puede probar de forma aislada.
 
 Las siete son `record` con configuración inmutable en las implementaciones actuales.
-`PenaltyScoringRule.of` construye su catálogo con `Collectors.toUnmodifiableMap`, y el constructor
-canónico también hace `Map.copyOf`. La interfaz no fuerza que una implementación futura conserve
-esa inmutabilidad (ver sección 8).
+`PenaltyScoringRule.of` construye su catálogo con `Collectors.toMap` (un código repetido lanza
+`InvalidValueException`), y el constructor canónico también hace `Map.copyOf`. La interfaz no fuerza
+que una implementación futura conserve esa inmutabilidad (ver sección 8).
+
+**La configuración protege su propia semántica.** Los parámetros de las reglas no son `Points` ni
+`BigDecimal` sueltos, sino value objects que no admiten valores negativos (ver 4.6):
+
+| Concepto | Tipo | Dónde |
+| --- | --- | --- |
+| Coeficiente "puntos por unidad" | `PointsRate` | `pointsPerSecondSaved`, `pointsPerObjective`, `pointsPerUnitOver`, `JudgePanelScoringRule.weight` |
+| Monto fijo configurado (tope, bono, deducción) | `PointsAmount` | `TimeScoringRule`/`PrecisionScoringRule.maximumPoints`, `ThresholdBonusRule.bonus`, `PenaltyDefinition.deduction` |
+| Umbral o margen sobre una medición | `MetricValue` | `ResourceScoringRule.allowance`, `ThresholdBonusRule.threshold` |
+
+Así una "penalización" por consumo no puede configurarse con un coeficiente negativo que sume puntos,
+ni un bono o un peso negativos: el reglamento no se puede construir. `TimeScoringRule` exige además
+un tiempo de referencia positivo.
 
 **Alternativas descartadas:** un método de cálculo con `switch` sobre un `enum` de tipos de desafío
 (cada criterio nuevo obliga a editar el mismo método, en lugar de extenderlo mediante una regla);
@@ -159,8 +172,9 @@ composición actual sólo requiere implementar `ScoringRule`.
 
 **Dónde:** `domain/scoring/ScoringRule` y las siete implementaciones de `domain/scoring/rule`.
 
-`ScoringRule` declara la firma `apply(ScoringContext)` y el helper por defecto `breakdownFor`; no
-incluye una especificación textual del contrato ni lo fuerza a nivel de tipos. El comportamiento
+`ScoringRule` declara la firma `apply(ScoringContext)`, `referencedMetrics()` (las métricas que la
+regla lee, ver 2.2) y el helper por defecto `breakdownFor`; no incluye una especificación textual
+del contrato ni lo fuerza a nivel de tipos. El comportamiento
 común implementado y comprobado para las siete reglas actuales es: **con un contexto válido, emitir
 al menos una contribución explicada y devolver cero ante la ausencia de la medición, evaluación o
 incidente que corresponda**, en lugar de lanzar por esa ausencia.
@@ -178,9 +192,16 @@ invocan `ChallengeSpec.validate` y `validateIncidents`. La fuente de configuraci
 para calcular deducciones (ver 2.4). Un incidente desconocido se rechaza en esos flujos, aunque
 aplicar la regla de penalización directamente devuelve cero con explicación.
 
+**El contrato alcanza a la configuración.** Una regla con parámetros negativos cumpliría la firma
+pero rompería la semántica de `ContributionKind` (una contribución `PENALTY` que suma). Por eso los
+parámetros son `PointsRate`/`PointsAmount`/`MetricValue`, que no pueden ser negativos (ver 2.1), y
+`ScoringRulesTest.penaltyContributionsNeverAddPoints` verifica que ninguna regla de `everyRule()`
+emite una penalización positiva.
+
 **Alternativas descartadas:** dar a cada regla un manejo incompatible de la ausencia de datos;
-declarar una excepción chequeada en la firma sin acordar qué significa el resultado de la operación.
-Este contrato no implica que cualquier configuración o argumento inválido sea aceptado.
+declarar una excepción chequeada en la firma sin acordar qué significa el resultado de la operación;
+validar el signo de cada parámetro en el constructor de cada regla, repitiendo la misma regla en
+siete lugares.
 
 ### 2.2 Un desafío conoce una lista de reglas, no una regla que a su vez es una lista
 
@@ -191,6 +212,16 @@ Este contrato no implica que cualquier configuración o argumento inválido sea 
 `ChallengeSpec` guarda directamente una `List<ScoringRule>`. Al puntuar, `score` aplica cada
 regla de la lista, le suma las contribuciones de `PenaltyScoringRule.of(penalties)` (armada
 desde el catálogo del propio desafío, ver 2.4) y devuelve un único `ScoreBreakdown` con todo.
+
+**El desafío valida su propia configuración al construirse**, no al puntuar:
+
+- una métrica no puede declararse dos veces, aunque sea con distinto `MetricKind`;
+- un código de penalización no puede declararse dos veces (antes fallaba recién al puntuar, con una
+  `IllegalStateException` desde `PenaltyScoringRule.of`);
+- toda métrica que una regla declara en `referencedMetrics()` tiene que estar definida en el desafío,
+  así una regla sobre una métrica inexistente no aporta cero en silencio.
+
+Las tres violaciones lanzan `InvalidValueException` desde el constructor de `ChallengeSpec`.
 
 **Por qué:** el único lugar de producción que combina varias `ScoringRule` es este método.
 Un `CompositeScoringRule` obligatorio alrededor de la lista no evitaría duplicación entre
@@ -278,8 +309,8 @@ Un `Rulebook` reúne los desafíos, la política de elegibilidad, la política d
 `PublishRulebookUseCase` crea la versión siguiente y `Competition.activateRulebook` sólo acepta
 versiones que superen a la vigente.
 `PublishRulebookUseCase` ya recibe todos los componentes juntos y los pasa a `Rulebook.of`, que
-indexa los desafíos por identificador y construye el reglamento. Si un identificador se repite,
-conserva el último desafío recibido: no rechaza los IDs duplicados. El constructor mantiene
+indexa los desafíos por identificador y construye el reglamento. Si un identificador se repite, lanza
+`InvalidValueException`: un desafío no puede pisar en silencio a otro. El constructor mantiene
 las validaciones y las copias defensivas del mapa de desafíos y la lista de desempates.
 
 **Por qué:** el enunciado exige poder recalcular resultados con exactamente la versión de reglas
@@ -316,9 +347,12 @@ desincronizable y no explica de dónde salió).
 **Dónde:** `GenerateStandingsUseCase`, `PublishStandingsUseCase`, `RecalculateStandingsUseCase` y
 `domain/ranking/Standings`.
 
-`Standings` es inmutable y lleva número de revisión y estado (`PROVISIONAL` / `FINAL`). `publish()`
-falla si ya es definitiva; `supersede()` abre una revisión nueva provisional conservando la versión
-de reglamento. Generar dos veces la misma tabla se rechaza con un mensaje que indica usar el
+`Standings` es inmutable y lleva número de revisión (`Revision`) y estado (`PROVISIONAL` / `FINAL`).
+Su constructor es privado: las únicas formas de obtener una revisión son `Standings.provisional`
+(revisión 1), `publish()` y `supersede()`, así no se puede armar una revisión `FINAL` sin publicar.
+Por eso dejó de ser un `record` (el constructor canónico de un record no puede ser más restrictivo
+que el tipo). `publish()` falla si ya es definitiva; `supersede()` abre una revisión nueva
+provisional conservando la versión de reglamento. Generar dos veces la misma tabla se rechaza con un mensaje que indica usar el
 recálculo, y el repositorio conserva todas las revisiones.
 
 Al generar, la versión activa determina la agregación de intentos y los desempates de la tabla. Al
@@ -380,7 +414,8 @@ que `Comparator.thenComparing` ya ofrece).
 **Patrón / principio:** Strategy, regla de negocio configurable por versión.
 
 **Dónde:** `domain/ranking/AttemptAggregation`, sus implementaciones en `domain/ranking/aggregation`
-(`BestAttempt`, `SumOfAttempts`), `Rulebook.attemptAggregation` y `TeamScoreSummary.totalPoints`.
+(`BestAttempt`, `SumOfAttempts`), `Rulebook.attemptAggregation` y `TeamRuns.aggregatedPoints`
+(consultado por `TeamScoreSummary.totalPoints`).
 
 Cuántos de los intentos de un equipo cuentan para su posición es una decisión del reglamento, no del
 código: con dos intentos de 30 y uno de 50, la suma pone primero al equipo constante y el mejor
@@ -390,8 +425,9 @@ suma. Ambas devuelven cero si el equipo no tiene corridas.
 
 El reglamento exige una política (el constructor rechaza `null`), `PublishRulebook.Command` la
 recibe junto con los desafíos y desempates, y `GenerateStandingsUseCase` /
-`RecalculateStandingsUseCase` la pasan a `CategoryScoringService.collect`, que la entrega a cada
-`TeamScoreSummary`. Como el reglamento está versionado, una tabla se genera y se recalcula con la
+`RecalculateStandingsUseCase` la pasan a `CategoryScoringService.collect`, que arma con ella el
+`TeamRuns` de cada equipo: la colección de corridas puntuadas es el lugar donde vive la política
+(ver 4.10). Como el reglamento está versionado, una tabla se genera y se recalcula con la
 política de su versión (ver 3.3), aunque después se publique otra. El demo y los fixtures de test
 publican `BestAttempt`.
 
@@ -427,6 +463,16 @@ restricciones varían por edición y categoría, así que se configuran en el re
 estar cableadas en el caso de uso. La categoría aporta edades y clase de robot; el registro usa como
 fecha de referencia el inicio de la competencia.
 
+**La decisión la toma el agregado.** `TeamRegistration.resolveWith(EligibilityVerdict)` acepta la
+inscripción si el veredicto es elegible y la rechaza en caso contrario; ya no existen `accept()` ni
+`reject(...)` públicos, así que una inscripción inelegible no puede quedar `ACCEPTED` y
+`RegisterTeamUseCase` no tiene un `if` sobre el veredicto. Resolver dos veces lanza
+`ConflictException`.
+
+Cada violación lleva un `EligibilityRuleCode` (value object, como `ScoringRuleCode`) y el agregado
+conserva las `EligibilityViolation` tipadas en `rejectionReasons()`: se sabe qué regla falló sin
+parsear texto. `EligibilityVerdict.reasons()` sólo arma el texto para la auditoría.
+
 **Alternativas descartadas:** validaciones con corte temprano (`if` encadenados que abortan en el
 primer error), que obligan a registrarse varias veces para descubrir todos los problemas; validación
 por anotaciones estáticas sobre el registro, que por sí solas no expresan el contexto de categoría
@@ -453,7 +499,9 @@ entidad que no tiene toda la información.
 
 Que un turno caiga dentro de las fechas de la competencia es una invariante distinta y vive donde
 están esas fechas: `Competition.requireDateWithinPeriod`. El caso de uso la invoca por cada turno, de
-inicio y de fin. Un tipo de conflicto es un `ScheduleConflictType`, no un `String`.
+inicio y de fin. Un tipo de conflicto es un `ScheduleConflictType`, no un `String`. Cuando hay
+conflictos, el caso de uso lanza `ScheduleConflictException` (una `ConflictException`, ver 4.9), que
+expone la lista de `ScheduleConflict` detectados.
 
 **Alternativas descartadas:** poner la detección de conflictos en el caso de uso (mezcla orquestación
 con negocio y dificulta reutilizar la regla de forma aislada); ponerla en `Round` (no ve los turnos
@@ -464,15 +512,21 @@ agendar turnos en fechas ajenas al evento.
 
 **Patrón / principio:** historial de correcciones dentro del agregado.
 
-**Dónde:** `domain/result/RunResult` y `ResultCorrection`.
+**Dónde:** `domain/result/RunResult`, `CorrectionHistory` y `ResultCorrection`.
 
-`RunResult` guarda las mediciones e incidentes originales y una lista de correcciones; las mediciones
-vigentes son las de la última corrección agregada a la lista, no necesariamente la de mayor fecha.
-Cada corrección registra momento, responsable, motivo y un `Optional<AppealId>` de origen; el flujo
-de resolución usa `ResultCorrection.fromAppeal` para completarlo. Una corrección no puede ser anterior
-a la captura, pero no se exige que sea posterior a las demás correcciones. Las evaluaciones de jueces
+`RunResult` guarda las mediciones e incidentes originales y un `CorrectionHistory`; las mediciones
+vigentes son las de la última corrección del historial. El historial exige orden cronológico: una
+corrección no puede ser anterior a la previa. Cada corrección registra momento, responsable (`Actor`),
+motivo y un `Optional<AppealId>` de origen; el flujo de resolución usa `ResultCorrection.fromAppeal`
+para completarlo. Una corrección no puede ser anterior a la captura. Las evaluaciones de jueces
 se conservan como fueron capturadas: el modelo de corrección actual modifica mediciones e incidentes,
 no esas evaluaciones.
+
+**El agregado valida la corrección contra su desafío.** `RunResult.applyCorrection(correction,
+challenge)` rechaza el `ChallengeSpec` de otro desafío y valida las mediciones e incidentes
+corregidos con `ChallengeSpec.validate`/`validateIncidents` antes de agregarla al historial. Así no se
+puede corregir una corrida con datos que su propio desafío rechazaría, aunque se llame al método por
+fuera de `ResolveAppealUseCase`.
 
 **Por qué:** cumple "conservar los valores originales y todas las modificaciones" dentro del modelo,
 no en una bitácora externa que podría desincronizarse. El recálculo usa siempre los valores vigentes
@@ -487,8 +541,13 @@ y la investigación puede reconstruir el camino completo.
 
 **Dónde:** `application/port/out/AuditLog`, `domain/audit/AuditEvent` y `AuditAction`.
 
-Cada caso de uso que modifica estado registra un `AuditEvent` tipado con acción, sujeto, responsable
-y detalles. Los tests verifican, por ejemplo, que aceptar una apelación **con corrección** deja
+Cada caso de uso que modifica estado registra un `AuditEvent` tipado: la acción es un `AuditAction`,
+el sujeto es el `Identifier` del elemento afectado (`RunId`, `TeamId`, `CategoryId`…), el responsable
+es un `Actor` y los detalles son un `Map<AuditDetail, String>` con claves de un enum. Como el sujeto
+es un id tipado, `AuditLog.findBySubject(Identifier)` no confunde una corrida con una categoría que
+tenga el mismo texto. Los valores de detalle se generan desde el dominio: `MeasurementSet.toString()`
+describe las mediciones ordenadas por clave (el `toString` de un `Map.copyOf` no tiene orden
+definido). Los tests verifican, por ejemplo, que aceptar una apelación **con corrección** deja
 `RESULT_CORRECTED`. Aceptarla sin corrección registra la decisión, sin modificar la corrida ni
 recalcular automáticamente las posiciones.
 
@@ -514,6 +573,9 @@ una corrección no puede introducir datos que el propio desafío rechazaría.
 
 Si se acepta con una corrección, el caso de uso valida **las mediciones y los códigos de incidente
 antes** de mutar: resuelve la corrección contra el desafío y recién después acepta la apelación.
+`RunResult.applyCorrection` vuelve a validarla (ver 4.3): la validación anticipada evita dejar la
+apelación aceptada y la corrida sin corregir; la del agregado protege la invariante para cualquier
+llamador.
 Si validara después, una corrección inadmisible dejaría la apelación
 aceptada y la corrección sin aplicar, dos estados incompatibles en el mismo flujo. `TeamRegistration`
 protege sus transiciones con el mismo criterio que `Appeal`: una inscripción se decide una sola vez.
@@ -530,20 +592,48 @@ devuelva la instancia viva que acaba de mutarse.
 
 **Patrón / principio:** Value Object, evitar Primitive Obsession.
 
-**Dónde:** `domain/shared` (`Points`, `DateRange`, `AgeRange`, e identificadores como `TeamId`,
-`RunId`), `domain/challenge` (`MetricKey`, `MetricValue`, `MeasurementSet`).
+**Dónde:** `domain/shared` (`Points`, `DateRange`, `AgeRange`, `Actor`, e identificadores como
+`TeamId`, `RunId`, `MemberId`), `domain/challenge` (`MetricKey`, `MetricValue`, `MetricUnit`,
+`MeasurementSet`, `AttemptNumber`, `AttemptLimit`), `domain/scoring` (`JudgeScore`, `PointsRate`,
+`PointsAmount`), `domain/schedule/RoundOrdinal`, `domain/ranking/Revision`, `domain/team/Weight` y
+`domain/eligibility/EligibilityRuleCode`.
 
 Los identificadores son records distintos que implementan `Identifier`, de modo que pasar un
 `CategoryId` donde se espera un `TeamId` no compila. `Points` normaliza la escala decimal y `MetricValue`
 rechaza valores negativos; `MetricKind` valida que un conteo de objetivos sea entero y que una razón
 de precisión no supere 1.
 
+Ningún concepto del dominio viaja como primitivo suelto:
+
+| Antes | Ahora | Invariante que aporta |
+| --- | --- | --- |
+| `String actor`, `reviewer` (comandos, `AuditEvent`, `ResultCorrection`, `AppealDecision`) | `Actor` | no vacío, normalizado |
+| `String subject` en `AuditEvent` / `AuditLog.findBySubject` | `Identifier` | el sujeto es un id tipado |
+| `Map<String, String> details` | `Map<AuditDetail, String>` | claves de un enum, no texto libre |
+| `String ruleCode` en `EligibilityViolation` | `EligibilityRuleCode` | igual que `ScoringRuleCode` |
+| `List<String> rejectionReasons` | `List<EligibilityViolation>` | el agregado conserva qué regla falló |
+| `int attemptNumber` / `int maximumAttempts` | `AttemptNumber` / `AttemptLimit` | positivos; `AttemptLimit.allows(attempt)` |
+| `int ordinal` (ronda) / `int revision` (posiciones) | `RoundOrdinal` / `Revision` | positivos; `Revision.next()` |
+| `BigDecimal weightKg` | `Weight` | positivo, `exceeds(limit)` |
+| `String unit` + `boolean required` | `MetricUnit` + `MetricRequirement` | unidad no vacía; requerimiento con nombre |
+
+**`Points` ya no representa conceptos distintos.** `Points` es el puntaje (con signo) de una
+contribución o un total. La nota de un juez es un `JudgeScore` con escala 0–10; un coeficiente de
+configuración es un `PointsRate` y un monto fijo configurado (tope, bono, deducción) es un
+`PointsAmount`; ninguno de estos dos admite negativos (ver 2.1). Comparten la aritmética porque
+`PointsRate.times` y `PointsAmount.times` producen `Points`, pero no las reglas.
+
+**`Member` tiene identidad.** `Member` lleva un `MemberId`: dos integrantes homónimos nacidos el mismo
+día son integrantes distintos. `RegisterTeam.Command` recibe `MemberDraft` (nombre, nacimiento, rol)
+y `RegisterTeamUseCase` asigna los ids con `IdGenerator.nextMemberId()`, igual que
+`CreateCompetition` hace con `CategoryDraft`.
+
 **Por qué:** las invariantes intrínsecas del valor se concentran en su construcción. Las que dependen
 del contexto se verifican donde corresponde: por ejemplo, `MetricKind.accepts` se consulta desde
 `MetricDefinition.validate`, invocado por `ChallengeSpec.validate`. Con `String` o `BigDecimal`
 sueltos se pierde distinción semántica y las validaciones tienden a dispersarse.
 
-Los once identificadores repiten la validación y la fábrica `of`. **Es duplicación deliberada.**
+Los doce identificadores repiten la validación y la fábrica `of`. **Es duplicación deliberada.**
 Los records nominales hacen explícitos los tipos `CategoryId` y `TeamId` en las firmas y evitan
 confundirlos. Un `Id<T>` correctamente diseñado también podría preservar esa distinción; se
 prefirieron tipos concretos por su legibilidad y simplicidad en este módulo.
@@ -563,8 +653,8 @@ todas las firmas para ahorrar repetición, perdiendo la distinción nominal.
 **Dónde:** `java.time.Clock` e `IdGenerator` inyectados en los casos de uso;
 `infrastructure/id/SequentialIdGenerator`.
 
-`IdGenerator` declara ocho métodos para los identificadores creados por los casos de uso: temporada,
-competencia, categoría, equipo, ronda, turno, corrida y apelación. No genera `ChallengeId`, `ArenaId`
+`IdGenerator` declara nueve métodos para los identificadores creados por los casos de uso: temporada,
+competencia, categoría, equipo, integrante, ronda, turno, corrida y apelación. No genera `ChallengeId`, `ArenaId`
 ni `JudgeId`, que llegan desde la configuración o las entradas. El formato y los contadores viven
 en `SequentialIdGenerator`; un `nextId(String prefix)` genérico repartiría esos detalles entre los
 casos de uso y permitiría confundir prefijos sin ayuda del compilador.
@@ -585,9 +675,9 @@ determinísticos.
 Recorre las rondas de una categoría, puntúa cada corrida con su reglamento fijado y arma los
 `TeamScoreSummary` que consume `RankingService`. `GenerateStandingsUseCase` y
 `RecalculateStandingsUseCase` usan `collect`; `CalculateRunScoreUseCase` reutiliza `scoreRun` para una
-corrida individual. `collect` recibe la `AttemptAggregation` del reglamento y la entrega a cada
-`TeamScoreSummary`, que reúne todos los intentos capturados de todas las rondas de la categoría;
-`totalPoints` delega en la política para decidir cuáles cuentan (ver 3.5). Un equipo sin corridas
+corrida individual. `collect` recibe la `AttemptAggregation` del reglamento y arma con ella el
+`TeamRuns` de cada `TeamScoreSummary`, que reúne todos los intentos capturados de todas las rondas de
+la categoría; `TeamRuns.aggregatedPoints` delega en la política para decidir cuáles cuentan (ver 3.5). Un equipo sin corridas
 capturadas no aparece en la colección ni en el ranking generado.
 
 **Por qué:** si cada caso de uso armara la tabla por su cuenta, generar y recalcular podrían divergir,
@@ -595,6 +685,59 @@ que es exactamente el error que el requisito de recálculo busca evitar.
 
 **Alternativas descartadas:** duplicar el recorrido en cada caso de uso; ubicarlo en el dominio, que lo
 obligaría a conocer repositorios.
+
+### 4.9 Jerarquía de excepciones del dominio
+
+**Patrón / principio:** excepciones por categoría de falla, Open/Closed.
+
+**Dónde:** `domain/shared/DomainException` (abstracta) y sus subclases `InvalidValueException`,
+`RuleViolationException`, `ConflictException` y `NotFoundException`; `ScheduleConflictException`
+extiende `ConflictException`.
+
+| Excepción | Significa | Ejemplos |
+| --- | --- | --- |
+| `InvalidValueException` | un valor o una configuración no cumple su invariante | id vacío, puntaje de juez fuera de 0–10, métrica declarada dos veces, `PointsRate` negativo |
+| `RuleViolationException` | una operación con datos bien formados viola una regla de negocio | intento fuera del límite, medición que el desafío no define, juez fuera del heat, turno fuera del período |
+| `ConflictException` | la operación choca con el estado actual | apelación o inscripción ya resueltas, posiciones ya definitivas o ya generadas, intento ya capturado, conflicto de agenda |
+| `NotFoundException` | el elemento referenciado no existe | competencia, ronda o corrida inexistentes; categoría que no pertenece a la competencia; desafío que no está en el reglamento |
+
+`DomainException` es abstracta: no se puede lanzar sin elegir la categoría. `NotFoundException` dejó de
+vivir en `application` y de extender directamente `RuntimeException`; ahora es parte de la misma
+jerarquía y la usan tanto el dominio como los casos de uso. `ScheduleConflictException` expone la
+lista de `ScheduleConflict`, así quien la atrapa no necesita parsear el mensaje.
+
+**Por qué:** con una única excepción no se podía distinguir qué falló sin leer el texto. Las cuatro
+categorías son las que un adaptador HTTP de la Entrega 2 necesitará mapear (400/422, 422, 409 y 404)
+sin conocer cada regla.
+
+**Alternativas descartadas:** una excepción por regla (cientos de clases sin un cliente que las
+distinga); un código de error en una única excepción (vuelve a obligar a comparar valores para
+decidir el tratamiento).
+
+### 4.10 Colecciones con nombre propio
+
+**Patrón / principio:** First-Class Collection, lenguaje ubicuo.
+
+**Dónde:** `domain/scoring/JudgeEvaluations`, `domain/ranking/TeamRuns`, `domain/result/CorrectionHistory`,
+`domain/schedule/Heats` y `domain/team/TeamMembers`.
+
+| Colección | Reemplaza a | Invariante que concentra |
+| --- | --- | --- |
+| `JudgeEvaluations` | `List<JudgeEvaluation>` | un juez evalúa una vez cada criterio; `requireEvaluatorsWithin(panel)` |
+| `TeamRuns` | `List<ScoredRun>` + agregación en `TeamScoreSummary` | una corrida cuenta una sola vez; es donde se aplica la `AttemptAggregation` |
+| `CorrectionHistory` | `List<ResultCorrection>` | orden cronológico; la última corrección es la vigente |
+| `Heats` | `List<Heat>` en `Round` | un equipo tiene un único turno por ronda |
+| `TeamMembers` | `List<Member>` | al menos un integrante, sin integrantes repetidos; `competitors()`, `hasCoach()` |
+
+**Evaluaciones de jueces.** Antes un mismo juez podía evaluar dos veces el mismo criterio (con
+`J1=10, J1=10, J2=0` el promedio daba 6,67 en lugar de 5) y no se verificaba que perteneciera al
+heat. Ahora `JudgeEvaluations` rechaza la repetición al construirse y
+`ChallengeSpec.validateEvaluations(evaluations, heat.judges())` verifica que cada criterio sea una
+métrica `JUDGE_CRITERION` del desafío y que cada juez esté asignado al heat. `CaptureRunResultUseCase`
+la invoca junto con las demás validaciones del desafío.
+
+**Por qué:** además de aportar lenguaje ubicuo, cada colección es el único lugar donde se puede
+romper su invariante, en vez de repetir la verificación en cada consumidor.
 
 ## 5. Patrones que decidimos no aplicar
 
@@ -681,8 +824,9 @@ pero una integración real también deberá resolver mapeo, transacciones, concu
 
 ### 5.9 Métodos en las interfaces "por si acaso"
 
-No se agregan operaciones anticipando clientes inexistentes. `ScoringRule` declara `apply` y el
-helper por defecto `breakdownFor`; `EligibilityRule` sólo declara `evaluate`. Ninguna de las dos
+No se agregan operaciones anticipando clientes inexistentes. `ScoringRule` declara `apply`,
+`referencedMetrics` (cuyo cliente es la validación de `ChallengeSpec`, ver 2.2) y el helper por
+defecto `breakdownFor`; `EligibilityRule` sólo declara `evaluate`. Ninguna de las dos
 tiene un método polimórfico `code()`: las implementaciones etiquetan sus contribuciones o violaciones
 con constantes propias. En cambio, `TiebreakRule` conserva `code()` y `description()`, utilizados
 por `AppliedTiebreak.of` para registrar el criterio discriminante.
@@ -708,17 +852,17 @@ sublista, sin cambiar la interfaz. Esto no elimina Composite de todo el sistema:
 | Capacidad | Dónde se resuelve |
 | --- | --- |
 | Configuración del evento | `CreateSeasonUseCase`, `CreateCompetitionUseCase`, `Season`, `Competition`, `Category` |
-| Registro de equipos | `RegisterTeamUseCase`, `TeamRegistration`, `Member`, `Robot`, `TeamDocument` |
+| Registro de equipos | `RegisterTeamUseCase`, `TeamRegistration`, `TeamMembers`, `Member`, `Robot`, `Weight`, `TeamDocument` |
 | Elegibilidad | `EligibilityPolicy` y las reglas de `domain/eligibility/rule` |
-| Configuración de desafíos | `ChallengeSpec`, `MetricDefinition`, `domain/scoring/rule/*`, `PenaltyDefinition` |
+| Configuración de desafíos | `ChallengeSpec`, `MetricDefinition`, `domain/scoring/rule/*`, `PenaltyDefinition`, `PointsRate`, `PointsAmount` |
 | Programación | `ScheduleRoundUseCase`, `Round`, `Heat`, `TimeSlot`, `ScheduleConflictDetector`, `Competition.requireDateWithinPeriod` |
-| Captura de resultados | `CaptureRunResultUseCase`, `RunResult`, `MeasurementSet`, `JudgeEvaluation`, `IncidentReport` |
+| Captura de resultados | `CaptureRunResultUseCase`, `RunResult`, `MeasurementSet`, `JudgeEvaluations`, `JudgeScore`, `IncidentReport` |
 | Cálculo explicable | `CalculateRunScoreUseCase`, `ScoreBreakdown`, `ScoreContribution`, `ContributionKind` |
-| Ranking | `RankingService`, `AttemptAggregation`, `domain/ranking/aggregation/*`, `TiebreakRule`, `domain/ranking/rule/*` y `AppliedTiebreak` |
+| Ranking | `RankingService`, `TeamRuns`, `AttemptAggregation`, `domain/ranking/aggregation/*`, `TiebreakRule`, `domain/ranking/rule/*` y `AppliedTiebreak` |
 | Publicación | `Standings`, `PublicationStatus`, `GenerateStandingsUseCase`, `PublishStandingsUseCase`, `GetStandingsUseCase` |
 | Apelaciones | `Appeal`, `SubmitAppealUseCase`, `ResolveAppealUseCase` |
 | Recálculo | `RecalculateStandingsUseCase`, `CategoryScoringService` |
-| Auditoría | `RunResult.corrections()`, `Standings.revision()`, `AuditLog`, `FindAuditTrailUseCase` |
+| Auditoría | `CorrectionHistory`, `Standings.revision()`, `AuditLog`, `AuditEvent`, `AuditDetail`, `Actor`, `FindAuditTrailUseCase` |
 
 ## 7. Estrategia de pruebas
 
@@ -794,7 +938,8 @@ Un timeout de escritura puede ocurrir después de que el proveedor haya aceptado
 Reintentar sin una política de idempotencia puede duplicarla. Los casos de uso actuales son
 sincrónicos y no ofrecen esa garantía: incorporar red requiere modelar resultados y límites,
 además de implementar transporte. Guardar apelación, corregir corrida y auditar tampoco es hoy
-una transacción; incluso una validación tardía del actor puede fallar después de mutar.
+una transacción. El actor ya llega validado como `Actor` en el comando, pero un fallo del adaptador
+de persistencia o de auditoría después de mutar todavía dejaría el flujo a medias.
 
 La reproducción histórica depende de conservar las versiones: `InMemoryRulebookRepository.save`
 reemplaza una existente y la interfaz `RulebookRepository` no prohíbe ese reemplazo, aunque el flujo
@@ -824,14 +969,14 @@ estado y motivos; no todo camino alternativo debe lanzar una excepción.
 | --- | --- | --- | --- |
 | Configurar evento | Temporada, competencia, varias categorías, fechas límite y auditoría | Año incoherente, fechas fuera de temporada, temporada inexistente | `EventConfigurationUseCaseTest` |
 | Evolucionar reglamento | Versiones nuevas y cálculo histórico conservado | Sin desafíos o competencia inexistente | `RulebookEvolutionTest` |
-| Registrar y evaluar | Equipo aceptado y guardado | Rechazo guardado con motivos; decisión repetida | `RegisterTeamUseCaseTest`, `EligibilityPolicyTest` |
+| Registrar y evaluar | Equipo aceptado y guardado; homónimos con identidad propia | Rechazo guardado con violaciones tipadas; decisión repetida; integrante repetido | `RegisterTeamUseCaseTest`, `EligibilityPolicyTest`, `TeamRegistrationTest` |
 | Programar | Turnos normales, consecutivos y simultáneos con recursos independientes | Conflictos existentes o dentro del comando, fechas inválidas, equipo rechazado | `ScheduleRoundUseCaseTest`, `ScheduleConflictDetectorTest` |
-| Capturar | Datos válidos y último intento permitido sin reemplazar el primero | Métrica ausente, intento inválido/repetido, equipo sin turno, incidente desconocido | `CaptureRunResultUseCaseTest`, `ChallengeSpecTest` |
-| Puntuar | Fórmulas, bonos, deducciones, combinación y suma explicada | Datos ausentes con cero explicado; topes y bono no otorgado | `ScoringRulesTest`, `ChallengeSpecTest`, `CalculateRunScoreUseCaseTest` |
+| Capturar | Datos válidos y último intento permitido sin reemplazar el primero | Métrica ausente, intento inválido/repetido, equipo sin turno, incidente desconocido, juez fuera del heat, criterio inexistente, juez que evalúa dos veces | `CaptureRunResultUseCaseTest`, `ChallengeSpecTest`, `JudgeEvaluationsTest` |
+| Puntuar | Fórmulas, bonos, deducciones, combinación y suma explicada | Datos ausentes con cero explicado; topes y bono no otorgado; configuración negativa, métricas o penalizaciones duplicadas, reglas sobre métricas inexistentes | `ScoringRulesTest`, `ChallengeSpecTest`, `CalculateRunScoreUseCaseTest` |
 | Ordenar | Totales y desempates, incluido tiempo | Empate completo; métrica ausente en uno o ambos equipos | `RankingServiceTest` |
-| Agregar intentos | Mejor intento y suma de intentos; la política viaja en el reglamento y se conserva al recalcular | Equipo sin corridas; suma y mejor intento con ganadores distintos | `AttemptAggregationTest`, `RankingServiceTest`, `StandingsLifecycleTest` |
+| Agregar intentos | Mejor intento y suma de intentos; la política viaja en el reglamento y se conserva al recalcular | Equipo sin corridas; suma y mejor intento con ganadores distintos; corrida contada dos veces | `AttemptAggregationTest`, `RankingServiceTest`, `StandingsLifecycleTest` |
 | Publicar posiciones | Provisional a definitiva | Generación y publicación repetidas | `StandingsLifecycleTest`, `StandingsTest` |
-| Apelar | Aceptación con corrección y sin corrección | Rechazo, equipo ajeno, corrección inválida, decisión repetida/fecha inválida | `AppealRecalculationTest`, `AppealTest` |
+| Apelar | Aceptación con corrección y sin corrección | Rechazo, equipo ajeno, corrección inválida (también aplicada directo sobre el agregado), corrección fuera de orden, decisión repetida/fecha inválida | `AppealRecalculationTest`, `AppealTest`, `RunResultTest` |
 | Recalcular | Nueva revisión y reglas históricas | Revisiones anteriores conservadas aun publicando otro reglamento | `AppealRecalculationTest`, `StandingsRepositoryContractTest` |
 | Auditar/conservar | Actor, fecha, acciones, originales y correcciones | Consultas vacías e historiales separados por categoría y competencia | Pruebas de configuración, resultados, apelación y repositorio |
 
@@ -840,13 +985,13 @@ verifican conservación del estado: corregir un incidente desconocido permite ca
 intento después de quitar el incidente inválido; un conflicto dentro del comando no deja reservados
 los primeros turnos. Eso no implica atomicidad frente a todos los fallos posteriores.
 
-Verificación del código actual el 5 de octubre de 2026: Maven recompiló los 155
-archivos Java de producción y los 25 de pruebas, y ejecutó **127 tests, 0 fallos, 0 errores y 0
+Verificación del código actual el 7 de octubre de 2026: Maven recompiló los 178
+archivos Java de producción y los 27 de pruebas, y ejecutó **156 tests, 0 fallos, 0 errores y 0
 omitidos**. Es una comprobación fechada, no un total garantizado para futuras versiones.
 No se establece una proporción obligatoria de tests exitosos/negativos ni se equipara cantidad con
 porcentaje de cobertura.
 JaCoCo 0.8.15 midió **100 % de instrucciones, ramas, líneas, complejidad, métodos y clases**. Son
-8.353 instrucciones, 377 ramas, 1.473 líneas, 727 puntos de complejidad, 538 métodos y 147 clases
+9.512 instrucciones, 395 ramas, 1.743 líneas, 864 puntos de complejidad, 666 métodos y 173 clases
 cubiertos. `mvn verify` genera el informe y falla si cualquiera de esos porcentajes baja del 100 %.
 La suite no prueba HTTP, proveedores, SQL, transacciones o concurrencia porque esas integraciones aún
 no existen; tendrán pruebas propias cuando se incorporen.

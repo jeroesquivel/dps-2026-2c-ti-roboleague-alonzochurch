@@ -1,12 +1,12 @@
 package com.dps.roboleague.domain.rulebook;
 
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.InvalidValueException;
 
 public record RulebookVersion(int number) implements Comparable<RulebookVersion> {
 
     public RulebookVersion {
         if (number < 1) {
-            throw new DomainException("rulebook version must be positive");
+            throw new InvalidValueException("rulebook version must be positive");
         }
     }
 

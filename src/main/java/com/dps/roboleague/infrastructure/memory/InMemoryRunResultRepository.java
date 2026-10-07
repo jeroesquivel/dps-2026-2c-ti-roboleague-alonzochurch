@@ -28,7 +28,7 @@ public final class InMemoryRunResultRepository implements RunResultRepository {
     public List<RunResult> findByRound(RoundId roundId) {
         return results.values().stream()
                 .filter(result -> result.roundId().equals(roundId))
-                .sorted(Comparator.comparingInt(RunResult::attemptNumber))
+                .sorted(Comparator.comparing(RunResult::attemptNumber))
                 .toList();
     }
 }

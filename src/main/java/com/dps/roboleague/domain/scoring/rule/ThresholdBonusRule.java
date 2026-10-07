@@ -1,6 +1,8 @@
 package com.dps.roboleague.domain.scoring.rule;
 
 import com.dps.roboleague.domain.challenge.MetricKey;
+import com.dps.roboleague.domain.challenge.MetricValue;
+import com.dps.roboleague.domain.scoring.PointsAmount;
 import com.dps.roboleague.domain.scoring.ScoreContribution;
 import com.dps.roboleague.domain.scoring.ScoringContext;
 import com.dps.roboleague.domain.scoring.ScoringRule;
@@ -9,8 +11,9 @@ import com.dps.roboleague.domain.shared.Points;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
-public record ThresholdBonusRule(MetricKey metric, Comparison comparison, BigDecimal threshold, Points bonus)
+public record ThresholdBonusRule(MetricKey metric, Comparison comparison, MetricValue threshold, PointsAmount bonus)
         implements ScoringRule {
 
     public static final ScoringRuleCode CODE = ScoringRuleCode.of("BONUS");
@@ -47,14 +50,19 @@ public record ThresholdBonusRule(MetricKey metric, Comparison comparison, BigDec
                         Points.ZERO)));
     }
 
+    @Override
+    public Set<MetricKey> referencedMetrics() {
+        return Set.of(metric);
+    }
+
     private List<ScoreContribution> contributionFor(BigDecimal measured) {
         boolean granted = switch (comparison) {
-            case AT_LEAST -> measured.compareTo(threshold) >= 0;
-            case AT_MOST -> measured.compareTo(threshold) <= 0;
+            case AT_LEAST -> measured.compareTo(threshold.amount()) >= 0;
+            case AT_MOST -> measured.compareTo(threshold.amount()) <= 0;
         };
         String explanation = "%s %s %s %s: bonus %s".formatted(metric.value(), measured.toPlainString(),
-                granted ? "is" : "is not", comparison.label() + " " + threshold.toPlainString(),
+                granted ? "is" : "is not", comparison.label() + " " + threshold,
                 granted ? "granted" : "not granted");
-        return List.of(ScoreContribution.bonus(CODE, explanation, granted ? bonus : Points.ZERO));
+        return List.of(ScoreContribution.bonus(CODE, explanation, granted ? bonus.asPoints() : Points.ZERO));
     }
 }

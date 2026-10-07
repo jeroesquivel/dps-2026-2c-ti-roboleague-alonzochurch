@@ -1,6 +1,8 @@
 package com.dps.roboleague.domain.ranking;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.dps.roboleague.domain.challenge.MeasurementSet;
 import com.dps.roboleague.domain.ranking.aggregation.BestAttempt;
@@ -9,6 +11,7 @@ import com.dps.roboleague.domain.scoring.ScoreBreakdown;
 import com.dps.roboleague.domain.scoring.ScoreContribution;
 import com.dps.roboleague.domain.scoring.ScoringRuleCode;
 import com.dps.roboleague.domain.shared.ChallengeId;
+import com.dps.roboleague.domain.shared.InvalidValueException;
 import com.dps.roboleague.domain.shared.Points;
 import com.dps.roboleague.domain.shared.RunId;
 import java.util.List;
@@ -43,6 +46,15 @@ class AttemptAggregationTest {
     void eachPolicyDescribesItselfWithAStableCode() {
         assertEquals("BEST_ATTEMPT", new BestAttempt().code());
         assertEquals("SUM_OF_ATTEMPTS", new SumOfAttempts().code());
+        assertFalse(new BestAttempt().description().isBlank());
+        assertFalse(new SumOfAttempts().description().isBlank());
+    }
+
+    @Test
+    void aRunCountsOnlyOnceForItsTeam() {
+        assertThrows(InvalidValueException.class,
+                () -> new TeamRuns(List.of(run("R1", "30"), run("R1", "30")), new SumOfAttempts()));
+        assertEquals(Points.of("50"), new TeamRuns(attempts, new BestAttempt()).aggregatedPoints());
     }
 
     private ScoredRun run(String runId, String points) {

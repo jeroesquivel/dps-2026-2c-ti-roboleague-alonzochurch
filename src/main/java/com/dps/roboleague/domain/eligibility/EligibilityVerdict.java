@@ -13,6 +13,6 @@ public record EligibilityVerdict(List<EligibilityViolation> violations) {
     }
 
     public List<String> reasons() {
-        return violations.stream().map(violation -> violation.ruleCode() + ": " + violation.reason()).toList();
+        return violations.stream().map(EligibilityViolation::toString).toList();
     }
 }

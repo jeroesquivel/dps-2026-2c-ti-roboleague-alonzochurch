@@ -4,22 +4,27 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.dps.roboleague.application.NotFoundException;
 import com.dps.roboleague.application.port.in.CalculateRunScore;
 import com.dps.roboleague.application.port.in.CaptureRunResult;
 import com.dps.roboleague.application.port.in.FindAuditTrail;
 import com.dps.roboleague.application.port.in.PublishRulebook;
 import com.dps.roboleague.domain.audit.AuditAction;
+import com.dps.roboleague.domain.audit.AuditDetail;
 import com.dps.roboleague.domain.audit.AuditEvent;
+import com.dps.roboleague.domain.challenge.AttemptLimit;
+import com.dps.roboleague.domain.challenge.AttemptNumber;
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.challenge.MeasurementSet;
 import com.dps.roboleague.domain.challenge.MetricDefinition;
 import com.dps.roboleague.domain.challenge.MetricKey;
 import com.dps.roboleague.domain.challenge.MetricKind;
+import com.dps.roboleague.domain.challenge.MetricUnit;
 import com.dps.roboleague.domain.challenge.MetricValue;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.scoring.ContributionKind;
 import com.dps.roboleague.domain.scoring.IncidentReport;
+import com.dps.roboleague.domain.scoring.PointsAmount;
+import com.dps.roboleague.domain.scoring.PointsRate;
 import com.dps.roboleague.domain.scoring.ScoreContribution;
 import com.dps.roboleague.domain.scoring.ScoringContext;
 import com.dps.roboleague.domain.scoring.ScoringRule;
@@ -28,9 +33,12 @@ import com.dps.roboleague.domain.scoring.rule.ObjectiveScoringRule;
 import com.dps.roboleague.domain.scoring.rule.PrecisionScoringRule;
 import com.dps.roboleague.domain.scoring.rule.TimeScoringRule;
 import com.dps.roboleague.domain.shared.CompetitionId;
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.Identifier;
+import com.dps.roboleague.domain.shared.InvalidValueException;
+import com.dps.roboleague.domain.shared.NotFoundException;
 import com.dps.roboleague.domain.shared.Points;
 import com.dps.roboleague.domain.shared.RoundId;
+import com.dps.roboleague.domain.shared.RuleViolationException;
 import com.dps.roboleague.domain.shared.RunId;
 import com.dps.roboleague.domain.shared.TeamId;
 import com.dps.roboleague.support.RescueEditionFixture;
@@ -39,6 +47,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class RulebookEvolutionTest {
@@ -56,16 +65,16 @@ class RulebookEvolutionTest {
         MeasurementSet originalMeasurements = edition.runResult(originalRun).originalMeasurements();
 
         RulebookVersion second = edition.publishRulebookWith(
-                new ObjectiveScoringRule(RescueEditionFixture.OBJECTIVES, Points.of(100), 5));
+                new ObjectiveScoringRule(RescueEditionFixture.OBJECTIVES, PointsRate.of(100), 5));
         RunId runUnderSecondRulebook = capture(scheduleSecondRound());
         RulebookVersion third = edition.publishRulebookWith(
-                new ObjectiveScoringRule(RescueEditionFixture.OBJECTIVES, Points.of(200), 5));
+                new ObjectiveScoringRule(RescueEditionFixture.OBJECTIVES, PointsRate.of(200), 5));
 
         assertEquals(RulebookVersion.of(2), second);
         assertEquals(RulebookVersion.of(3), third);
         assertEquals(third, activeVersion());
         assertEquals(List.of("v1", "v2", "v3"), publicationEvents().stream()
-                .map(event -> event.details().get("version")).toList());
+                .map(event -> event.details().get(AuditDetail.VERSION)).toList());
         assertEquals(RulebookVersion.first(), edition.round(firstRound).rulebookVersion());
         assertEquals(RulebookVersion.first(), score(originalRun).rulebookVersion());
         assertEquals(Points.of("60.75"), score(originalRun).total());
@@ -86,10 +95,10 @@ class RulebookEvolutionTest {
         assertEquals(RulebookVersion.first(), edition.runResult(lateCapture).rulebookVersion());
         assertTrue(edition.runResult(lateCapture).originalMeasurements().find(PRECISION).isEmpty());
         assertEquals(Points.of("60.75"), score(lateCapture).total());
-        List<AuditEvent> captureEvents = auditFor(lateCapture.value());
+        List<AuditEvent> captureEvents = auditFor(lateCapture);
         assertEquals(1, captureEvents.size());
         assertEquals(AuditAction.RESULT_CAPTURED, captureEvents.getFirst().action());
-        assertEquals("v1", captureEvents.getFirst().details().get("rulebook"));
+        assertEquals("v1", captureEvents.getFirst().details().get(AuditDetail.RULEBOOK));
     }
 
     @Test
@@ -98,29 +107,29 @@ class RulebookEvolutionTest {
         publish(edition.competitionId(), List.of(challengeRequiringPrecision()));
         RoundId secondRound = scheduleSecondRound();
 
-        DomainException missingMetric = assertThrows(DomainException.class, () -> capture(secondRound));
+        RuleViolationException missingMetric = assertThrows(RuleViolationException.class, () -> capture(secondRound));
         assertTrue(missingMetric.getMessage().contains(PRECISION.value()));
 
         MeasurementSet complete = edition.measurements("95.5", 4, "42")
                 .with(PRECISION, MetricValue.of("0.75"));
         RunId newRun = edition.module().captureRunResultUseCase().execute(
-                new CaptureRunResult.Command(secondRound, delta, 1, complete, edition.evaluations(List.of(8, 9)),
-                        List.of(), TestEdition.ACTOR));
+                new CaptureRunResult.Command(secondRound, delta, AttemptNumber.first(), complete,
+                        edition.evaluations(List.of(8, 9)), List.of(), TestEdition.ACTOR));
 
         assertEquals(RulebookVersion.of(2), edition.round(secondRound).rulebookVersion());
         assertEquals(RulebookVersion.of(2), edition.runResult(newRun).rulebookVersion());
         assertEquals(Points.of("15.00"), score(newRun).total());
         assertEquals(Points.of("15.00"), score(newRun).breakdown().totalFor(PrecisionScoringRule.CODE));
         assertEquals(Points.of("60.75"), score(originalRun).total());
-        assertEquals(List.of(AuditAction.RESULT_CAPTURED), edition.auditActionsFor(newRun.value()));
+        assertEquals(List.of(AuditAction.RESULT_CAPTURED), edition.auditActionsFor(newRun));
     }
 
     @Test
     void aNewScoringRuleCanBeConfiguredAlongsideExistingRulesAndThePenaltyCatalog() {
         List<ScoringRule> extended = List.of(
-                new SquaredObjectivesRule(RescueEditionFixture.OBJECTIVES, Points.of("2.50")),
-                new TimeScoringRule(RescueEditionFixture.TIME, Duration.ofSeconds(120), Points.of("0.50"),
-                        Points.of(30)));
+                new SquaredObjectivesRule(RescueEditionFixture.OBJECTIVES, PointsRate.of("2.50")),
+                new TimeScoringRule(RescueEditionFixture.TIME, Duration.ofSeconds(120), PointsRate.of("0.50"),
+                        PointsAmount.of(30)));
         publish(edition.competitionId(), List.of(RescueEditionFixture.challengeScoredBy(extended)));
         RoundId secondRound = scheduleSecondRound();
 
@@ -144,16 +153,16 @@ class RulebookEvolutionTest {
         RunId originalRun = capture(firstRound);
         List<AuditEvent> historyBefore = publicationEvents();
 
-        assertThrows(DomainException.class, () -> publish(edition.competitionId(), List.of()));
+        assertThrows(InvalidValueException.class, () -> publish(edition.competitionId(), List.of()));
 
         assertEquals(RulebookVersion.first(), activeVersion());
         assertEquals(historyBefore, publicationEvents());
         assertEquals(Points.of("60.75"), score(originalRun).total());
         RulebookVersion nextPublished = edition.publishRulebookWith(
-                new ObjectiveScoringRule(RescueEditionFixture.OBJECTIVES, Points.of(100), 5));
+                new ObjectiveScoringRule(RescueEditionFixture.OBJECTIVES, PointsRate.of(100), 5));
         assertEquals(RulebookVersion.of(2), nextPublished);
         assertEquals(List.of("v1", "v2"), publicationEvents().stream()
-                .map(event -> event.details().get("version")).toList());
+                .map(event -> event.details().get(AuditDetail.VERSION)).toList());
     }
 
     @Test
@@ -166,17 +175,18 @@ class RulebookEvolutionTest {
 
         assertEquals(RulebookVersion.first(), activeVersion());
         assertEquals(historyBefore, publicationEvents());
-        assertTrue(auditFor(unknown.value()).isEmpty());
+        assertTrue(auditFor(unknown).isEmpty());
         assertEquals(Points.of("60.75"), score(capture(firstRound)).total());
         assertEquals(RulebookVersion.of(2), edition.publishRulebookWith(
-                new ObjectiveScoringRule(RescueEditionFixture.OBJECTIVES, Points.of(100), 5)));
+                new ObjectiveScoringRule(RescueEditionFixture.OBJECTIVES, PointsRate.of(100), 5)));
     }
 
     private ChallengeSpec challengeRequiringPrecision() {
         List<MetricDefinition> metrics = new ArrayList<>(RescueEditionFixture.metrics());
-        metrics.add(MetricDefinition.required(PRECISION, MetricKind.PRECISION_RATIO, "ratio"));
+        metrics.add(MetricDefinition.required(PRECISION, MetricKind.PRECISION_RATIO, MetricUnit.of("ratio")));
         return new ChallengeSpec(RescueEditionFixture.CHALLENGE_ID, "Rescue with precision", metrics,
-                List.of(new PrecisionScoringRule(PRECISION, Points.of(20))), RescueEditionFixture.penalties(), 2);
+                List.of(new PrecisionScoringRule(PRECISION, PointsAmount.of(20))), RescueEditionFixture.penalties(),
+                AttemptLimit.of(2));
     }
 
     private RulebookVersion publish(CompetitionId competitionId, List<ChallengeSpec> challenges) {
@@ -191,11 +201,11 @@ class RulebookEvolutionTest {
     }
 
     private List<AuditEvent> publicationEvents() {
-        return auditFor(edition.competitionId().value()).stream()
+        return auditFor(edition.competitionId()).stream()
                 .filter(event -> event.action() == AuditAction.RULEBOOK_PUBLISHED).toList();
     }
 
-    private List<AuditEvent> auditFor(String subject) {
+    private List<AuditEvent> auditFor(Identifier subject) {
         return edition.module().findAuditTrailUseCase().execute(new FindAuditTrail.Command(subject));
     }
 
@@ -212,7 +222,7 @@ class RulebookEvolutionTest {
         return edition.module().calculateRunScoreUseCase().execute(new CalculateRunScore.Command(runId));
     }
 
-    private record SquaredObjectivesRule(MetricKey metric, Points multiplier) implements ScoringRule {
+    private record SquaredObjectivesRule(MetricKey metric, PointsRate multiplier) implements ScoringRule {
 
         private static final ScoringRuleCode CODE = ScoringRuleCode.of("SQUARED_OBJECTIVES");
 
@@ -224,6 +234,11 @@ class RulebookEvolutionTest {
                             multiplier.times(amount.multiply(amount)))))
                     .orElseGet(() -> List.of(ScoreContribution.earned(CODE,
                             "no measurement recorded for " + metric.value(), Points.ZERO)));
+        }
+
+        @Override
+        public Set<MetricKey> referencedMetrics() {
+            return Set.of(metric);
         }
     }
 }

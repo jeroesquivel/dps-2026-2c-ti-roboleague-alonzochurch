@@ -29,7 +29,7 @@ public final class InMemoryRoundRepository implements RoundRepository {
     public List<Round> findByCompetition(CompetitionId competitionId) {
         return rounds.values().stream()
                 .filter(round -> round.competitionId().equals(competitionId))
-                .sorted(Comparator.comparingInt(Round::ordinal))
+                .sorted(Comparator.comparing(Round::ordinal))
                 .toList();
     }
 

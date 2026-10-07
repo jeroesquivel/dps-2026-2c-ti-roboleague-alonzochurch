@@ -1,6 +1,5 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.application.NotFoundException;
 import com.dps.roboleague.application.port.in.CreateCompetition;
 import com.dps.roboleague.application.port.out.AuditLog;
 import com.dps.roboleague.application.port.out.CompetitionRepository;
@@ -12,6 +11,7 @@ import com.dps.roboleague.domain.competition.Category;
 import com.dps.roboleague.domain.competition.Competition;
 import com.dps.roboleague.domain.competition.Season;
 import com.dps.roboleague.domain.shared.CompetitionId;
+import com.dps.roboleague.domain.shared.NotFoundException;
 import java.time.Clock;
 import java.util.List;
 
@@ -44,7 +44,7 @@ public final class CreateCompetitionUseCase implements CreateCompetition {
                         draft.robotClass()))
                 .toList();
         competitions.save(new Competition(id, season.id(), command.name(), command.period(), categories));
-        auditLog.record(AuditEvent.of(clock.instant(), AuditAction.COMPETITION_CREATED, id.value(), command.actor()));
+        auditLog.record(AuditEvent.of(clock.instant(), AuditAction.COMPETITION_CREATED, id, command.actor()));
         return new Result(id, categories.stream().map(Category::id).toList());
     }
 }

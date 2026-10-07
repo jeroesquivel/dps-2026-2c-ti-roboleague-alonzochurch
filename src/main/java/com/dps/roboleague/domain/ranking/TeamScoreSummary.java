@@ -2,40 +2,31 @@ package com.dps.roboleague.domain.ranking;
 
 import com.dps.roboleague.domain.challenge.MetricKey;
 import com.dps.roboleague.domain.challenge.MetricValue;
-import com.dps.roboleague.domain.scoring.ContributionKind;
 import com.dps.roboleague.domain.shared.Points;
 import com.dps.roboleague.domain.shared.TeamId;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public record TeamScoreSummary(TeamId teamId, List<ScoredRun> runs, AttemptAggregation aggregation) {
+public record TeamScoreSummary(TeamId teamId, TeamRuns runs) {
 
     public TeamScoreSummary {
         Objects.requireNonNull(teamId, "team id is required");
-        Objects.requireNonNull(aggregation, "attempt aggregation is required");
-        runs = List.copyOf(runs);
+        Objects.requireNonNull(runs, "team runs are required");
     }
 
     public Points totalPoints() {
-        return aggregation.aggregate(runs);
+        return runs.aggregatedPoints();
     }
 
     public Optional<Points> bestRunPoints() {
-        return runs.stream().map(ScoredRun::total).max(Comparator.naturalOrder());
+        return runs.bestRunPoints();
     }
 
     public Points penaltyPoints() {
-        return runs.stream()
-                .map(run -> run.breakdown().totalOf(ContributionKind.PENALTY))
-                .reduce(Points.ZERO, Points::plus);
+        return runs.penaltyPoints();
     }
 
     public Optional<MetricValue> lowestMeasurement(MetricKey key) {
-        return runs.stream()
-                .map(run -> run.measurements().find(key))
-                .flatMap(Optional::stream)
-                .min(Comparator.comparing(MetricValue::amount));
+        return runs.lowestMeasurement(key);
     }
 }

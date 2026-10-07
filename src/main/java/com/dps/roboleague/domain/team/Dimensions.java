@@ -1,12 +1,12 @@
 package com.dps.roboleague.domain.team;
 
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.InvalidValueException;
 
 public record Dimensions(int lengthMm, int widthMm, int heightMm) {
 
     public Dimensions {
         if (lengthMm <= 0 || widthMm <= 0 || heightMm <= 0) {
-            throw new DomainException("dimensions must be positive");
+            throw new InvalidValueException("dimensions must be positive");
         }
     }
 

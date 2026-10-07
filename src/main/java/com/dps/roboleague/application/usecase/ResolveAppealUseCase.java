@@ -1,6 +1,5 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.application.NotFoundException;
 import com.dps.roboleague.application.port.in.ResolveAppeal;
 import com.dps.roboleague.application.port.out.AppealRepository;
 import com.dps.roboleague.application.port.out.AuditLog;
@@ -11,11 +10,14 @@ import com.dps.roboleague.domain.appeal.Appeal;
 import com.dps.roboleague.domain.appeal.AppealDecision;
 import com.dps.roboleague.domain.appeal.AppealStatus;
 import com.dps.roboleague.domain.audit.AuditAction;
+import com.dps.roboleague.domain.audit.AuditDetail;
 import com.dps.roboleague.domain.audit.AuditEvent;
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.result.ResultCorrection;
 import com.dps.roboleague.domain.result.RunResult;
 import com.dps.roboleague.domain.schedule.Round;
+import com.dps.roboleague.domain.shared.Actor;
+import com.dps.roboleague.domain.shared.NotFoundException;
 import java.time.Clock;
 import java.util.Map;
 import java.util.Optional;
@@ -58,8 +60,8 @@ public final class ResolveAppealUseCase implements ResolveAppeal {
 
         pending.ifPresent(correction -> apply(appeal, correction, command.actor()));
 
-        auditLog.record(new AuditEvent(clock.instant(), AuditAction.APPEAL_RESOLVED, appeal.id().value(),
-                command.actor(), Map.of("status", appeal.status().name(), "rationale", decision.rationale())));
+        auditLog.record(new AuditEvent(clock.instant(), AuditAction.APPEAL_RESOLVED, appeal.id(), command.actor(),
+                Map.of(AuditDetail.STATUS, appeal.status().name(), AuditDetail.RATIONALE, decision.rationale())));
         return appeal.status();
     }
 
@@ -73,22 +75,22 @@ public final class ResolveAppealUseCase implements ResolveAppeal {
                 .challenge(run.challengeId());
         challenge.validate(correction.measurements());
         challenge.validateIncidents(correction.incidents());
-        return new PendingCorrection(run, correction);
+        return new PendingCorrection(run, challenge, correction);
     }
 
-    private void apply(Appeal appeal, PendingCorrection pending, String actor) {
+    private void apply(Appeal appeal, PendingCorrection pending, Actor actor) {
         RunResult run = pending.run();
         String reason = "appeal " + appeal.id().value() + " accepted";
         run.applyCorrection(ResultCorrection.fromAppeal(appeal.id(), clock.instant(), actor, reason,
-                pending.correction().measurements(), pending.correction().incidents()));
+                pending.correction().measurements(), pending.correction().incidents()), pending.challenge());
         runResults.save(run);
 
-        auditLog.record(new AuditEvent(clock.instant(), AuditAction.RESULT_CORRECTED, run.id().value(), actor,
-                Map.of("original", run.originalMeasurements().values().toString(),
-                        "corrected", run.currentMeasurements().values().toString(),
-                        "reason", reason)));
+        auditLog.record(new AuditEvent(clock.instant(), AuditAction.RESULT_CORRECTED, run.id(), actor,
+                Map.of(AuditDetail.ORIGINAL, run.originalMeasurements().toString(),
+                        AuditDetail.CORRECTED, run.currentMeasurements().toString(),
+                        AuditDetail.REASON, reason)));
     }
 
-    private record PendingCorrection(RunResult run, Correction correction) {
+    private record PendingCorrection(RunResult run, ChallengeSpec challenge, Correction correction) {
     }
 }

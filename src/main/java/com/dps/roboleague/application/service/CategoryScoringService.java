@@ -1,17 +1,18 @@
 package com.dps.roboleague.application.service;
 
-import com.dps.roboleague.application.NotFoundException;
 import com.dps.roboleague.application.port.out.RoundRepository;
 import com.dps.roboleague.application.port.out.RulebookRepository;
 import com.dps.roboleague.application.port.out.RunResultRepository;
 import com.dps.roboleague.domain.ranking.AttemptAggregation;
 import com.dps.roboleague.domain.ranking.ScoredRun;
+import com.dps.roboleague.domain.ranking.TeamRuns;
 import com.dps.roboleague.domain.ranking.TeamScoreSummary;
 import com.dps.roboleague.domain.result.RunResult;
 import com.dps.roboleague.domain.rulebook.Rulebook;
 import com.dps.roboleague.domain.schedule.Round;
 import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.CompetitionId;
+import com.dps.roboleague.domain.shared.NotFoundException;
 import com.dps.roboleague.domain.shared.TeamId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -41,7 +42,7 @@ public final class CategoryScoringService {
             }
         }
         return runsByTeam.entrySet().stream()
-                .map(entry -> new TeamScoreSummary(entry.getKey(), entry.getValue(), aggregation))
+                .map(entry -> new TeamScoreSummary(entry.getKey(), new TeamRuns(entry.getValue(), aggregation)))
                 .toList();
     }
 

@@ -2,23 +2,24 @@ package com.dps.roboleague.domain.eligibility.rule;
 
 import com.dps.roboleague.domain.eligibility.EligibilityRequest;
 import com.dps.roboleague.domain.eligibility.EligibilityRule;
+import com.dps.roboleague.domain.eligibility.EligibilityRuleCode;
 import com.dps.roboleague.domain.eligibility.EligibilityViolation;
 import com.dps.roboleague.domain.team.Dimensions;
 import com.dps.roboleague.domain.team.Robot;
-import java.math.BigDecimal;
+import com.dps.roboleague.domain.team.Weight;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 public final class RobotSpecificationRule implements EligibilityRule {
 
-    public static final String CODE = "ROBOT_SPECIFICATION";
+    public static final EligibilityRuleCode CODE = EligibilityRuleCode.of("ROBOT_SPECIFICATION");
 
-    private final BigDecimal maximumWeightKg;
+    private final Weight maximumWeight;
     private final Dimensions maximumDimensions;
 
-    public RobotSpecificationRule(BigDecimal maximumWeightKg, Dimensions maximumDimensions) {
-        this.maximumWeightKg = Objects.requireNonNull(maximumWeightKg, "maximum weight is required");
+    public RobotSpecificationRule(Weight maximumWeight, Dimensions maximumDimensions) {
+        this.maximumWeight = Objects.requireNonNull(maximumWeight, "maximum weight is required");
         this.maximumDimensions = Objects.requireNonNull(maximumDimensions, "maximum dimensions are required");
     }
 
@@ -26,9 +27,9 @@ public final class RobotSpecificationRule implements EligibilityRule {
     public List<EligibilityViolation> evaluate(EligibilityRequest request) {
         List<EligibilityViolation> violations = new ArrayList<>();
         Robot robot = request.registration().robot();
-        if (robot.weightKg().compareTo(maximumWeightKg) > 0) {
-            violations.add(new EligibilityViolation(CODE, "robot weighs %s kg and the limit is %s kg"
-                    .formatted(robot.weightKg().toPlainString(), maximumWeightKg.toPlainString())));
+        if (robot.weight().exceeds(maximumWeight)) {
+            violations.add(new EligibilityViolation(CODE, "robot weighs %s and the limit is %s"
+                    .formatted(robot.weight(), maximumWeight)));
         }
         if (!robot.dimensions().fitsWithin(maximumDimensions)) {
             violations.add(new EligibilityViolation(CODE, "robot exceeds the allowed dimensions"));

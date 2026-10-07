@@ -1,8 +1,8 @@
 package com.dps.roboleague.domain.schedule;
 
 import com.dps.roboleague.domain.shared.ArenaId;
-import com.dps.roboleague.domain.shared.DomainException;
 import com.dps.roboleague.domain.shared.HeatId;
+import com.dps.roboleague.domain.shared.InvalidValueException;
 import com.dps.roboleague.domain.shared.JudgeId;
 import com.dps.roboleague.domain.shared.RoundId;
 import com.dps.roboleague.domain.shared.TeamId;
@@ -19,7 +19,7 @@ public record Heat(HeatId id, RoundId roundId, TeamId teamId, ArenaId arenaId, T
         Objects.requireNonNull(slot, "time slot is required");
         judges = Set.copyOf(judges);
         if (judges.isEmpty()) {
-            throw new DomainException("heat " + id.value() + " requires at least one judge");
+            throw new InvalidValueException("heat " + id.value() + " requires at least one judge");
         }
     }
 

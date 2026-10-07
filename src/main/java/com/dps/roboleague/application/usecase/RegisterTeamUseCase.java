@@ -1,6 +1,5 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.application.NotFoundException;
 import com.dps.roboleague.application.port.in.RegisterTeam;
 import com.dps.roboleague.application.port.out.AuditLog;
 import com.dps.roboleague.application.port.out.CompetitionRepository;
@@ -8,6 +7,7 @@ import com.dps.roboleague.application.port.out.IdGenerator;
 import com.dps.roboleague.application.port.out.RulebookRepository;
 import com.dps.roboleague.application.port.out.TeamRegistrationRepository;
 import com.dps.roboleague.domain.audit.AuditAction;
+import com.dps.roboleague.domain.audit.AuditDetail;
 import com.dps.roboleague.domain.audit.AuditEvent;
 import com.dps.roboleague.domain.competition.Category;
 import com.dps.roboleague.domain.competition.Competition;
@@ -15,6 +15,10 @@ import com.dps.roboleague.domain.eligibility.EligibilityRequest;
 import com.dps.roboleague.domain.eligibility.EligibilityVerdict;
 import com.dps.roboleague.domain.rulebook.Rulebook;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
+import com.dps.roboleague.domain.shared.Actor;
+import com.dps.roboleague.domain.shared.NotFoundException;
+import com.dps.roboleague.domain.team.Member;
+import com.dps.roboleague.domain.team.TeamMembers;
 import com.dps.roboleague.domain.team.TeamRegistration;
 import java.time.Clock;
 import java.util.Map;
@@ -48,25 +52,27 @@ public final class RegisterTeamUseCase implements RegisterTeam {
                 .orElseThrow(() -> NotFoundException.of("Rulebook", version.toString()));
 
         TeamRegistration registration = new TeamRegistration(idGenerator.nextTeamId(), competition.id(),
-                category.id(), command.teamName(), command.members(), command.robot(), command.documents());
+                category.id(), command.teamName(), membersOf(command), command.robot(), command.documents());
 
         EligibilityVerdict verdict = rulebook.eligibilityPolicy()
                 .verdictFor(new EligibilityRequest(registration, category, competition.period().start()));
-        if (verdict.isEligible()) {
-            registration.accept();
-        } else {
-            registration.reject(verdict.reasons());
-        }
+        registration.resolveWith(verdict);
         registrations.save(registration);
         auditLog.record(auditEventFor(registration, verdict, version, command.actor()));
         return new Outcome(registration.id(), registration.status(), verdict);
     }
 
+    private TeamMembers membersOf(Command command) {
+        return new TeamMembers(command.members().stream()
+                .map(draft -> new Member(idGenerator.nextMemberId(), draft.fullName(), draft.birthDate(), draft.role()))
+                .toList());
+    }
+
     private AuditEvent auditEventFor(TeamRegistration registration, EligibilityVerdict verdict,
-            RulebookVersion version, String actor) {
-        AuditAction action = verdict.isEligible() ? AuditAction.TEAM_REGISTERED : AuditAction.TEAM_REJECTED;
-        Map<String, String> details = Map.of("rulebook", version.toString(),
-                "violations", String.join(" | ", verdict.reasons()));
-        return new AuditEvent(clock.instant(), action, registration.id().value(), actor, details);
+            RulebookVersion version, Actor actor) {
+        AuditAction action = registration.isAccepted() ? AuditAction.TEAM_REGISTERED : AuditAction.TEAM_REJECTED;
+        Map<AuditDetail, String> details = Map.of(AuditDetail.RULEBOOK, version.toString(),
+                AuditDetail.VIOLATIONS, String.join(" | ", verdict.reasons()));
+        return new AuditEvent(clock.instant(), action, registration.id(), actor, details);
     }
 }

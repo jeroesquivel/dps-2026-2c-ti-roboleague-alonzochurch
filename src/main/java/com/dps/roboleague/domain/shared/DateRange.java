@@ -9,7 +9,7 @@ public record DateRange(LocalDate start, LocalDate end) {
         Objects.requireNonNull(start, "start date is required");
         Objects.requireNonNull(end, "end date is required");
         if (end.isBefore(start)) {
-            throw new DomainException("end date " + end + " cannot be before start date " + start);
+            throw new InvalidValueException("end date " + end + " cannot be before start date " + start);
         }
     }
 

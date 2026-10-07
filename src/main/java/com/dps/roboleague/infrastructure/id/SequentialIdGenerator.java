@@ -5,6 +5,7 @@ import com.dps.roboleague.domain.shared.AppealId;
 import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.CompetitionId;
 import com.dps.roboleague.domain.shared.HeatId;
+import com.dps.roboleague.domain.shared.MemberId;
 import com.dps.roboleague.domain.shared.RoundId;
 import com.dps.roboleague.domain.shared.RunId;
 import com.dps.roboleague.domain.shared.SeasonId;
@@ -55,6 +56,11 @@ public final class SequentialIdGenerator implements IdGenerator {
     @Override
     public AppealId nextAppealId() {
         return AppealId.of(next("APPEAL"));
+    }
+
+    @Override
+    public MemberId nextMemberId() {
+        return MemberId.of(next("MEMBER"));
     }
 
     private String next(String prefix) {

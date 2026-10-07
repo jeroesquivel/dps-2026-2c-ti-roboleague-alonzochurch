@@ -1,11 +1,13 @@
 package com.dps.roboleague.domain.challenge;
 
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.NotFoundException;
 import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public record MeasurementSet(Map<MetricKey, MetricValue> values) {
 
@@ -32,10 +34,18 @@ public record MeasurementSet(Map<MetricKey, MetricValue> values) {
     }
 
     public MetricValue require(MetricKey key) {
-        return find(key).orElseThrow(() -> new DomainException("missing measurement for metric " + key.value()));
+        return find(key).orElseThrow(() -> new NotFoundException("missing measurement for metric " + key.value()));
     }
 
     public Set<MetricKey> keys() {
         return values.keySet();
+    }
+
+    @Override
+    public String toString() {
+        return values.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey(Comparator.comparing(MetricKey::value)))
+                .map(entry -> entry.getKey().value() + "=" + entry.getValue())
+                .collect(Collectors.joining(", ", "{", "}"));
     }
 }

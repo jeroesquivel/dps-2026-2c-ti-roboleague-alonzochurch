@@ -1,9 +1,9 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.application.NotFoundException;
 import com.dps.roboleague.application.port.in.FindRunResult;
 import com.dps.roboleague.application.port.out.RunResultRepository;
 import com.dps.roboleague.domain.result.RunResult;
+import com.dps.roboleague.domain.shared.NotFoundException;
 import com.dps.roboleague.domain.shared.RunId;
 
 public final class FindRunResultUseCase implements FindRunResult {

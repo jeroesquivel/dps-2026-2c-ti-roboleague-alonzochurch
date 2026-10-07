@@ -3,8 +3,11 @@ package com.dps.roboleague.domain.competition;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.CompetitionId;
+import com.dps.roboleague.domain.shared.ConflictException;
 import com.dps.roboleague.domain.shared.DateRange;
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.InvalidValueException;
+import com.dps.roboleague.domain.shared.NotFoundException;
+import com.dps.roboleague.domain.shared.RuleViolationException;
 import com.dps.roboleague.domain.shared.SeasonId;
 import java.time.LocalDate;
 import java.util.Collection;
@@ -28,16 +31,16 @@ public final class Competition {
         this.seasonId = Objects.requireNonNull(seasonId, "season id is required");
         this.period = Objects.requireNonNull(period, "competition period is required");
         if (name == null || name.isBlank()) {
-            throw new DomainException("competition requires a name");
+            throw new InvalidValueException("competition requires a name");
         }
         this.name = name;
         categories.forEach(this::addCategory);
     }
 
-    public void addCategory(Category category) {
+    private void addCategory(Category category) {
         Objects.requireNonNull(category, "category is required");
         if (categories.containsKey(category.id())) {
-            throw new DomainException("category " + category.id().value() + " is already registered");
+            throw new InvalidValueException("category " + category.id().value() + " is declared twice");
         }
         categories.put(category.id(), category);
     }
@@ -45,7 +48,7 @@ public final class Competition {
     public Category category(CategoryId categoryId) {
         Category category = categories.get(categoryId);
         if (category == null) {
-            throw new DomainException("category " + categoryId.value() + " does not belong to competition " + name);
+            throw new NotFoundException("category " + categoryId.value() + " does not belong to competition " + name);
         }
         return category;
     }
@@ -53,7 +56,7 @@ public final class Competition {
     public void requireDateWithinPeriod(LocalDate date) {
         Objects.requireNonNull(date, "date is required");
         if (!period.contains(date)) {
-            throw new DomainException(
+            throw new RuleViolationException(
                     "date " + date + " is outside the period of competition " + name);
         }
     }
@@ -61,14 +64,14 @@ public final class Competition {
     public void activateRulebook(RulebookVersion version) {
         Objects.requireNonNull(version, "rulebook version is required");
         if (activeRulebookVersion != null && !version.isNewerThan(activeRulebookVersion)) {
-            throw new DomainException("rulebook version " + version + " does not supersede " + activeRulebookVersion);
+            throw new ConflictException("rulebook version " + version + " does not supersede " + activeRulebookVersion);
         }
         this.activeRulebookVersion = version;
     }
 
     public RulebookVersion requireActiveRulebookVersion() {
         return activeRulebookVersion().orElseThrow(
-                () -> new DomainException("competition " + name + " has no published rulebook"));
+                () -> new ConflictException("competition " + name + " has no published rulebook"));
     }
 
     public Optional<RulebookVersion> activeRulebookVersion() {

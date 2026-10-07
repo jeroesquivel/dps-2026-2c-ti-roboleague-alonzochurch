@@ -1,5 +1,6 @@
 package com.dps.roboleague.domain.scoring.rule;
 
+import com.dps.roboleague.domain.challenge.MetricKey;
 import com.dps.roboleague.domain.scoring.IncidentReport;
 import com.dps.roboleague.domain.scoring.PenaltyCode;
 import com.dps.roboleague.domain.scoring.PenaltyDefinition;
@@ -7,11 +8,13 @@ import com.dps.roboleague.domain.scoring.ScoreContribution;
 import com.dps.roboleague.domain.scoring.ScoringContext;
 import com.dps.roboleague.domain.scoring.ScoringRule;
 import com.dps.roboleague.domain.scoring.ScoringRuleCode;
+import com.dps.roboleague.domain.shared.InvalidValueException;
 import com.dps.roboleague.domain.shared.Points;
 import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -25,7 +28,9 @@ public record PenaltyScoringRule(Map<PenaltyCode, PenaltyDefinition> catalog) im
 
     public static PenaltyScoringRule of(Collection<PenaltyDefinition> definitions) {
         return new PenaltyScoringRule(definitions.stream()
-                .collect(Collectors.toUnmodifiableMap(PenaltyDefinition::code, Function.identity())));
+                .collect(Collectors.toMap(PenaltyDefinition::code, Function.identity(), (first, repeated) -> {
+                    throw new InvalidValueException("penalty " + repeated.code().value() + " is defined twice");
+                })));
     }
 
     @Override
@@ -34,6 +39,11 @@ public record PenaltyScoringRule(Map<PenaltyCode, PenaltyDefinition> catalog) im
             return List.of(ScoreContribution.penalty(CODE, "no incidents reported", Points.ZERO));
         }
         return context.incidents().stream().map(this::contributionFor).toList();
+    }
+
+    @Override
+    public Set<MetricKey> referencedMetrics() {
+        return Set.of();
     }
 
     private ScoreContribution contributionFor(IncidentReport incident) {

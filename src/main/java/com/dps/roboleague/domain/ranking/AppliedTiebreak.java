@@ -1,12 +1,12 @@
 package com.dps.roboleague.domain.ranking;
 
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.InvalidValueException;
 
 public record AppliedTiebreak(String code, String description) {
 
     public AppliedTiebreak {
         if (code == null || code.isBlank() || description == null || description.isBlank()) {
-            throw new DomainException("an applied tiebreak requires a code and a description");
+            throw new InvalidValueException("an applied tiebreak requires a code and a description");
         }
     }
 

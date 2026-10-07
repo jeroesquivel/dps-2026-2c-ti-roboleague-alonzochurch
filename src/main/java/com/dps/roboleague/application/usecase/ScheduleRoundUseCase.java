@@ -1,6 +1,5 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.application.NotFoundException;
 import com.dps.roboleague.application.port.in.ScheduleRound;
 import com.dps.roboleague.application.port.out.AuditLog;
 import com.dps.roboleague.application.port.out.CompetitionRepository;
@@ -9,6 +8,7 @@ import com.dps.roboleague.application.port.out.RoundRepository;
 import com.dps.roboleague.application.port.out.RulebookRepository;
 import com.dps.roboleague.application.port.out.TeamRegistrationRepository;
 import com.dps.roboleague.domain.audit.AuditAction;
+import com.dps.roboleague.domain.audit.AuditDetail;
 import com.dps.roboleague.domain.audit.AuditEvent;
 import com.dps.roboleague.domain.competition.Competition;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
@@ -16,14 +16,15 @@ import com.dps.roboleague.domain.schedule.Heat;
 import com.dps.roboleague.domain.schedule.Round;
 import com.dps.roboleague.domain.schedule.ScheduleConflict;
 import com.dps.roboleague.domain.schedule.ScheduleConflictDetector;
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.schedule.ScheduleConflictException;
+import com.dps.roboleague.domain.shared.NotFoundException;
 import com.dps.roboleague.domain.shared.RoundId;
+import com.dps.roboleague.domain.shared.RuleViolationException;
 import com.dps.roboleague.domain.team.TeamRegistration;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public final class ScheduleRoundUseCase implements ScheduleRound {
 
@@ -71,21 +72,22 @@ public final class ScheduleRoundUseCase implements ScheduleRound {
                     draft.judges());
             List<ScheduleConflict> conflicts = conflictDetector.detect(booked, heat);
             if (!conflicts.isEmpty()) {
-                throw new DomainException("the heat cannot be scheduled: " + describe(conflicts));
+                throw new ScheduleConflictException(conflicts);
             }
             round.schedule(heat);
             booked.add(heat);
         }
 
         rounds.save(round);
-        auditLog.record(new AuditEvent(clock.instant(), AuditAction.ROUND_SCHEDULED, roundId.value(), command.actor(),
-                Map.of("heats", String.valueOf(round.heats().size()), "rulebook", version.toString())));
+        auditLog.record(new AuditEvent(clock.instant(), AuditAction.ROUND_SCHEDULED, roundId, command.actor(),
+                Map.of(AuditDetail.HEATS, String.valueOf(round.heats().entries().size()),
+                        AuditDetail.RULEBOOK, version.toString())));
         return roundId;
     }
 
     private List<Heat> bookedHeats(Competition competition) {
         return rounds.findByCompetition(competition.id()).stream()
-                .flatMap(scheduled -> scheduled.heats().stream())
+                .flatMap(scheduled -> scheduled.heats().entries().stream())
                 .toList();
     }
 
@@ -93,21 +95,15 @@ public final class ScheduleRoundUseCase implements ScheduleRound {
         TeamRegistration registration = registrations.findById(draft.teamId())
                 .orElseThrow(() -> NotFoundException.of("TeamRegistration", draft.teamId().value()));
         if (!registration.isAccepted()) {
-            throw new DomainException("team " + registration.name() + " is not accepted in the competition");
+            throw new RuleViolationException("team " + registration.name() + " is not accepted in the competition");
         }
         if (!registration.categoryId().equals(command.categoryId())) {
-            throw new DomainException("team " + registration.name() + " does not compete in the scheduled category");
+            throw new RuleViolationException("team " + registration.name() + " does not compete in the scheduled category");
         }
     }
 
     private void requireSlotWithinCompetition(Competition competition, HeatDraft draft) {
         competition.requireDateWithinPeriod(draft.slot().start().toLocalDate());
         competition.requireDateWithinPeriod(draft.slot().end().toLocalDate());
-    }
-
-    private String describe(List<ScheduleConflict> conflicts) {
-        return conflicts.stream()
-                .map(conflict -> conflict.type() + " (" + conflict.detail() + ")")
-                .collect(Collectors.joining(", "));
     }
 }

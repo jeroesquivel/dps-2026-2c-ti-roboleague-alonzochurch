@@ -12,15 +12,20 @@ import com.dps.roboleague.application.port.in.RegisterTeam;
 import com.dps.roboleague.application.port.in.ResolveAppeal;
 import com.dps.roboleague.application.port.in.ScheduleRound;
 import com.dps.roboleague.application.port.in.SubmitAppeal;
+import com.dps.roboleague.domain.challenge.AttemptNumber;
 import com.dps.roboleague.domain.challenge.MeasurementSet;
 import com.dps.roboleague.domain.challenge.MetricValue;
 import com.dps.roboleague.domain.competition.RobotClass;
 import com.dps.roboleague.domain.ranking.AppliedTiebreak;
 import com.dps.roboleague.domain.ranking.StandingEntry;
 import com.dps.roboleague.domain.ranking.Standings;
+import com.dps.roboleague.domain.schedule.RoundOrdinal;
+import com.dps.roboleague.domain.schedule.TimeSlot;
 import com.dps.roboleague.domain.scoring.IncidentReport;
 import com.dps.roboleague.domain.scoring.JudgeEvaluation;
-import com.dps.roboleague.domain.schedule.TimeSlot;
+import com.dps.roboleague.domain.scoring.JudgeEvaluations;
+import com.dps.roboleague.domain.scoring.JudgeScore;
+import com.dps.roboleague.domain.shared.Actor;
 import com.dps.roboleague.domain.shared.AgeRange;
 import com.dps.roboleague.domain.shared.AppealId;
 import com.dps.roboleague.domain.shared.ArenaId;
@@ -28,19 +33,17 @@ import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.CompetitionId;
 import com.dps.roboleague.domain.shared.DateRange;
 import com.dps.roboleague.domain.shared.JudgeId;
-import com.dps.roboleague.domain.shared.Points;
 import com.dps.roboleague.domain.shared.RoundId;
 import com.dps.roboleague.domain.shared.RunId;
 import com.dps.roboleague.domain.shared.SeasonId;
 import com.dps.roboleague.domain.shared.TeamId;
 import com.dps.roboleague.domain.team.Dimensions;
 import com.dps.roboleague.domain.team.DocumentType;
-import com.dps.roboleague.domain.team.Member;
 import com.dps.roboleague.domain.team.MemberRole;
 import com.dps.roboleague.domain.team.Robot;
 import com.dps.roboleague.domain.team.TeamDocument;
+import com.dps.roboleague.domain.team.Weight;
 import com.dps.roboleague.infrastructure.config.RoboLeagueCompositionRoot;
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -52,7 +55,9 @@ import java.util.stream.IntStream;
 
 public final class DemoScenario {
 
-    private static final String ORGANISER = "organiser";
+    private static final Actor ORGANISER = Actor.of("organiser");
+    private static final Actor SCOREKEEPER = Actor.of("scorekeeper");
+    private static final Actor HEAD_JUDGE = Actor.of("head-judge");
     private static final RobotClass RESCUE_BOT = RobotClass.of("RESCUE_BOT");
 
     private final RoboLeagueCompositionRoot module;
@@ -78,7 +83,7 @@ public final class DemoScenario {
         TeamId delta = register(competitionId, categoryId, "Delta Bots");
         TeamId omega = register(competitionId, categoryId, "Omega Crew");
         RoundId roundId = module.scheduleRoundUseCase().execute(new ScheduleRound.Command(competitionId, categoryId,
-                DemoRulebook.CHALLENGE_ID, 1,
+                DemoRulebook.CHALLENGE_ID, RoundOrdinal.of(1),
                 List.of(heat(delta, "A1", LocalDateTime.of(2026, 3, 2, 10, 0)),
                         heat(omega, "A1", LocalDateTime.of(2026, 3, 2, 10, 20))),
                 ORGANISER));
@@ -94,15 +99,15 @@ public final class DemoScenario {
         acceptAppeal(deltaRun, delta);
         printStandings("Standings after the accepted appeal",
                 module.recalculateStandingsUseCase().execute(new RecalculateStandings.Command(competitionId, categoryId,
-                        "objective granted on appeal", "head-judge")));
+                        "objective granted on appeal", HEAD_JUDGE)));
     }
 
     private TeamId register(CompetitionId competitionId, CategoryId categoryId, String teamName) {
-        List<Member> members = List.of(
-                new Member(teamName + " captain", LocalDate.of(2010, 5, 20), MemberRole.COMPETITOR),
-                new Member(teamName + " pilot", LocalDate.of(2011, 8, 3), MemberRole.COMPETITOR),
-                new Member(teamName + " coach", LocalDate.of(1988, 2, 10), MemberRole.COACH));
-        Robot robot = new Robot(teamName + " bot", RESCUE_BOT, new BigDecimal("2.400"),
+        List<RegisterTeam.MemberDraft> members = List.of(
+                new RegisterTeam.MemberDraft(teamName + " captain", LocalDate.of(2010, 5, 20), MemberRole.COMPETITOR),
+                new RegisterTeam.MemberDraft(teamName + " pilot", LocalDate.of(2011, 8, 3), MemberRole.COMPETITOR),
+                new RegisterTeam.MemberDraft(teamName + " coach", LocalDate.of(1988, 2, 10), MemberRole.COACH));
+        Robot robot = new Robot(teamName + " bot", RESCUE_BOT, Weight.ofKilograms("2.400"),
                 new Dimensions(180, 180, 150));
         List<TeamDocument> documents = List.of(
                 new TeamDocument(DocumentType.PARENTAL_CONSENT, "PC-" + teamName),
@@ -120,12 +125,13 @@ public final class DemoScenario {
 
     private RunId capture(RoundId roundId, TeamId teamId, String seconds, int objectives, String energy,
             List<Integer> judgeScores, List<IncidentReport> incidents) {
-        List<JudgeEvaluation> evaluations = IntStream.range(0, judgeScores.size())
+        JudgeEvaluations evaluations = new JudgeEvaluations(IntStream.range(0, judgeScores.size())
                 .mapToObj(index -> new JudgeEvaluation(JudgeId.of("J" + (index + 1)), DemoRulebook.DESIGN,
-                        Points.of(judgeScores.get(index).longValue())))
-                .toList();
-        return module.captureRunResultUseCase().execute(new CaptureRunResult.Command(roundId, teamId, 1,
-                measurements(seconds, objectives, energy), evaluations, incidents, "scorekeeper"));
+                        JudgeScore.of(judgeScores.get(index).longValue())))
+                .toList());
+        return module.captureRunResultUseCase().execute(new CaptureRunResult.Command(roundId, teamId,
+                AttemptNumber.first(), measurements(seconds, objectives, energy), evaluations, incidents,
+                SCOREKEEPER));
     }
 
     private MeasurementSet measurements(String seconds, int objectives, String energy) {
@@ -137,10 +143,10 @@ public final class DemoScenario {
 
     private void acceptAppeal(RunId runId, TeamId teamId) {
         AppealId appealId = module.submitAppealUseCase().execute(new SubmitAppeal.Command(runId, teamId,
-                "the fourth objective was completed before the buzzer", "delta-captain"));
-        module.resolveAppealUseCase().execute(new ResolveAppeal.Command(appealId, true, "head-judge",
+                "the fourth objective was completed before the buzzer", Actor.of("delta-captain")));
+        module.resolveAppealUseCase().execute(new ResolveAppeal.Command(appealId, true, HEAD_JUDGE,
                 "the video review confirms the objective",
-                Optional.of(new ResolveAppeal.Correction(measurements("95.5", 5, "42"), List.of())), "head-judge"));
+                Optional.of(new ResolveAppeal.Correction(measurements("95.5", 5, "42"), List.of())), HEAD_JUDGE));
     }
 
     private void printScore(CalculateRunScore.RunScore score) {

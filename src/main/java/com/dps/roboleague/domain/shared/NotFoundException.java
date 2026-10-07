@@ -1,6 +1,6 @@
-package com.dps.roboleague.application;
+package com.dps.roboleague.domain.shared;
 
-public class NotFoundException extends RuntimeException {
+public class NotFoundException extends DomainException {
 
     public NotFoundException(String message) {
         super(message);

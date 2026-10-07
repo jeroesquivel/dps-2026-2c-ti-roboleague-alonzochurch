@@ -2,6 +2,7 @@ package com.dps.roboleague.domain.scoring;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.dps.roboleague.domain.challenge.MeasurementSet;
@@ -14,11 +15,12 @@ import com.dps.roboleague.domain.scoring.rule.PrecisionScoringRule;
 import com.dps.roboleague.domain.scoring.rule.ResourceScoringRule;
 import com.dps.roboleague.domain.scoring.rule.ThresholdBonusRule;
 import com.dps.roboleague.domain.scoring.rule.TimeScoringRule;
+import com.dps.roboleague.domain.shared.InvalidValueException;
 import com.dps.roboleague.domain.shared.JudgeId;
 import com.dps.roboleague.domain.shared.Points;
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -35,42 +37,42 @@ class ScoringRulesTest {
 
     @Test
     void timeRuleRewardsEverySecondSavedAgainstTheReference() {
-        TimeScoringRule rule = new TimeScoringRule(TIME, Duration.ofSeconds(120), Points.of("0.50"), Points.of(30));
+        TimeScoringRule rule = new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsAmount.of(30));
 
         assertEquals(Points.of("12.25"), rule.breakdownFor(measured(TIME, "95.5")).total());
     }
 
     @Test
     void timeRuleGivesNoPointsWhenTheReferenceIsExceeded() {
-        TimeScoringRule rule = new TimeScoringRule(TIME, Duration.ofSeconds(120), Points.of("0.50"), Points.of(30));
+        TimeScoringRule rule = new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsAmount.of(30));
 
         assertEquals(Points.ZERO, rule.breakdownFor(measured(TIME, "130")).total());
     }
 
     @Test
     void timeRuleNeverExceedsItsMaximum() {
-        TimeScoringRule rule = new TimeScoringRule(TIME, Duration.ofSeconds(120), Points.of("0.50"), Points.of(10));
+        TimeScoringRule rule = new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsAmount.of(10));
 
         assertEquals(Points.of(10), rule.breakdownFor(measured(TIME, "10")).total());
     }
 
     @Test
     void objectiveRuleIgnoresObjectivesReportedAboveTheMaximum() {
-        ObjectiveScoringRule rule = new ObjectiveScoringRule(OBJECTIVES, Points.of(10), 5);
+        ObjectiveScoringRule rule = new ObjectiveScoringRule(OBJECTIVES, PointsRate.of(10), 5);
 
         assertEquals(Points.of(50), rule.breakdownFor(measured(OBJECTIVES, "7")).total());
     }
 
     @Test
     void precisionRuleScalesTheMaximumByTheAchievedRatio() {
-        PrecisionScoringRule rule = new PrecisionScoringRule(PRECISION, Points.of(20));
+        PrecisionScoringRule rule = new PrecisionScoringRule(PRECISION, PointsAmount.of(20));
 
         assertEquals(Points.of("15.00"), rule.breakdownFor(measured(PRECISION, "0.75")).total());
     }
 
     @Test
     void resourceRuleOnlyDeductsTheConsumptionAboveTheAllowance() {
-        ResourceScoringRule rule = new ResourceScoringRule(ENERGY, new BigDecimal("50"), Points.of(1));
+        ResourceScoringRule rule = new ResourceScoringRule(ENERGY, MetricValue.of(50), PointsRate.of(1));
 
         assertEquals(Points.ZERO, rule.breakdownFor(measured(ENERGY, "42")).total());
         assertEquals(Points.of(-5), rule.breakdownFor(measured(ENERGY, "55")).total());
@@ -78,9 +80,9 @@ class ScoringRulesTest {
 
     @Test
     void judgePanelRuleAveragesTheEvaluationsOfItsCriterion() {
-        JudgePanelScoringRule rule = new JudgePanelScoringRule(DESIGN, new BigDecimal("2"));
+        JudgePanelScoringRule rule = new JudgePanelScoringRule(DESIGN, PointsRate.of(2));
         ScoringContext context = new ScoringContext(MeasurementSet.empty(),
-                List.of(evaluation("J1", 8), evaluation("J2", 9), evaluation("J3", 7)), List.of());
+                JudgeEvaluations.of(evaluation("J1", 8), evaluation("J2", 9), evaluation("J3", 7)), List.of());
 
         assertEquals(Points.of(16), rule.breakdownFor(context).total());
     }
@@ -88,8 +90,8 @@ class ScoringRulesTest {
     @Test
     void penaltyRuleDeductsOnceForEachOccurrence() {
         PenaltyScoringRule rule = PenaltyScoringRule.of(
-                List.of(new PenaltyDefinition(RESTART, "manual restart", Points.of(3))));
-        ScoringContext context = new ScoringContext(MeasurementSet.empty(), List.of(),
+                List.of(new PenaltyDefinition(RESTART, "manual restart", PointsAmount.of(3))));
+        ScoringContext context = new ScoringContext(MeasurementSet.empty(), JudgeEvaluations.none(),
                 List.of(new IncidentReport(RESTART, 2)));
 
         assertEquals(Points.of(-6), rule.breakdownFor(context).total());
@@ -98,7 +100,7 @@ class ScoringRulesTest {
     @Test
     void bonusRuleIsGrantedOnlyWhenTheThresholdIsReached() {
         ThresholdBonusRule rule = new ThresholdBonusRule(OBJECTIVES, ThresholdBonusRule.Comparison.AT_LEAST,
-                new BigDecimal("5"), Points.of(15));
+                MetricValue.of(5), PointsAmount.of(15));
 
         assertEquals(Points.of(15), rule.breakdownFor(measured(OBJECTIVES, "5")).total());
         assertEquals(Points.ZERO, rule.breakdownFor(measured(OBJECTIVES, "4")).total());
@@ -106,14 +108,14 @@ class ScoringRulesTest {
 
     static Stream<ScoringRule> everyRule() {
         return Stream.of(
-                new TimeScoringRule(TIME, Duration.ofSeconds(120), Points.of("0.50"), Points.of(30)),
-                new ObjectiveScoringRule(OBJECTIVES, Points.of(10), 5),
-                new PrecisionScoringRule(PRECISION, Points.of(20)),
-                new ResourceScoringRule(ENERGY, new BigDecimal("50"), Points.of(1)),
-                new JudgePanelScoringRule(DESIGN, BigDecimal.ONE),
-                new ThresholdBonusRule(OBJECTIVES, ThresholdBonusRule.Comparison.AT_LEAST, new BigDecimal("5"),
-                        Points.of(15)),
-                PenaltyScoringRule.of(List.of(new PenaltyDefinition(RESTART, "manual restart", Points.of(3)))));
+                new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsAmount.of(30)),
+                new ObjectiveScoringRule(OBJECTIVES, PointsRate.of(10), 5),
+                new PrecisionScoringRule(PRECISION, PointsAmount.of(20)),
+                new ResourceScoringRule(ENERGY, MetricValue.of(50), PointsRate.of(1)),
+                new JudgePanelScoringRule(DESIGN, PointsRate.of(1)),
+                new ThresholdBonusRule(OBJECTIVES, ThresholdBonusRule.Comparison.AT_LEAST, MetricValue.of(5),
+                        PointsAmount.of(15)),
+                PenaltyScoringRule.of(List.of(new PenaltyDefinition(RESTART, "manual restart", PointsAmount.of(3)))));
     }
 
     @ParameterizedTest
@@ -129,7 +131,7 @@ class ScoringRulesTest {
     @Test
     void anIncidentThatTheRulebookDoesNotDefineIsExplainedInsteadOfDeducted() {
         PenaltyScoringRule rule = PenaltyScoringRule.of(List.of());
-        ScoringContext context = new ScoringContext(MeasurementSet.empty(), List.of(),
+        ScoringContext context = new ScoringContext(MeasurementSet.empty(), JudgeEvaluations.none(),
                 List.of(IncidentReport.once(RESTART)));
 
         ScoreBreakdown breakdown = rule.breakdownFor(context);
@@ -138,11 +140,62 @@ class ScoringRulesTest {
         assertTrue(breakdown.contributions().getFirst().explanation().contains("is not defined"));
     }
 
+    @Test
+    void timeRuleRequiresAPositiveReference() {
+        assertThrows(InvalidValueException.class,
+                () -> new TimeScoringRule(TIME, Duration.ZERO, PointsRate.of("0.50"), PointsAmount.of(30)));
+        assertThrows(InvalidValueException.class,
+                () -> new TimeScoringRule(TIME, Duration.ofSeconds(-1), PointsRate.of("0.50"), PointsAmount.of(30)));
+    }
+
+    @Test
+    void aResourcePenaltyCannotBeConfiguredToAddPoints() {
+        assertThrows(InvalidValueException.class,
+                () -> new ResourceScoringRule(ENERGY, MetricValue.of(50), PointsRate.of(-10)));
+        assertThrows(InvalidValueException.class,
+                () -> new ResourceScoringRule(ENERGY, MetricValue.of("-1"), PointsRate.of(1)));
+    }
+
+    @Test
+    void weightsCapsAndBonusesCannotBeNegative() {
+        assertThrows(InvalidValueException.class, () -> new JudgePanelScoringRule(DESIGN, PointsRate.of(-1)));
+        assertThrows(InvalidValueException.class, () -> new PrecisionScoringRule(PRECISION, PointsAmount.of(-20)));
+        assertThrows(InvalidValueException.class, () -> new ThresholdBonusRule(OBJECTIVES,
+                ThresholdBonusRule.Comparison.AT_LEAST, MetricValue.of(5), PointsAmount.of(-15)));
+    }
+
+    @Test
+    void penaltyCatalogRejectsTheSameCodeTwice() {
+        List<PenaltyDefinition> repeated = List.of(new PenaltyDefinition(RESTART, "manual restart", PointsAmount.of(3)),
+                new PenaltyDefinition(RESTART, "restart", PointsAmount.of(5)));
+
+        assertThrows(InvalidValueException.class, () -> PenaltyScoringRule.of(repeated));
+    }
+
+    @Test
+    void everyRuleDeclaresTheMetricsItReads() {
+        assertEquals(List.of(Set.of(TIME), Set.of(OBJECTIVES), Set.of(PRECISION), Set.of(ENERGY), Set.of(DESIGN),
+                        Set.of(OBJECTIVES), Set.of()),
+                everyRule().map(ScoringRule::referencedMetrics).toList());
+    }
+
+    @Test
+    void penaltyContributionsNeverAddPoints() {
+        ScoringContext context = new ScoringContext(MeasurementSet.empty()
+                .with(TIME, MetricValue.of("200")).with(OBJECTIVES, MetricValue.of(0))
+                .with(PRECISION, MetricValue.of("0")).with(ENERGY, MetricValue.of("90")),
+                JudgeEvaluations.none(), List.of(new IncidentReport(RESTART, 3)));
+
+        assertTrue(everyRule().flatMap(rule -> rule.apply(context).stream())
+                .filter(contribution -> contribution.kind() == ContributionKind.PENALTY)
+                .noneMatch(contribution -> contribution.points().compareTo(Points.ZERO) > 0));
+    }
+
     private ScoringContext measured(MetricKey key, String amount) {
         return ScoringContext.of(MeasurementSet.empty().with(key, MetricValue.of(amount)));
     }
 
     private JudgeEvaluation evaluation(String judge, int score) {
-        return new JudgeEvaluation(JudgeId.of(judge), DESIGN, Points.of(score));
+        return new JudgeEvaluation(JudgeId.of(judge), DESIGN, JudgeScore.of(score));
     }
 }

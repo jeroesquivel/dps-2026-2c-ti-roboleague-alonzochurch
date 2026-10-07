@@ -7,8 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.dps.roboleague.application.port.in.RegisterTeam;
 import com.dps.roboleague.domain.audit.AuditAction;
+import com.dps.roboleague.domain.eligibility.EligibilityVerdict;
 import com.dps.roboleague.domain.eligibility.rule.AgeRangeRule;
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.ConflictException;
 import com.dps.roboleague.domain.team.RegistrationStatus;
 import com.dps.roboleague.domain.team.TeamRegistration;
 import com.dps.roboleague.support.TeamFixtures;
@@ -27,7 +28,7 @@ class RegisterTeamUseCaseTest {
 
         assertTrue(outcome.isAccepted());
         assertTrue(outcome.verdict().isEligible());
-        assertEquals(List.of(AuditAction.TEAM_REGISTERED), edition.auditActionsFor(outcome.teamId().value()));
+        assertEquals(List.of(AuditAction.TEAM_REGISTERED), edition.auditActionsFor(outcome.teamId()));
     }
 
     @Test
@@ -40,8 +41,8 @@ class RegisterTeamUseCaseTest {
         assertFalse(outcome.isAccepted());
         assertEquals(RegistrationStatus.REJECTED, stored.status());
         assertEquals(2, stored.rejectionReasons().size());
-        assertTrue(stored.rejectionReasons().getFirst().startsWith(AgeRangeRule.CODE));
-        assertEquals(List.of(AuditAction.TEAM_REJECTED), edition.auditActionsFor(outcome.teamId().value()));
+        assertEquals(AgeRangeRule.CODE, stored.rejectionReasons().getFirst().ruleCode());
+        assertEquals(List.of(AuditAction.TEAM_REJECTED), edition.auditActionsFor(outcome.teamId()));
     }
 
     @Test
@@ -50,7 +51,8 @@ class RegisterTeamUseCaseTest {
                 TeamFixtures.membersWithUnderageCompetitor(), TeamFixtures.eligibleRobot(),
                 TeamFixtures.completeDocuments()).teamId());
 
-        DomainException error = assertThrows(DomainException.class, rejected::accept);
+        ConflictException error = assertThrows(ConflictException.class,
+                () -> rejected.resolveWith(new EligibilityVerdict(List.of())));
 
         assertTrue(error.getMessage().contains("already resolved"));
         assertEquals(RegistrationStatus.REJECTED, rejected.status());

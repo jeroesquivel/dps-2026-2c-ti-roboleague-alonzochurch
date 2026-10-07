@@ -1,10 +1,10 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.application.NotFoundException;
 import com.dps.roboleague.application.port.in.FindAppeal;
 import com.dps.roboleague.application.port.out.AppealRepository;
 import com.dps.roboleague.domain.appeal.Appeal;
 import com.dps.roboleague.domain.shared.AppealId;
+import com.dps.roboleague.domain.shared.NotFoundException;
 
 public final class FindAppealUseCase implements FindAppeal {
 

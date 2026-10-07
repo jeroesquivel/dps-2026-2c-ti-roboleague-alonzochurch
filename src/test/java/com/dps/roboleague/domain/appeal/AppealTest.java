@@ -4,8 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.dps.roboleague.domain.shared.Actor;
 import com.dps.roboleague.domain.shared.AppealId;
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.ConflictException;
+import com.dps.roboleague.domain.shared.RuleViolationException;
 import com.dps.roboleague.domain.shared.RunId;
 import com.dps.roboleague.domain.shared.TeamId;
 import java.time.Instant;
@@ -13,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 class AppealTest {
 
+    private static final Actor HEAD_JUDGE = Actor.of("head-judge");
     private static final Instant SUBMITTED_AT = Instant.parse("2026-03-02T11:00:00Z");
 
     private final Appeal appeal = new Appeal(AppealId.of("APPEAL-1"), RunId.of("RUN-1"), TeamId.of("TEAM-1"),
@@ -36,18 +39,18 @@ class AppealTest {
     void cannotBeResolvedTwice() {
         appeal.reject(decision("the claim is not supported by the recordings"));
 
-        assertThrows(DomainException.class, () -> appeal.accept(decision("second thoughts")));
+        assertThrows(ConflictException.class, () -> appeal.accept(decision("second thoughts")));
         assertEquals(AppealStatus.REJECTED, appeal.status());
     }
 
     @Test
     void rejectsDecisionsThatPredateTheSubmission() {
-        AppealDecision early = new AppealDecision("head-judge", "too early", SUBMITTED_AT.minusSeconds(60));
+        AppealDecision early = new AppealDecision(HEAD_JUDGE, "too early", SUBMITTED_AT.minusSeconds(60));
 
-        assertThrows(DomainException.class, () -> appeal.accept(early));
+        assertThrows(RuleViolationException.class, () -> appeal.accept(early));
     }
 
     private AppealDecision decision(String rationale) {
-        return new AppealDecision("head-judge", rationale, SUBMITTED_AT.plusSeconds(1800));
+        return new AppealDecision(HEAD_JUDGE, rationale, SUBMITTED_AT.plusSeconds(1800));
     }
 }

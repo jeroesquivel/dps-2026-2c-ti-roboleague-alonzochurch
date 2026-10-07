@@ -1,15 +1,16 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.application.NotFoundException;
 import com.dps.roboleague.application.port.in.PublishRulebook;
 import com.dps.roboleague.application.port.out.AuditLog;
 import com.dps.roboleague.application.port.out.CompetitionRepository;
 import com.dps.roboleague.application.port.out.RulebookRepository;
 import com.dps.roboleague.domain.audit.AuditAction;
+import com.dps.roboleague.domain.audit.AuditDetail;
 import com.dps.roboleague.domain.audit.AuditEvent;
 import com.dps.roboleague.domain.competition.Competition;
 import com.dps.roboleague.domain.rulebook.Rulebook;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
+import com.dps.roboleague.domain.shared.NotFoundException;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Map;
@@ -44,8 +45,8 @@ public final class PublishRulebookUseCase implements PublishRulebook {
         competition.activateRulebook(version);
         competitions.save(competition);
 
-        auditLog.record(new AuditEvent(clock.instant(), AuditAction.RULEBOOK_PUBLISHED, competition.id().value(),
-                command.actor(), Map.of("version", version.toString())));
+        auditLog.record(new AuditEvent(clock.instant(), AuditAction.RULEBOOK_PUBLISHED, competition.id(),
+                command.actor(), Map.of(AuditDetail.VERSION, version.toString())));
         return version;
     }
 }

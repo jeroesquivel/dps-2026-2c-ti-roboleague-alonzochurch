@@ -1,6 +1,6 @@
 package com.dps.roboleague.domain.schedule;
 
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.InvalidValueException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -11,7 +11,7 @@ public record TimeSlot(LocalDateTime start, Duration duration) {
         Objects.requireNonNull(start, "start is required");
         Objects.requireNonNull(duration, "duration is required");
         if (duration.isZero() || duration.isNegative()) {
-            throw new DomainException("a time slot requires a positive duration");
+            throw new InvalidValueException("a time slot requires a positive duration");
         }
     }
 

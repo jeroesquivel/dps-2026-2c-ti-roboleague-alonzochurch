@@ -1,6 +1,6 @@
 package com.dps.roboleague.domain.scoring;
 
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.InvalidValueException;
 import java.util.Objects;
 
 public record IncidentReport(PenaltyCode code, int occurrences) {
@@ -8,7 +8,7 @@ public record IncidentReport(PenaltyCode code, int occurrences) {
     public IncidentReport {
         Objects.requireNonNull(code, "penalty code is required");
         if (occurrences < 1) {
-            throw new DomainException("an incident requires at least one occurrence");
+            throw new InvalidValueException("an incident requires at least one occurrence");
         }
     }
 

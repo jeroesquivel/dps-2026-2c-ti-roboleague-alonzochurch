@@ -6,7 +6,8 @@ import com.dps.roboleague.domain.ranking.AttemptAggregation;
 import com.dps.roboleague.domain.ranking.TiebreakRule;
 import com.dps.roboleague.domain.shared.ChallengeId;
 import com.dps.roboleague.domain.shared.CompetitionId;
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.InvalidValueException;
+import com.dps.roboleague.domain.shared.NotFoundException;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,7 +27,7 @@ public record Rulebook(CompetitionId competitionId, RulebookVersion version, Loc
         challenges = Map.copyOf(challenges);
         tiebreakRules = List.copyOf(tiebreakRules);
         if (challenges.isEmpty()) {
-            throw new DomainException("a rulebook requires at least one challenge");
+            throw new InvalidValueException("a rulebook requires at least one challenge");
         }
     }
 
@@ -35,7 +36,10 @@ public record Rulebook(CompetitionId competitionId, RulebookVersion version, Loc
             List<TiebreakRule> tiebreakRules) {
         Map<ChallengeId, ChallengeSpec> indexed = new LinkedHashMap<>();
         for (ChallengeSpec challenge : challenges) {
-            indexed.put(challenge.id(), challenge);
+            if (indexed.putIfAbsent(challenge.id(), challenge) != null) {
+                throw new InvalidValueException("challenge " + challenge.id().value()
+                        + " is defined twice in rulebook " + version);
+            }
         }
         return new Rulebook(competitionId, version, publishedOn, indexed, eligibilityPolicy, attemptAggregation,
                 tiebreakRules);
@@ -44,7 +48,7 @@ public record Rulebook(CompetitionId competitionId, RulebookVersion version, Loc
     public ChallengeSpec challenge(ChallengeId challengeId) {
         ChallengeSpec spec = challenges.get(challengeId);
         if (spec == null) {
-            throw new DomainException("challenge " + challengeId.value() + " is not defined in rulebook " + version);
+            throw new NotFoundException("challenge " + challengeId.value() + " is not defined in rulebook " + version);
         }
         return spec;
     }

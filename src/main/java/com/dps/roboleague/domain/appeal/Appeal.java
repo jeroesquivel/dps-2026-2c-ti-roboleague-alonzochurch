@@ -1,7 +1,9 @@
 package com.dps.roboleague.domain.appeal;
 
 import com.dps.roboleague.domain.shared.AppealId;
-import com.dps.roboleague.domain.shared.DomainException;
+import com.dps.roboleague.domain.shared.ConflictException;
+import com.dps.roboleague.domain.shared.InvalidValueException;
+import com.dps.roboleague.domain.shared.RuleViolationException;
 import com.dps.roboleague.domain.shared.RunId;
 import com.dps.roboleague.domain.shared.TeamId;
 import java.time.Instant;
@@ -24,7 +26,7 @@ public final class Appeal {
         this.teamId = Objects.requireNonNull(teamId, "team id is required");
         this.submittedAt = Objects.requireNonNull(submittedAt, "submission timestamp is required");
         if (claim == null || claim.isBlank()) {
-            throw new DomainException("an appeal requires a claim");
+            throw new InvalidValueException("an appeal requires a claim");
         }
         this.claim = claim;
     }
@@ -44,10 +46,10 @@ public final class Appeal {
     private void resolveWith(AppealDecision newDecision, AppealStatus newStatus) {
         Objects.requireNonNull(newDecision, "decision is required");
         if (status != AppealStatus.SUBMITTED) {
-            throw new DomainException("appeal " + id.value() + " was already resolved as " + status);
+            throw new ConflictException("appeal " + id.value() + " was already resolved as " + status);
         }
         if (newDecision.decidedAt().isBefore(submittedAt)) {
-            throw new DomainException("a decision cannot predate the submission of appeal " + id.value());
+            throw new RuleViolationException("a decision cannot predate the submission of appeal " + id.value());
         }
         this.decision = newDecision;
         this.status = newStatus;

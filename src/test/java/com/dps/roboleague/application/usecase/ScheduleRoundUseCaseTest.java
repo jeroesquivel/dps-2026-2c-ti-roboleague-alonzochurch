@@ -7,12 +7,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.dps.roboleague.application.port.in.ScheduleRound;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.schedule.Round;
+import com.dps.roboleague.domain.schedule.ScheduleConflict;
+import com.dps.roboleague.domain.schedule.ScheduleConflictException;
 import com.dps.roboleague.domain.schedule.ScheduleConflictType;
 import com.dps.roboleague.domain.schedule.TimeSlot;
 import com.dps.roboleague.domain.shared.ArenaId;
-import com.dps.roboleague.domain.shared.DomainException;
 import com.dps.roboleague.domain.shared.JudgeId;
 import com.dps.roboleague.domain.shared.RoundId;
+import com.dps.roboleague.domain.shared.RuleViolationException;
 import com.dps.roboleague.domain.shared.TeamId;
 import com.dps.roboleague.support.TeamFixtures;
 import com.dps.roboleague.support.TestEdition;
@@ -37,7 +39,7 @@ class ScheduleRoundUseCaseTest {
 
         Round round = edition.round(roundId);
 
-        assertEquals(2, round.heats().size());
+        assertEquals(2, round.heats().entries().size());
         assertEquals(RulebookVersion.first(), round.rulebookVersion());
         assertTrue(round.heatFor(delta).isPresent());
         assertEquals(2, round.heatFor(omega).orElseThrow().judges().size());
@@ -52,8 +54,8 @@ class ScheduleRoundUseCaseTest {
 
         assertEquals(edition.round(first).heatFor(delta).orElseThrow().slot().end(),
                 edition.round(next).heatFor(delta).orElseThrow().slot().start());
-        assertEquals(1, edition.round(first).heats().size());
-        assertEquals(1, edition.round(next).heats().size());
+        assertEquals(1, edition.round(first).heats().entries().size());
+        assertEquals(1, edition.round(next).heats().entries().size());
     }
 
     @Test
@@ -66,7 +68,7 @@ class ScheduleRoundUseCaseTest {
         RoundId roundId = edition.scheduleRound(1, List.of(edition.heat(delta, "A1", TEN), omegaHeat));
 
         Round round = edition.round(roundId);
-        assertEquals(2, round.heats().size());
+        assertEquals(2, round.heats().entries().size());
         assertEquals(round.heatFor(delta).orElseThrow().slot(), round.heatFor(omega).orElseThrow().slot());
         assertEquals(ArenaId.of("A2"), round.heatFor(omega).orElseThrow().arenaId());
         assertEquals(Set.of(JudgeId.of("J3")), round.heatFor(omega).orElseThrow().judges());
@@ -77,12 +79,12 @@ class ScheduleRoundUseCaseTest {
         TeamId delta = edition.registerEligibleTeam("Delta Bots");
         TeamId omega = edition.registerEligibleTeam("Omega Crew");
 
-        assertThrows(DomainException.class, () -> edition.scheduleRound(1,
+        assertThrows(ScheduleConflictException.class, () -> edition.scheduleRound(1,
                 List.of(edition.heat(delta, "A1", TEN), edition.heat(omega, "A1", TEN.plusMinutes(5)))));
 
         RoundId retried = edition.scheduleRound(1, List.of(edition.heat(delta, "A1", TEN)));
-        assertEquals(1, edition.round(retried).heats().size());
-        assertEquals(delta, edition.round(retried).heats().getFirst().teamId());
+        assertEquals(1, edition.round(retried).heats().entries().size());
+        assertEquals(delta, edition.round(retried).heats().entries().getFirst().teamId());
     }
 
     @Test
@@ -91,17 +93,19 @@ class ScheduleRoundUseCaseTest {
         TeamId omega = edition.registerEligibleTeam("Omega Crew");
         edition.scheduleRound(1, List.of(edition.heat(delta, "A1", TEN)));
 
-        DomainException error = assertThrows(DomainException.class,
+        ScheduleConflictException error = assertThrows(ScheduleConflictException.class,
                 () -> edition.scheduleRound(2, List.of(edition.heat(omega, "A1", TEN.plusMinutes(5)))));
 
         assertTrue(error.getMessage().contains(ScheduleConflictType.ARENA_BUSY.name()));
+        assertTrue(error.conflicts().stream().map(ScheduleConflict::type).toList()
+                .contains(ScheduleConflictType.ARENA_BUSY));
     }
 
     @Test
     void rejectsAHeatScheduledOutsideThePeriodOfTheCompetition() {
         TeamId delta = edition.registerEligibleTeam("Delta Bots");
 
-        DomainException error = assertThrows(DomainException.class, () -> edition.scheduleRound(1,
+        RuleViolationException error = assertThrows(RuleViolationException.class, () -> edition.scheduleRound(1,
                 List.of(edition.heat(delta, "A1", LocalDateTime.of(2027, 12, 25, 3, 0)))));
 
         assertTrue(error.getMessage().contains("outside the period"));
@@ -111,7 +115,7 @@ class ScheduleRoundUseCaseTest {
     void rejectsAHeatThatStartsInsideThePeriodButEndsAfterIt() {
         TeamId delta = edition.registerEligibleTeam("Delta Bots");
 
-        assertThrows(DomainException.class, () -> edition.scheduleRound(1,
+        assertThrows(RuleViolationException.class, () -> edition.scheduleRound(1,
                 List.of(edition.heat(delta, "A1", TestEdition.LAST_DAY.atTime(23, 55)))));
     }
 
@@ -120,7 +124,7 @@ class ScheduleRoundUseCaseTest {
         TeamId rejected = edition.register("Rookies", TeamFixtures.membersWithUnderageCompetitor(),
                 TeamFixtures.eligibleRobot(), TeamFixtures.completeDocuments()).teamId();
 
-        DomainException error = assertThrows(DomainException.class,
+        RuleViolationException error = assertThrows(RuleViolationException.class,
                 () -> edition.scheduleRound(1, List.of(edition.heat(rejected, "A1", TEN))));
 
         assertTrue(error.getMessage().contains("not accepted"));

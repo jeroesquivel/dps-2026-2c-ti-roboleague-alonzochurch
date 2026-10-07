@@ -4,10 +4,10 @@ public record AgeRange(int minimumYears, int maximumYears) {
 
     public AgeRange {
         if (minimumYears < 0) {
-            throw new DomainException("minimum age cannot be negative");
+            throw new InvalidValueException("minimum age cannot be negative");
         }
         if (maximumYears < minimumYears) {
-            throw new DomainException("maximum age cannot be lower than minimum age");
+            throw new InvalidValueException("maximum age cannot be lower than minimum age");
         }
     }
 
