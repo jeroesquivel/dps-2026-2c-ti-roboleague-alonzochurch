@@ -40,34 +40,34 @@ public Points totalPoints() {   // TeamScoreSummary
 
 #### Los VOs de configuración no protegen sus invariantes
 
-**Estado: Pendiente**
+**Estado: Resuelta** — ver `DESIGN.md` 2.1, 2.1.1, 2.2 y 3.1.
 
-- `ResourceScoringRule` solo valida que no haya nulos, así que con `pointsPerUnitOver` negativo una "penalización" suma +50. Lo mismo pasa con pesos, topes y bonos negativos. — **Estado: Pendiente**
+- `ResourceScoringRule` solo valida que no haya nulos, así que con `pointsPerUnitOver` negativo una "penalización" suma +50. Lo mismo pasa con pesos, topes y bonos negativos. — **Estado: Resuelta** (coeficientes como `PointsRate`, topes/bonos/deducciones como `PointsAmount` y umbrales como `MetricValue`, ninguno admite negativos; `TimeScoringRule` exige referencia positiva. `ScoringRulesTest`)
 - `ChallengeSpec` acepta:
-  - **Penalizaciones duplicadas**: revienta con `IllegalStateException` recién al puntuar, en `PenaltyScoringRule.of`. — **Estado: Pendiente**
-  - **Métricas duplicadas sin ningún error**: `definitionOf` usa `findFirst`, y una misma clave declarada con dos `MetricKind` distintos se valida dos veces. — **Estado: Pendiente**
-  - **Reglas sobre métricas que no existen**: aportan 0 sin avisar. — **Estado: Pendiente**
-- `Rulebook.of` pisa en silencio los desafíos con id repetido. — **Estado: Pendiente**
+  - **Penalizaciones duplicadas**: revienta con `IllegalStateException` recién al puntuar, en `PenaltyScoringRule.of`. — **Estado: Resuelta** (el constructor de `ChallengeSpec` lanza `InvalidValueException`; `PenaltyScoringRule.of` también. `ChallengeSpecTest`, `ScoringRulesTest`)
+  - **Métricas duplicadas sin ningún error**: `definitionOf` usa `findFirst`, y una misma clave declarada con dos `MetricKind` distintos se valida dos veces. — **Estado: Resuelta** (el constructor rechaza claves repetidas aunque cambie el `MetricKind`. `ChallengeSpecTest`)
+  - **Reglas sobre métricas que no existen**: aportan 0 sin avisar. — **Estado: Resuelta** (`ScoringRule.referencedMetrics()` y el constructor de `ChallengeSpec` exige que estén definidas. `ChallengeSpecTest`)
+- `Rulebook.of` pisa en silencio los desafíos con id repetido. — **Estado: Resuelta** (lanza `InvalidValueException`. `DomainEdgeCasesTest`)
 
 #### El agregado deja saltear sus reglas
 
-**Estado: Pendiente**
+**Estado: Resuelta** — ver `DESIGN.md` 3.3, 4.1 y 4.3.
 
-- `TeamRegistration.accept()` no exige un veredicto, así que un equipo inelegible queda `ACCEPTED`. — **Estado: Pendiente**
-- `RunResult.applyCorrection` no valida las mediciones contra el desafío. — **Estado: Pendiente**
+- `TeamRegistration.accept()` no exige un veredicto, así que un equipo inelegible queda `ACCEPTED`. — **Estado: Resuelta** (`accept()`/`reject()` reemplazados por `resolveWith(EligibilityVerdict)`. `TeamRegistrationTest`)
+- `RunResult.applyCorrection` no valida las mediciones contra el desafío. — **Estado: Resuelta** (`applyCorrection(correction, challenge)` rechaza otro desafío y valida mediciones e incidentes. `RunResultTest`)
 - **Mutadores públicos que evitan el caso de uso:**
-  - `Competition.addCategory` es público y solo lo usa el constructor, así que se pueden agregar categorías a una competencia sin pasar por ningún caso de uso ni auditoría. — **Estado: Pendiente**
-  - El constructor de `Standings` también es público: se puede armar una revisión `FINAL` sin pasar por `publish()`. — **Estado: Pendiente**
+  - `Competition.addCategory` es público y solo lo usa el constructor, así que se pueden agregar categorías a una competencia sin pasar por ningún caso de uso ni auditoría. — **Estado: Resuelta** (ahora es privado)
+  - El constructor de `Standings` también es público: se puede armar una revisión `FINAL` sin pasar por `publish()`. — **Estado: Resuelta** (`Standings` pasó de `record` a clase con constructor privado; solo se obtiene con `provisional`, `publish` y `supersede`)
 
 #### Evaluaciones de jueces sin restricciones
 
-**Estado: Pendiente**
+**Estado: Resuelta** — `JudgeEvaluations` rechaza que un juez evalúe dos veces el mismo criterio y `ChallengeSpec.validateEvaluations(evaluations, heat.judges())` verifica que el criterio sea una métrica `JUDGE_CRITERION` del desafío y que el juez esté en el heat; `CaptureRunResultUseCase` lo invoca. Ver `DESIGN.md` 4.10, `JudgeEvaluationsTest`, `ChallengeSpecTest` y `CaptureRunResultUseCaseTest`.
 
 No se modelan las restricciones de las evaluaciones de jueces: el mismo juez puede evaluar dos veces (pesa doble) y no se verifica que esté en `heat.judges()`.
 
 #### Colecciones sueltas en lugar de conceptos propios
 
-**Estado: Pendiente**
+**Estado: Resuelta** — `JudgeEvaluations`, `TeamRuns` (donde se aplica la `AttemptAggregation`), `CorrectionHistory` (orden cronológico), `Heats` (un turno por equipo) y `TeamMembers` (sin integrantes repetidos). Ver `DESIGN.md` 4.10.
 
 `List<JudgeEvaluation>`, `List<ScoredRun>`, `List<ResultCorrection>`, `List<Heat>`, `List<Member>`.
 
@@ -78,25 +78,25 @@ Además de aportar lenguaje ubicuo, permiten poner restricciones sobre esas cole
 
 #### Primitive obsession que contradice su propio criterio
 
-**Estado: Pendiente**
+**Estado: Resuelta** — ver la tabla de `DESIGN.md` 4.6.
 
-- `AppealDecision.reviewer`, `AuditEvent.actor/subject`, `ResultCorrection.actor` y `AuditLog.findBySubject(String)` usan `String`. — **Estado: Pendiente**
-- `EligibilityViolation.ruleCode` es `String`, cuando para puntaje sí crearon `ScoringRuleCode`. — **Estado: Pendiente**
-- `TeamRegistration.rejectionReasons` es `List<String>`: `verdict.reasons()` convierte las violaciones tipadas en texto y el agregado pierde qué regla falló. — **Estado: Pendiente**
-- `AuditEvent.details` es un `Map<String,String>`, y los casos de uso lo llenan con `measurements().values().toString()`. — **Estado: Pendiente**
-- `int` sueltos: `attemptNumber`, `ordinal`, `revision`, `maximumAttempts`. — **Estado: Pendiente**
-- `Robot.weightKg` como `BigDecimal`. — **Estado: Pendiente**
-- `MetricDefinition.unit` como `String` con un flag `boolean required`. — **Estado: Pendiente**
+- `AppealDecision.reviewer`, `AuditEvent.actor/subject`, `ResultCorrection.actor` y `AuditLog.findBySubject(String)` usan `String`. — **Estado: Resuelta** (`Actor` para actor y reviewer, también en todos los `Command`; el sujeto es un `Identifier` y `findBySubject(Identifier)`)
+- `EligibilityViolation.ruleCode` es `String`, cuando para puntaje sí crearon `ScoringRuleCode`. — **Estado: Resuelta** (`EligibilityRuleCode`)
+- `TeamRegistration.rejectionReasons` es `List<String>`: `verdict.reasons()` convierte las violaciones tipadas en texto y el agregado pierde qué regla falló. — **Estado: Resuelta** (`List<EligibilityViolation>`; `reasons()` solo se usa para el texto de auditoría)
+- `AuditEvent.details` es un `Map<String,String>`, y los casos de uso lo llenan con `measurements().values().toString()`. — **Estado: Resuelta** (`Map<AuditDetail, String>` con claves de un enum; `MeasurementSet.toString()` describe las mediciones ordenadas por clave)
+- `int` sueltos: `attemptNumber`, `ordinal`, `revision`, `maximumAttempts`. — **Estado: Resuelta** (`AttemptNumber`, `RoundOrdinal`, `Revision`, `AttemptLimit`)
+- `Robot.weightKg` como `BigDecimal`. — **Estado: Resuelta** (`Weight`, también en `RobotSpecificationRule`)
+- `MetricDefinition.unit` como `String` con un flag `boolean required`. — **Estado: Resuelta** (`MetricUnit` y `MetricRequirement`)
 
 #### `Member` sin identidad
 
-**Estado: Pendiente**
+**Estado: Resuelta** — `Member` lleva un `MemberId`; `RegisterTeam.Command` recibe `MemberDraft` y el caso de uso asigna los ids con `IdGenerator.nextMemberId()`, como `CreateCompetition` hace con `CategoryDraft`. Ver `DESIGN.md` 4.6 y `DomainEdgeCasesTest.membersHaveTheirOwnIdentityAndCannotBeListedTwice`.
 
 `Member(String fullName, LocalDate birthDate, MemberRole role)` no tiene id: dos integrantes homónimos nacidos el mismo día son el mismo integrante.
 
 #### `Points` representa conceptos distintos
 
-**Estado: Pendiente**
+**Estado: Resuelta** — `Points` queda para contribuciones y totales; la nota de un juez es `JudgeScore` (escala 0-10), los coeficientes son `PointsRate` y los montos fijos configurados (topes, bono, deducción) son `PointsAmount`, ambos no negativos. Ver `DESIGN.md` 2.1 y 4.6.
 
 `Points` se usa para:
 
@@ -109,7 +109,7 @@ Comparten la aritmética, pero no las reglas: una nota de juez tiene una escala 
 
 #### Una única excepción de dominio
 
-**Estado: Pendiente**
+**Estado: Resuelta** — `DomainException` es abstracta y tiene cuatro categorías: `InvalidValueException`, `RuleViolationException`, `ConflictException` y `NotFoundException` (movida de `application` a `domain.shared`); `ScheduleConflictException` expone los conflictos detectados. Ver `DESIGN.md` 4.9.
 
 Hay una única `DomainException` para cientos de reglas, así que no se puede distinguir qué regla falló sin parsear el mensaje. Además, `NotFoundException` extiende `RuntimeException` y vive en `application`, fuera de cualquier jerarquía.
 
@@ -131,11 +131,11 @@ Hay una única `DomainException` para cientos de reglas, así que no se puede di
 #### PublishRulebook
 
 - ✅ La versión se calcula a partir de la última publicada y lo ya programado conserva su versión.
-- ❌ `Rulebook.of` no detecta ids de desafío repetidos: el desafío anterior se pierde sin error. — **Estado: Pendiente**
+- ❌ `Rulebook.of` no detecta ids de desafío repetidos: el desafío anterior se pierde sin error. — **Estado: Resuelta** (ver [VOs de configuración](#los-vos-de-configuración-no-protegen-sus-invariantes))
 
 #### RegisterTeam
 
-La elegibilidad es un Strategy del reglamento (`EligibilityPolicy`), pero **la decisión se toma en el caso de uso**: — **Estado: Pendiente**
+La elegibilidad es un Strategy del reglamento (`EligibilityPolicy`), pero **la decisión se toma en el caso de uso**: — **Estado: Resuelta** (`registration.resolveWith(verdict)`)
 
 ```java
 if (verdict.isEligible()) {
@@ -161,7 +161,7 @@ Otras observaciones:
 #### CaptureRunResult
 
 - ✅ Valida mediciones e incidentes contra el `ChallengeSpec` de la versión con la que se programó la ronda.
-- ❌ **No valida las evaluaciones de los jueces**: el mismo juez puede evaluar dos veces el mismo criterio (`J1=10, J1=10, J2=0 → 6.67` en lugar de `5`), y no se verifica que el juez esté en el heat ni que el criterio exista. Falta un `challenge.validateEvaluations(evaluations, heat.judges())`. — **Estado: Pendiente**
+- ❌ **No valida las evaluaciones de los jueces**: el mismo juez puede evaluar dos veces el mismo criterio (`J1=10, J1=10, J2=0 → 6.67` en lugar de `5`), y no se verifica que el juez esté en el heat ni que el criterio exista. Falta un `challenge.validateEvaluations(evaluations, heat.judges())`. — **Estado: Resuelta** (ver [evaluaciones de jueces](#evaluaciones-de-jueces-sin-restricciones))
 - ⚠️ "El intento no se capturó antes" (`requireUnusedAttempt`) se fuerza en el caso de uso consultando el repositorio. Es positivo para no quedar acoplado a un vendor de persistencia, pero no escala a escenarios multithread: se podría agregar un constraint del lado de persistencia. — **Estado: Pendiente**
 - ❌ No se verifica que las posiciones de la categoría no estén ya publicadas como `FINAL`. — **Estado: Pendiente**
 
@@ -224,7 +224,7 @@ Valida que el equipo apele una corrida propia.
 |---|---|---|
 | "El intento no se capturó antes" | `CaptureRunResultUseCase.requireUnusedAttempt` | Pendiente |
 | "Equipo aceptado y de la categoría" | `ScheduleRoundUseCase.requireEligibleTeam` | Pendiente |
-| "Veredicto → accept/reject" | `RegisterTeamUseCase` | Pendiente |
+| "Veredicto → accept/reject" | `RegisterTeamUseCase` | Resuelta (`TeamRegistration.resolveWith`) |
 | "No generar dos veces la misma tabla" | `GenerateStandingsUseCase` | Pendiente |
 
 **`CategoryScoringService` está en `application/service` pero es un servicio de dominio.** El `DESIGN.md` (4.8) lo justifica diciendo que en el dominio *"lo obligaría a conocer repositorios"*, pero esa justificación supone que los repositorios no son del dominio (ver [punto 5](#5-arquitectura)). Si las interfaces de repositorio son del dominio, el argumento deja de valer. Otra opción es que el servicio reciba las corridas y los reglamentos ya cargados y sea puro. — **Estado: Pendiente**
@@ -237,7 +237,7 @@ Valida que el equipo apele una corrida propia.
 |---|---|---|---|
 | **OCP** | ✅ | Una fórmula, un desempate o una restricción nueva es una clase nueva. | — |
 | **OCP** | ⚠️ | `MetricKind.accepts` hace `switch (this)` con `default`. Lo polimórfico sería un método abstracto por constante. Lo mismo pasa con `ThresholdBonusRule.Comparison` (`switch (comparison)` sobre `AT_LEAST`/`AT_MOST`). | Pendiente |
-| **LSP** | ✅ / ⚠️ | El contrato común de las 7 `ScoringRule` (dato ausente → 0 explicado) se verifica con un test parametrizado. Pero el contrato no alcanza a la configuración: una regla con parámetros negativos cumple la firma y rompe la semántica de `ContributionKind`. | Pendiente |
+| **LSP** | ✅ / ⚠️ | El contrato común de las 7 `ScoringRule` (dato ausente → 0 explicado) se verifica con un test parametrizado. Pero el contrato no alcanza a la configuración: una regla con parámetros negativos cumple la firma y rompe la semántica de `ContributionKind`. | Resuelta (`PointsRate`/`PointsAmount`, `DESIGN.md` 2.1.1) |
 | **SRP** | ❌ | `ResolveAppealUseCase` concentra responsabilidades que responden a distintos actores, cada uno con necesidades de cambio independientes. | Pendiente |
 | **ISP** | ✅ / ⚠️ | Los puertos son chicos, con una operación cada uno. Pero `ScoringRule` tiene un método `default breakdownFor` que no usa ningún código de producción, solo los tests (ver nota abajo). | Pendiente |
 | **DIP** | ✅ | `Clock`, `IdGenerator`, repositorios y `AuditLog` se inyectan por constructor desde la raíz de composición. | — |
@@ -280,6 +280,6 @@ if (command.accepted()) { appeal.accept(decision); } else { appeal.reject(decisi
 ### ❌ A revisar
 
 - **Ubicación de los puertos.** Los puertos driven (`*Repository`, `AuditLog`) están en `application.port.out`. Como se vio en clase, la interfaz del gateway/repositorio pertenece al negocio y solo la implementación es un detalle, así que **el dominio debería ser dueño de sus repositorios**. Lo mismo aplica a los puertos driving: las interfaces de los casos de uso (`port.in`) también son parte del dominio, y los interactors las implementan. El `DESIGN.md` (1.1 y 1.3) justifica lo contrario (*"repositorios declarados por la aplicación"*), y esa justificación es la que habría que revisar. — **Estado: Pendiente**
-- **Primitive obsession.** La sección 4.6 dice que evitan primitive obsession, lo cual no se cumple en los casos listados en el [punto 1](#primitive-obsession-que-contradice-su-propio-criterio). — **Estado: Pendiente**
+- **Primitive obsession.** La sección 4.6 dice que evitan primitive obsession, lo cual no se cumple en los casos listados en el [punto 1](#primitive-obsession-que-contradice-su-propio-criterio). — **Estado: Resuelta**
 - **DDD.** Los agregados están bien delimitados y referenciados por id, pero son **anémicos en los bordes**, porque las reglas se aplican desde la capa de aplicación (ver [punto 2](#2-separación-negocio-detalles)). — **Estado: Pendiente**
-- **Jerarquía de excepciones.** Una jerarquía (`NotFound`, `RuleViolation`…) va a hacer falta para mapear 404/409/422 en la Entrega 2. — **Estado: Pendiente**
+- **Jerarquía de excepciones.** Una jerarquía (`NotFound`, `RuleViolation`…) va a hacer falta para mapear 404/409/422 en la Entrega 2. — **Estado: Resuelta** (ver [una única excepción de dominio](#una-única-excepción-de-dominio))
