@@ -1,23 +1,23 @@
 package com.dps.roboleague.support;
 
-import com.dps.roboleague.application.port.in.CaptureRunResult;
-import com.dps.roboleague.application.port.in.CreateCompetition;
-import com.dps.roboleague.application.port.in.CreateSeason;
-import com.dps.roboleague.application.port.in.FindAuditTrail;
-import com.dps.roboleague.application.port.in.GetStandings;
-import com.dps.roboleague.application.port.in.PublishRulebook;
-import com.dps.roboleague.application.port.in.RegisterTeam;
-import com.dps.roboleague.application.port.in.ScheduleRound;
 import com.dps.roboleague.domain.appeal.Appeal;
 import com.dps.roboleague.domain.audit.AuditAction;
 import com.dps.roboleague.domain.audit.AuditEvent;
 import com.dps.roboleague.domain.challenge.AttemptNumber;
-import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.challenge.MeasurementSet;
 import com.dps.roboleague.domain.challenge.MetricValue;
+import com.dps.roboleague.domain.port.in.CaptureRunResult;
+import com.dps.roboleague.domain.port.in.CreateCompetition;
+import com.dps.roboleague.domain.port.in.CreateSeason;
+import com.dps.roboleague.domain.port.in.FindAuditTrail;
+import com.dps.roboleague.domain.port.in.GetStandings;
+import com.dps.roboleague.domain.port.in.PublishRulebook;
+import com.dps.roboleague.domain.port.in.RegisterTeam;
+import com.dps.roboleague.domain.port.in.ScheduleRound;
 import com.dps.roboleague.domain.ranking.AttemptAggregation;
 import com.dps.roboleague.domain.ranking.Standings;
 import com.dps.roboleague.domain.result.RunResult;
+import com.dps.roboleague.domain.rulebook.RulebookDraft;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.schedule.Round;
 import com.dps.roboleague.domain.schedule.RoundOrdinal;
@@ -88,28 +88,21 @@ public final class TestEdition {
                         DateRange.of(FIRST_DAY, LAST_DAY),
                         List.of(new CreateCompetition.CategoryDraft("Junior", AgeRange.between(12, 17),
                                 TeamFixtures.RESCUE_BOT)),
-                        ACTOR));
-        publishRulebook(module, competition.competitionId(), RescueEditionFixture.rescueChallenge());
+                        RescueEditionFixture.rulebook(), ACTOR));
         return new TestEdition(module, competition.competitionId(), competition.firstCategory());
     }
 
     public RulebookVersion publishRulebookWith(ScoringRule scoringRule) {
-        return publishRulebook(module, competitionId, RescueEditionFixture.challengeScoredBy(List.of(scoringRule)));
+        return publishRulebook(RescueEditionFixture.rulebook(
+                RescueEditionFixture.challengeScoredBy(List.of(scoringRule))));
     }
 
     public RulebookVersion publishRulebookWith(AttemptAggregation aggregation) {
-        return publishRulebook(module, competitionId, RescueEditionFixture.rescueChallenge(), aggregation);
+        return publishRulebook(RescueEditionFixture.rulebook(RescueEditionFixture.rescueChallenge(), aggregation));
     }
 
-    private static RulebookVersion publishRulebook(RoboLeagueCompositionRoot module, CompetitionId competitionId,
-            ChallengeSpec challenge) {
-        return publishRulebook(module, competitionId, challenge, RescueEditionFixture.attemptAggregation());
-    }
-
-    private static RulebookVersion publishRulebook(RoboLeagueCompositionRoot module, CompetitionId competitionId,
-            ChallengeSpec challenge, AttemptAggregation aggregation) {
-        return module.publishRulebookUseCase().execute(new PublishRulebook.Command(competitionId, List.of(challenge),
-                RescueEditionFixture.eligibilityPolicy(), aggregation, RescueEditionFixture.tiebreaks(), ACTOR));
+    public RulebookVersion publishRulebook(RulebookDraft rulebook) {
+        return module.publishRulebookUseCase().execute(new PublishRulebook.Command(competitionId, rulebook, ACTOR));
     }
 
 

@@ -9,8 +9,4 @@ public interface ScoringRule {
     List<ScoreContribution> apply(ScoringContext context);
 
     Set<MetricKey> referencedMetrics();
-
-    default ScoreBreakdown breakdownFor(ScoringContext context) {
-        return new ScoreBreakdown(apply(context));
-    }
 }

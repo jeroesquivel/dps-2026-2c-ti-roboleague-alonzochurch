@@ -1,6 +1,7 @@
 package com.dps.roboleague.domain.competition;
 
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
+import com.dps.roboleague.domain.schedule.TimeSlot;
 import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.CompetitionId;
 import com.dps.roboleague.domain.shared.ConflictException;
@@ -15,7 +16,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 public final class Competition {
 
@@ -24,12 +24,15 @@ public final class Competition {
     private final String name;
     private final DateRange period;
     private final Map<CategoryId, Category> categories = new LinkedHashMap<>();
-    private RulebookVersion activeRulebookVersion;
+    private final RulebookVersion activeRulebookVersion;
 
-    public Competition(CompetitionId id, SeasonId seasonId, String name, DateRange period, Collection<Category> categories) {
+    public Competition(CompetitionId id, SeasonId seasonId, String name, DateRange period,
+            Collection<Category> categories, RulebookVersion activeRulebookVersion) {
         this.id = Objects.requireNonNull(id, "competition id is required");
         this.seasonId = Objects.requireNonNull(seasonId, "season id is required");
         this.period = Objects.requireNonNull(period, "competition period is required");
+        this.activeRulebookVersion = Objects.requireNonNull(activeRulebookVersion,
+                "a competition is created with its first rulebook version");
         if (name == null || name.isBlank()) {
             throw new InvalidValueException("competition requires a name");
         }
@@ -61,21 +64,17 @@ public final class Competition {
         }
     }
 
-    public void activateRulebook(RulebookVersion version) {
+    public void requireSlotWithinPeriod(TimeSlot slot) {
+        requireDateWithinPeriod(slot.start().toLocalDate());
+        requireDateWithinPeriod(slot.end().toLocalDate());
+    }
+
+    public Competition activateRulebook(RulebookVersion version) {
         Objects.requireNonNull(version, "rulebook version is required");
-        if (activeRulebookVersion != null && !version.isNewerThan(activeRulebookVersion)) {
+        if (!version.isNewerThan(activeRulebookVersion)) {
             throw new ConflictException("rulebook version " + version + " does not supersede " + activeRulebookVersion);
         }
-        this.activeRulebookVersion = version;
-    }
-
-    public RulebookVersion requireActiveRulebookVersion() {
-        return activeRulebookVersion().orElseThrow(
-                () -> new ConflictException("competition " + name + " has no published rulebook"));
-    }
-
-    public Optional<RulebookVersion> activeRulebookVersion() {
-        return Optional.ofNullable(activeRulebookVersion);
+        return new Competition(id, seasonId, name, period, categories.values(), version);
     }
 
     public CompetitionId id() {
@@ -92,6 +91,10 @@ public final class Competition {
 
     public DateRange period() {
         return period;
+    }
+
+    public RulebookVersion activeRulebookVersion() {
+        return activeRulebookVersion;
     }
 
     public List<Category> categories() {

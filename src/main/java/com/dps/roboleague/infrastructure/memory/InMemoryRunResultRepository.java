@@ -1,7 +1,8 @@
 package com.dps.roboleague.infrastructure.memory;
 
-import com.dps.roboleague.application.port.out.RunResultRepository;
 import com.dps.roboleague.domain.result.RunResult;
+import com.dps.roboleague.domain.result.RunResultRepository;
+import com.dps.roboleague.domain.shared.ConflictException;
 import com.dps.roboleague.domain.shared.RoundId;
 import com.dps.roboleague.domain.shared.RunId;
 import java.util.Comparator;
@@ -15,17 +16,26 @@ public final class InMemoryRunResultRepository implements RunResultRepository {
     private final Map<RunId, RunResult> results = new LinkedHashMap<>();
 
     @Override
-    public void save(RunResult result) {
+    public synchronized void save(RunResult result) {
+        boolean attemptTaken = results.values().stream()
+                .anyMatch(stored -> !stored.id().equals(result.id())
+                        && stored.roundId().equals(result.roundId())
+                        && stored.teamId().equals(result.teamId())
+                        && stored.attemptNumber().equals(result.attemptNumber()));
+        if (attemptTaken) {
+            throw new ConflictException("attempt " + result.attemptNumber() + " of team " + result.teamId().value()
+                    + " is already stored for round " + result.roundId().value());
+        }
         results.put(result.id(), result);
     }
 
     @Override
-    public Optional<RunResult> findById(RunId id) {
+    public synchronized Optional<RunResult> findById(RunId id) {
         return Optional.ofNullable(results.get(id));
     }
 
     @Override
-    public List<RunResult> findByRound(RoundId roundId) {
+    public synchronized List<RunResult> findByRound(RoundId roundId) {
         return results.values().stream()
                 .filter(result -> result.roundId().equals(roundId))
                 .sorted(Comparator.comparing(RunResult::attemptNumber))

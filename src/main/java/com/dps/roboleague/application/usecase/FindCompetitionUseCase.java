@@ -1,9 +1,9 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.application.port.in.FindCompetition;
-import com.dps.roboleague.application.port.out.CompetitionRepository;
 import com.dps.roboleague.domain.competition.Category;
 import com.dps.roboleague.domain.competition.Competition;
+import com.dps.roboleague.domain.competition.CompetitionRepository;
+import com.dps.roboleague.domain.port.in.FindCompetition;
 import com.dps.roboleague.domain.shared.CompetitionId;
 import com.dps.roboleague.domain.shared.NotFoundException;
 

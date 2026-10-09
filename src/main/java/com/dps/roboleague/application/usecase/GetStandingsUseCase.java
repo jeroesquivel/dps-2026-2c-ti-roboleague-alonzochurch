@@ -1,8 +1,8 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.application.port.in.GetStandings;
-import com.dps.roboleague.application.port.out.StandingsRepository;
+import com.dps.roboleague.domain.port.in.GetStandings;
 import com.dps.roboleague.domain.ranking.Standings;
+import com.dps.roboleague.domain.ranking.StandingsRepository;
 import com.dps.roboleague.domain.shared.NotFoundException;
 
 public final class GetStandingsUseCase implements GetStandings {

@@ -27,4 +27,11 @@ public final class ScheduleConflictDetector {
         }
         return List.copyOf(conflicts);
     }
+
+    public void requireNoConflicts(Collection<Heat> scheduled, Heat candidate) {
+        List<ScheduleConflict> conflicts = detect(scheduled, candidate);
+        if (!conflicts.isEmpty()) {
+            throw new ScheduleConflictException(conflicts);
+        }
+    }
 }

@@ -1,7 +1,7 @@
 package com.dps.roboleague.infrastructure.memory;
 
-import com.dps.roboleague.application.port.out.RoundRepository;
 import com.dps.roboleague.domain.schedule.Round;
+import com.dps.roboleague.domain.schedule.RoundRepository;
 import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.CompetitionId;
 import com.dps.roboleague.domain.shared.RoundId;

@@ -1,21 +1,20 @@
 package com.dps.roboleague.demo;
 
-import com.dps.roboleague.application.port.in.CalculateRunScore;
-import com.dps.roboleague.application.port.in.CaptureRunResult;
-import com.dps.roboleague.application.port.in.CreateCompetition;
-import com.dps.roboleague.application.port.in.CreateSeason;
-import com.dps.roboleague.application.port.in.GenerateStandings;
-import com.dps.roboleague.application.port.in.PublishRulebook;
-import com.dps.roboleague.application.port.in.PublishStandings;
-import com.dps.roboleague.application.port.in.RecalculateStandings;
-import com.dps.roboleague.application.port.in.RegisterTeam;
-import com.dps.roboleague.application.port.in.ResolveAppeal;
-import com.dps.roboleague.application.port.in.ScheduleRound;
-import com.dps.roboleague.application.port.in.SubmitAppeal;
 import com.dps.roboleague.domain.challenge.AttemptNumber;
 import com.dps.roboleague.domain.challenge.MeasurementSet;
 import com.dps.roboleague.domain.challenge.MetricValue;
 import com.dps.roboleague.domain.competition.RobotClass;
+import com.dps.roboleague.domain.port.in.AcceptAppeal;
+import com.dps.roboleague.domain.port.in.CalculateRunScore;
+import com.dps.roboleague.domain.port.in.CaptureRunResult;
+import com.dps.roboleague.domain.port.in.CreateCompetition;
+import com.dps.roboleague.domain.port.in.CreateSeason;
+import com.dps.roboleague.domain.port.in.GenerateStandings;
+import com.dps.roboleague.domain.port.in.GetStandings;
+import com.dps.roboleague.domain.port.in.PublishStandings;
+import com.dps.roboleague.domain.port.in.RegisterTeam;
+import com.dps.roboleague.domain.port.in.ScheduleRound;
+import com.dps.roboleague.domain.port.in.SubmitAppeal;
 import com.dps.roboleague.domain.ranking.AppliedTiebreak;
 import com.dps.roboleague.domain.ranking.StandingEntry;
 import com.dps.roboleague.domain.ranking.Standings;
@@ -48,7 +47,6 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -73,12 +71,9 @@ public final class DemoScenario {
                 .execute(new CreateCompetition.Command(seasonId, "National Open",
                         DateRange.of(LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 5)),
                         List.of(new CreateCompetition.CategoryDraft("Junior", AgeRange.between(12, 17), RESCUE_BOT)),
-                        ORGANISER));
+                        DemoRulebook.rulebook(), ORGANISER));
         CompetitionId competitionId = competition.competitionId();
         CategoryId categoryId = competition.firstCategory();
-        module.publishRulebookUseCase().execute(new PublishRulebook.Command(competitionId,
-                List.of(DemoRulebook.rescueChallenge()), DemoRulebook.eligibilityPolicy(),
-                DemoRulebook.attemptAggregation(), DemoRulebook.tiebreaks(), ORGANISER));
 
         TeamId delta = register(competitionId, categoryId, "Delta Bots");
         TeamId omega = register(competitionId, categoryId, "Omega Crew");
@@ -97,9 +92,8 @@ public final class DemoScenario {
                 module.publishStandingsUseCase().execute(new PublishStandings.Command(competitionId, categoryId, ORGANISER)));
 
         acceptAppeal(deltaRun, delta);
-        printStandings("Standings after the accepted appeal",
-                module.recalculateStandingsUseCase().execute(new RecalculateStandings.Command(competitionId, categoryId,
-                        "objective granted on appeal", HEAD_JUDGE)));
+        printStandings("Standings recalculated by the accepted appeal",
+                module.getStandingsUseCase().execute(new GetStandings.Command(competitionId, categoryId)).latest());
     }
 
     private TeamId register(CompetitionId competitionId, CategoryId categoryId, String teamName) {
@@ -144,9 +138,8 @@ public final class DemoScenario {
     private void acceptAppeal(RunId runId, TeamId teamId) {
         AppealId appealId = module.submitAppealUseCase().execute(new SubmitAppeal.Command(runId, teamId,
                 "the fourth objective was completed before the buzzer", Actor.of("delta-captain")));
-        module.resolveAppealUseCase().execute(new ResolveAppeal.Command(appealId, true, HEAD_JUDGE,
-                "the video review confirms the objective",
-                Optional.of(new ResolveAppeal.Correction(measurements("95.5", 5, "42"), List.of())), HEAD_JUDGE));
+        module.acceptAppealUseCase().execute(new AcceptAppeal.Command(appealId,
+                "the video review confirms the objective", measurements("95.5", 5, "42"), List.of(), HEAD_JUDGE));
     }
 
     private void printScore(CalculateRunScore.RunScore score) {

@@ -20,4 +20,8 @@ public record DateRange(LocalDate start, LocalDate end) {
     public boolean contains(LocalDate date) {
         return !date.isBefore(start) && !date.isAfter(end);
     }
+
+    public boolean overlaps(DateRange other) {
+        return !start.isAfter(other.end) && !other.start.isAfter(end);
+    }
 }

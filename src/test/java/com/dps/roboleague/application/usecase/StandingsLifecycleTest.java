@@ -5,9 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.dps.roboleague.application.port.in.GenerateStandings;
-import com.dps.roboleague.application.port.in.PublishStandings;
-import com.dps.roboleague.application.port.in.RecalculateStandings;
+import com.dps.roboleague.domain.challenge.AttemptNumber;
+import com.dps.roboleague.domain.port.in.GenerateStandings;
+import com.dps.roboleague.domain.port.in.PublishStandings;
+import com.dps.roboleague.domain.port.in.RecalculateStandings;
 import com.dps.roboleague.domain.ranking.Revision;
 import com.dps.roboleague.domain.ranking.StandingEntry;
 import com.dps.roboleague.domain.ranking.Standings;
@@ -16,6 +17,7 @@ import com.dps.roboleague.domain.scoring.IncidentReport;
 import com.dps.roboleague.domain.shared.ConflictException;
 import com.dps.roboleague.domain.shared.Points;
 import com.dps.roboleague.domain.shared.RoundId;
+import com.dps.roboleague.domain.shared.RunId;
 import com.dps.roboleague.domain.shared.TeamId;
 import com.dps.roboleague.support.RescueEditionFixture;
 import com.dps.roboleague.support.TestEdition;
@@ -97,6 +99,21 @@ class StandingsLifecycleTest {
 
         assertEquals(Points.of("121.50"), summed.entryFor(delta).orElseThrow().totalPoints());
         assertEquals(delta, summed.entries().getFirst().teamId());
+    }
+
+    @Test
+    void provisionalStandingsStillAcceptNewRunsButFinalOnesCloseTheCategory() {
+        generate();
+        RunId secondAttempt = edition.capture(roundId, delta, 2, "95.5", 4, "42", List.of(8, 9), List.of());
+        edition.module().publishStandingsUseCase()
+                .execute(new PublishStandings.Command(edition.competitionId(), edition.categoryId(),
+                        TestEdition.ACTOR));
+
+        ConflictException error = assertThrows(ConflictException.class,
+                () -> edition.capture(roundId, omega, 2, "95.5", 4, "42", List.of(8, 9), List.of()));
+
+        assertEquals(AttemptNumber.of(2), edition.runResult(secondAttempt).attemptNumber());
+        assertTrue(error.getMessage().contains("final"));
     }
 
     private Standings generate() {

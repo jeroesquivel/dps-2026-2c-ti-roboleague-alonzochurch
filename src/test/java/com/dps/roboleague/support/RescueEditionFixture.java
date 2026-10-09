@@ -1,5 +1,6 @@
 package com.dps.roboleague.support;
 
+import com.dps.roboleague.domain.appeal.AppealWindow;
 import com.dps.roboleague.domain.challenge.AttemptLimit;
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.challenge.MetricDefinition;
@@ -7,7 +8,7 @@ import com.dps.roboleague.domain.challenge.MetricKey;
 import com.dps.roboleague.domain.challenge.MetricKind;
 import com.dps.roboleague.domain.challenge.MetricUnit;
 import com.dps.roboleague.domain.challenge.MetricValue;
-import com.dps.roboleague.domain.eligibility.EligibilityPolicy;
+import com.dps.roboleague.domain.eligibility.EligibilityRequirements;
 import com.dps.roboleague.domain.eligibility.rule.AgeRangeRule;
 import com.dps.roboleague.domain.eligibility.rule.RequiredDocumentsRule;
 import com.dps.roboleague.domain.eligibility.rule.RobotClassRule;
@@ -19,6 +20,7 @@ import com.dps.roboleague.domain.ranking.aggregation.BestAttempt;
 import com.dps.roboleague.domain.ranking.rule.FastestMetricTiebreak;
 import com.dps.roboleague.domain.ranking.rule.FewestPenaltiesTiebreak;
 import com.dps.roboleague.domain.ranking.rule.HighestSingleRunTiebreak;
+import com.dps.roboleague.domain.rulebook.RulebookDraft;
 import com.dps.roboleague.domain.scoring.PenaltyCode;
 import com.dps.roboleague.domain.scoring.PenaltyDefinition;
 import com.dps.roboleague.domain.scoring.PointsAmount;
@@ -83,13 +85,30 @@ public final class RescueEditionFixture {
                 new PenaltyDefinition(OUT_OF_BOUNDS, "robot out of bounds", PointsAmount.of(5)));
     }
 
-    public static EligibilityPolicy eligibilityPolicy() {
-        return EligibilityPolicy.of(
+    public static EligibilityRequirements eligibilityRequirements() {
+        return EligibilityRequirements.of(
                 new AgeRangeRule(),
                 new TeamCompositionRule(2, 4, 18),
                 new RobotClassRule(),
                 new RobotSpecificationRule(Weight.ofKilograms("3.000"), new Dimensions(200, 200, 200)),
                 new RequiredDocumentsRule(Set.of(DocumentType.PARENTAL_CONSENT, DocumentType.TECHNICAL_SHEET)));
+    }
+
+    public static AppealWindow appealWindow() {
+        return AppealWindow.of(Duration.ofHours(1));
+    }
+
+    public static RulebookDraft rulebook() {
+        return rulebook(rescueChallenge());
+    }
+
+    public static RulebookDraft rulebook(ChallengeSpec challenge) {
+        return rulebook(challenge, attemptAggregation());
+    }
+
+    public static RulebookDraft rulebook(ChallengeSpec challenge, AttemptAggregation aggregation) {
+        return new RulebookDraft(List.of(challenge), eligibilityRequirements(), aggregation, tiebreaks(),
+                appealWindow());
     }
 
     public static AttemptAggregation attemptAggregation() {

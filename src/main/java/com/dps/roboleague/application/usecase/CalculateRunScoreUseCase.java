@@ -1,12 +1,12 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.application.port.in.CalculateRunScore;
-import com.dps.roboleague.application.port.out.RoundRepository;
-import com.dps.roboleague.application.port.out.RunResultRepository;
-import com.dps.roboleague.application.service.CategoryScoringService;
+import com.dps.roboleague.domain.port.in.CalculateRunScore;
+import com.dps.roboleague.domain.ranking.CategoryScoringService;
 import com.dps.roboleague.domain.ranking.ScoredRun;
 import com.dps.roboleague.domain.result.RunResult;
+import com.dps.roboleague.domain.result.RunResultRepository;
 import com.dps.roboleague.domain.schedule.Round;
+import com.dps.roboleague.domain.schedule.RoundRepository;
 import com.dps.roboleague.domain.shared.NotFoundException;
 
 public final class CalculateRunScoreUseCase implements CalculateRunScore {

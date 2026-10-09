@@ -4,10 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.dps.roboleague.application.port.in.CalculateRunScore;
-import com.dps.roboleague.application.port.in.CaptureRunResult;
-import com.dps.roboleague.application.port.in.FindAuditTrail;
-import com.dps.roboleague.application.port.in.PublishRulebook;
 import com.dps.roboleague.domain.audit.AuditAction;
 import com.dps.roboleague.domain.audit.AuditDetail;
 import com.dps.roboleague.domain.audit.AuditEvent;
@@ -20,6 +16,11 @@ import com.dps.roboleague.domain.challenge.MetricKey;
 import com.dps.roboleague.domain.challenge.MetricKind;
 import com.dps.roboleague.domain.challenge.MetricUnit;
 import com.dps.roboleague.domain.challenge.MetricValue;
+import com.dps.roboleague.domain.port.in.CalculateRunScore;
+import com.dps.roboleague.domain.port.in.CaptureRunResult;
+import com.dps.roboleague.domain.port.in.FindAuditTrail;
+import com.dps.roboleague.domain.port.in.PublishRulebook;
+import com.dps.roboleague.domain.rulebook.RulebookDraft;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.scoring.ContributionKind;
 import com.dps.roboleague.domain.scoring.IncidentReport;
@@ -191,13 +192,15 @@ class RulebookEvolutionTest {
 
     private RulebookVersion publish(CompetitionId competitionId, List<ChallengeSpec> challenges) {
         return edition.module().publishRulebookUseCase().execute(new PublishRulebook.Command(competitionId,
-                challenges, RescueEditionFixture.eligibilityPolicy(), RescueEditionFixture.attemptAggregation(),
-                RescueEditionFixture.tiebreaks(), TestEdition.ACTOR));
+                new RulebookDraft(challenges, RescueEditionFixture.eligibilityRequirements(),
+                        RescueEditionFixture.attemptAggregation(), RescueEditionFixture.tiebreaks(),
+                        RescueEditionFixture.appealWindow()),
+                TestEdition.ACTOR));
     }
 
     private RulebookVersion activeVersion() {
         return edition.module().findCompetitionUseCase()
-                .execute(edition.competitionId()).activeRulebookVersion().orElseThrow();
+                .execute(edition.competitionId()).activeRulebookVersion();
     }
 
     private List<AuditEvent> publicationEvents() {

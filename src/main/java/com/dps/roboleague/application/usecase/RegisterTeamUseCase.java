@@ -1,25 +1,25 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.application.port.in.RegisterTeam;
-import com.dps.roboleague.application.port.out.AuditLog;
-import com.dps.roboleague.application.port.out.CompetitionRepository;
-import com.dps.roboleague.application.port.out.IdGenerator;
-import com.dps.roboleague.application.port.out.RulebookRepository;
-import com.dps.roboleague.application.port.out.TeamRegistrationRepository;
 import com.dps.roboleague.domain.audit.AuditAction;
 import com.dps.roboleague.domain.audit.AuditDetail;
 import com.dps.roboleague.domain.audit.AuditEvent;
+import com.dps.roboleague.domain.audit.AuditLog;
 import com.dps.roboleague.domain.competition.Category;
 import com.dps.roboleague.domain.competition.Competition;
+import com.dps.roboleague.domain.competition.CompetitionRepository;
 import com.dps.roboleague.domain.eligibility.EligibilityRequest;
 import com.dps.roboleague.domain.eligibility.EligibilityVerdict;
+import com.dps.roboleague.domain.port.in.RegisterTeam;
 import com.dps.roboleague.domain.rulebook.Rulebook;
+import com.dps.roboleague.domain.rulebook.RulebookRepository;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.shared.Actor;
+import com.dps.roboleague.domain.shared.IdGenerator;
 import com.dps.roboleague.domain.shared.NotFoundException;
 import com.dps.roboleague.domain.team.Member;
 import com.dps.roboleague.domain.team.TeamMembers;
 import com.dps.roboleague.domain.team.TeamRegistration;
+import com.dps.roboleague.domain.team.TeamRegistrationRepository;
 import java.time.Clock;
 import java.util.Map;
 
@@ -47,16 +47,16 @@ public final class RegisterTeamUseCase implements RegisterTeam {
         Competition competition = competitions.findById(command.competitionId())
                 .orElseThrow(() -> NotFoundException.of("Competition", command.competitionId().value()));
         Category category = competition.category(command.categoryId());
-        RulebookVersion version = competition.requireActiveRulebookVersion();
+        RulebookVersion version = competition.activeRulebookVersion();
         Rulebook rulebook = rulebooks.find(competition.id(), version)
                 .orElseThrow(() -> NotFoundException.of("Rulebook", version.toString()));
 
-        TeamRegistration registration = new TeamRegistration(idGenerator.nextTeamId(), competition.id(),
+        TeamRegistration submitted = new TeamRegistration(idGenerator.nextTeamId(), competition.id(),
                 category.id(), command.teamName(), membersOf(command), command.robot(), command.documents());
 
-        EligibilityVerdict verdict = rulebook.eligibilityPolicy()
-                .verdictFor(new EligibilityRequest(registration, category, competition.period().start()));
-        registration.resolveWith(verdict);
+        EligibilityVerdict verdict = rulebook.eligibilityRequirements()
+                .verdictFor(new EligibilityRequest(submitted, category, competition.period().start()));
+        TeamRegistration registration = submitted.resolveWith(verdict);
         registrations.save(registration);
         auditLog.record(auditEventFor(registration, verdict, version, command.actor()));
         return new Outcome(registration.id(), registration.status(), verdict);

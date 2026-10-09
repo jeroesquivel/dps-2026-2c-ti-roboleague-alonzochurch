@@ -37,8 +37,8 @@ class JudgeEvaluationsTest {
 
         assertEquals(2, evaluations.forCriterion(DESIGN).size());
         assertEquals(Set.of(DESIGN, STYLE), evaluations.criteria());
-        assertEquals(Points.of(7), new JudgePanelScoringRule(DESIGN, PointsRate.of(1))
-                .breakdownFor(new ScoringContext(MeasurementSet.empty(), evaluations, List.of())).total());
+        assertEquals(Points.of(7), new ScoreBreakdown(new JudgePanelScoringRule(DESIGN, PointsRate.of(1))
+                .apply(new ScoringContext(MeasurementSet.empty(), evaluations, List.of()))).total());
     }
 
     @Test

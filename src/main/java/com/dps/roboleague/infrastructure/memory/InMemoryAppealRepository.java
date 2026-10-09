@@ -1,9 +1,11 @@
 package com.dps.roboleague.infrastructure.memory;
 
-import com.dps.roboleague.application.port.out.AppealRepository;
 import com.dps.roboleague.domain.appeal.Appeal;
+import com.dps.roboleague.domain.appeal.AppealRepository;
 import com.dps.roboleague.domain.shared.AppealId;
+import com.dps.roboleague.domain.shared.RunId;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -19,5 +21,10 @@ public final class InMemoryAppealRepository implements AppealRepository {
     @Override
     public Optional<Appeal> findById(AppealId id) {
         return Optional.ofNullable(appeals.get(id));
+    }
+
+    @Override
+    public List<Appeal> findByRun(RunId runId) {
+        return appeals.values().stream().filter(appeal -> appeal.runId().equals(runId)).toList();
     }
 }

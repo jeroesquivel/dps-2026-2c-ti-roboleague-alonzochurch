@@ -20,8 +20,18 @@ public record ThresholdBonusRule(MetricKey metric, Comparison comparison, Metric
 
     public enum Comparison {
 
-        AT_LEAST("at least"),
-        AT_MOST("at most");
+        AT_LEAST("at least") {
+            @Override
+            public boolean isMetBy(BigDecimal measured, MetricValue threshold) {
+                return measured.compareTo(threshold.amount()) >= 0;
+            }
+        },
+        AT_MOST("at most") {
+            @Override
+            public boolean isMetBy(BigDecimal measured, MetricValue threshold) {
+                return measured.compareTo(threshold.amount()) <= 0;
+            }
+        };
 
         private final String label;
 
@@ -32,6 +42,8 @@ public record ThresholdBonusRule(MetricKey metric, Comparison comparison, Metric
         public String label() {
             return label;
         }
+
+        public abstract boolean isMetBy(BigDecimal measured, MetricValue threshold);
     }
 
     public ThresholdBonusRule {
@@ -56,10 +68,7 @@ public record ThresholdBonusRule(MetricKey metric, Comparison comparison, Metric
     }
 
     private List<ScoreContribution> contributionFor(BigDecimal measured) {
-        boolean granted = switch (comparison) {
-            case AT_LEAST -> measured.compareTo(threshold.amount()) >= 0;
-            case AT_MOST -> measured.compareTo(threshold.amount()) <= 0;
-        };
+        boolean granted = comparison.isMetBy(measured, threshold);
         String explanation = "%s %s %s %s: bonus %s".formatted(metric.value(), measured.toPlainString(),
                 granted ? "is" : "is not", comparison.label() + " " + threshold,
                 granted ? "granted" : "not granted");

@@ -4,6 +4,8 @@ import com.dps.roboleague.domain.challenge.AttemptNumber;
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.challenge.MeasurementSet;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
+import com.dps.roboleague.domain.schedule.Heat;
+import com.dps.roboleague.domain.schedule.Round;
 import com.dps.roboleague.domain.scoring.IncidentReport;
 import com.dps.roboleague.domain.scoring.JudgeEvaluations;
 import com.dps.roboleague.domain.scoring.ScoringContext;
@@ -31,11 +33,19 @@ public final class RunResult {
     private final MeasurementSet originalMeasurements;
     private final List<IncidentReport> originalIncidents;
     private final JudgeEvaluations evaluations;
-    private CorrectionHistory corrections = CorrectionHistory.empty();
+    private final CorrectionHistory corrections;
 
     public RunResult(RunId id, RoundId roundId, HeatId heatId, TeamId teamId, ChallengeId challengeId,
             RulebookVersion rulebookVersion, AttemptNumber attemptNumber, Instant capturedAt,
             MeasurementSet measurements, JudgeEvaluations evaluations, Collection<IncidentReport> incidents) {
+        this(id, roundId, heatId, teamId, challengeId, rulebookVersion, attemptNumber, capturedAt, measurements,
+                evaluations, incidents, CorrectionHistory.empty());
+    }
+
+    private RunResult(RunId id, RoundId roundId, HeatId heatId, TeamId teamId, ChallengeId challengeId,
+            RulebookVersion rulebookVersion, AttemptNumber attemptNumber, Instant capturedAt,
+            MeasurementSet measurements, JudgeEvaluations evaluations, Collection<IncidentReport> incidents,
+            CorrectionHistory corrections) {
         this.id = Objects.requireNonNull(id, "run id is required");
         this.roundId = Objects.requireNonNull(roundId, "round id is required");
         this.heatId = Objects.requireNonNull(heatId, "heat id is required");
@@ -47,20 +57,39 @@ public final class RunResult {
         this.originalMeasurements = Objects.requireNonNull(measurements, "measurements are required");
         this.evaluations = Objects.requireNonNull(evaluations, "evaluations are required");
         this.originalIncidents = List.copyOf(incidents);
+        this.corrections = corrections;
     }
 
-    public void applyCorrection(ResultCorrection correction, ChallengeSpec challenge) {
+    public static RunResult capture(RunId id, Round round, TeamId teamId, ChallengeSpec challenge,
+            AttemptNumber attemptNumber, Instant capturedAt, MeasurementSet measurements,
+            JudgeEvaluations evaluations, List<IncidentReport> incidents) {
+        Heat heat = round.heatFor(teamId);
+        requireSameChallenge(round.challengeId(), challenge, "round " + round.id().value());
+        challenge.requireAttemptWithinLimit(attemptNumber);
+        challenge.validate(measurements);
+        challenge.validateIncidents(incidents);
+        challenge.validateEvaluations(evaluations, heat.judges());
+        return new RunResult(id, round.id(), heat.id(), teamId, round.challengeId(), round.rulebookVersion(),
+                attemptNumber, capturedAt, measurements, evaluations, incidents);
+    }
+
+    public RunResult applyCorrection(ResultCorrection correction, ChallengeSpec challenge) {
         Objects.requireNonNull(correction, "correction is required");
-        if (!challenge.id().equals(challengeId)) {
-            throw new RuleViolationException("run " + id.value() + " belongs to challenge " + challengeId.value()
-                    + " and cannot be corrected with the rules of challenge " + challenge.id().value());
-        }
+        requireSameChallenge(challengeId, challenge, "run " + id.value());
         if (correction.appliedAt().isBefore(capturedAt)) {
             throw new RuleViolationException("a correction cannot predate the capture of run " + id.value());
         }
         challenge.validate(correction.measurements());
         challenge.validateIncidents(correction.incidents());
-        corrections = corrections.append(correction);
+        return new RunResult(id, roundId, heatId, teamId, challengeId, rulebookVersion, attemptNumber, capturedAt,
+                originalMeasurements, evaluations, originalIncidents, corrections.append(correction));
+    }
+
+    private static void requireSameChallenge(ChallengeId expected, ChallengeSpec challenge, String owner) {
+        if (!challenge.id().equals(expected)) {
+            throw new RuleViolationException(owner + " belongs to challenge " + expected.value()
+                    + " and cannot use the rules of challenge " + challenge.id().value());
+        }
     }
 
     public MeasurementSet currentMeasurements() {

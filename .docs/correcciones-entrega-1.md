@@ -58,10 +58,11 @@ public Points totalPoints() {   // TeamScoreSummary
 - **Mutadores públicos que evitan el caso de uso:**
   - `Competition.addCategory` es público y solo lo usa el constructor, así que se pueden agregar categorías a una competencia sin pasar por ningún caso de uso ni auditoría. — **Estado: Resuelta** (ahora es privado)
   - El constructor de `Standings` también es público: se puede armar una revisión `FINAL` sin pasar por `publish()`. — **Estado: Resuelta** (`Standings` pasó de `record` a clase con constructor privado; solo se obtiene con `provisional`, `publish` y `supersede`)
+  - Relacionado: los agregados `Competition`, `TeamRegistration`, `Round`, `RunResult` y `Appeal` ahora son **inmutables**; sus transiciones devuelven una instancia nueva y el constructor público sólo crea el estado inicial. `Round.schedule` exige la inscripción del equipo y `RunResult.capture` valida la captura. Ver `DESIGN.md` 4.11.
 
 #### Evaluaciones de jueces sin restricciones
 
-**Estado: Resuelta** — `JudgeEvaluations` rechaza que un juez evalúe dos veces el mismo criterio y `ChallengeSpec.validateEvaluations(evaluations, heat.judges())` verifica que el criterio sea una métrica `JUDGE_CRITERION` del desafío y que el juez esté en el heat; `CaptureRunResultUseCase` lo invoca. Ver `DESIGN.md` 4.10, `JudgeEvaluationsTest`, `ChallengeSpecTest` y `CaptureRunResultUseCaseTest`.
+**Estado: Resuelta** — `JudgeEvaluations` rechaza que un juez evalúe dos veces el mismo criterio y `ChallengeSpec.validateEvaluations(evaluations, heat.judges())` verifica que el criterio sea una métrica `JUDGE_CRITERION` del desafío y que el juez esté en el heat; la invoca `RunResult.capture`, la fábrica de una corrida (antes `CaptureRunResultUseCase`). Ver `DESIGN.md` 4.10, `JudgeEvaluationsTest`, `ChallengeSpecTest` y `CaptureRunResultUseCaseTest`.
 
 No se modelan las restricciones de las evaluaciones de jueces: el mismo juez puede evaluar dos veces (pesa doble) y no se verifica que esté en `heat.judges()`.
 
@@ -119,12 +120,12 @@ Hay una única `DomainException` para cientos de reglas, así que no se puede di
 
 #### CreateSeason
 
-- Las invariantes viven en el record `Season`. No se verifica que la temporada no exista: si la unicidad importa, es una regla que depende del repositorio y va en el caso de uso, con la misma salvedad que en [CaptureRunResult](#capturerunresult). — **Estado: Pendiente**
+- Las invariantes viven en el record `Season`. No se verifica que la temporada no exista: si la unicidad importa, es una regla que depende del repositorio y va en el caso de uso, con la misma salvedad que en [CaptureRunResult](#capturerunresult). — **Estado: Resuelta** (la regla elegida es que dos temporadas no se superpongan, lo que también impide repetir una. El caso de uso sólo carga las temporadas (`SeasonRepository.findAll`) y decide `SeasonCalendar.requireAvailable(period)` en el dominio, con `ConflictException`. La salvedad de concurrencia está documentada. Ver `DESIGN.md` 4.10 y 4.12, `EventConfigurationUseCaseTest` y `DomainEdgeCasesTest`)
 
 #### CreateCompetition
 
 - ✅ La regla que cruza agregados la resuelve `Season` con un método que dice lo que exige (`requireCompetitionPeriodInside`).
-- La competencia nace sin reglamento (`activeRulebookVersion` en `null`) hasta que se ejecuta `PublishRulebook`. — **Estado: Pendiente**
+- La competencia nace sin reglamento (`activeRulebookVersion` en `null`) hasta que se ejecuta `PublishRulebook`. — **Estado: Resuelta** (`CreateCompetition.Command` recibe un `RulebookDraft`; la competencia nace con `v1` activa y el reglamento guardado. `activeRulebookVersion()` ya no es `Optional` y desapareció `requireActiveRulebookVersion()`. Además `Competition` es inmutable: `activateRulebook` devuelve una competencia nueva. Ver `DESIGN.md` 3.1 y 4.11, `EventConfigurationUseCaseTest`)
 
 > Idealmente los modelos del dominio deberían ser completos al momento de su creación e inmutables, creando nuevos y destruyéndolos cada vez que se requiere una modificación.
 
@@ -149,64 +150,66 @@ Con `registration.resolveWith(verdict)` el `if` desaparece del caso de uso y el 
 
 Otras observaciones:
 
-- Es raro que `EligibilityPolicy` a su vez implemente `EligibilityRule`, y que además contenga una lista de rules que también son `EligibilityRule`s. — **Estado: Pendiente**
-- El nombre de la clase es un poco desafortunado, ya que la palabra *policy* tiene un fuerte significado en el desarrollo de software, ligado al patrón Policy, que correctamente intentan implementar. Se podría cambiar el nombre de la interfaz o hacer que la clase policy implemente otra interfaz diferente. — **Estado: Pendiente**
+- Es raro que `EligibilityPolicy` a su vez implemente `EligibilityRule`, y que además contenga una lista de rules que también son `EligibilityRule`s. — **Estado: Resuelta** (ya no implementa `EligibilityRule`: sólo contiene las reglas y ofrece `verdictFor`. Ver `DESIGN.md` 4.1 y 5.10)
+- El nombre de la clase es un poco desafortunado, ya que la palabra *policy* tiene un fuerte significado en el desarrollo de software, ligado al patrón Policy, que correctamente intentan implementar. Se podría cambiar el nombre de la interfaz o hacer que la clase policy implemente otra interfaz diferente. — **Estado: Resuelta** (se renombró a `EligibilityRequirements`, los requisitos de elegibilidad del reglamento; la estrategia intercambiable es `EligibilityRule`. `EligibilityRequirementsTest`)
 
 #### ScheduleRound
 
 - ✅ `ScheduleConflictDetector` es un servicio de dominio, y el guardado queda al final, así que si falla el tercer heat no queda una ronda a medio programar.
-- ❌ "Equipo aceptado y de la categoría" (`requireEligibleTeam`) es una regla de negocio que vive en el caso de uso. — **Estado: Pendiente**
-- ❌ No se valida que el ordinal de la ronda sea único en la categoría. — **Estado: Pendiente**
+- ❌ "Equipo aceptado y de la categoría" (`requireEligibleTeam`) es una regla de negocio que vive en el caso de uso. — **Estado: Resuelta** (`TeamRegistration.requireAcceptedIn(competitionId, categoryId)`, invocada por `Round.schedule(heat, team)`: no se puede agregar un turno sin presentar la inscripción. También pasaron al dominio el período del turno (`Competition.requireSlotWithinPeriod`) y el rechazo por conflictos (`ScheduleConflictDetector.requireNoConflicts`). Ver `DESIGN.md` 4.1 y 4.2, `DomainEdgeCasesTest`, `ScheduleRoundUseCaseTest`)
+- ❌ No se valida que el ordinal de la ronda sea único en la categoría. — **Estado: Resuelta** (`CompetitionSchedule.requireAvailableOrdinal(categoryId, ordinal)` con `ConflictException`. Ver `DESIGN.md` 4.2, `ScheduleRoundUseCaseTest.rejectsARoundOrdinalThatIsAlreadyScheduledInTheCategory`)
 
 #### CaptureRunResult
 
 - ✅ Valida mediciones e incidentes contra el `ChallengeSpec` de la versión con la que se programó la ronda.
 - ❌ **No valida las evaluaciones de los jueces**: el mismo juez puede evaluar dos veces el mismo criterio (`J1=10, J1=10, J2=0 → 6.67` en lugar de `5`), y no se verifica que el juez esté en el heat ni que el criterio exista. Falta un `challenge.validateEvaluations(evaluations, heat.judges())`. — **Estado: Resuelta** (ver [evaluaciones de jueces](#evaluaciones-de-jueces-sin-restricciones))
-- ⚠️ "El intento no se capturó antes" (`requireUnusedAttempt`) se fuerza en el caso de uso consultando el repositorio. Es positivo para no quedar acoplado a un vendor de persistencia, pero no escala a escenarios multithread: se podría agregar un constraint del lado de persistencia. — **Estado: Pendiente**
-- ❌ No se verifica que las posiciones de la categoría no estén ya publicadas como `FINAL`. — **Estado: Pendiente**
+- ⚠️ "El intento no se capturó antes" (`requireUnusedAttempt`) se fuerza en el caso de uso consultando el repositorio. Es positivo para no quedar acoplado a un vendor de persistencia, pero no escala a escenarios multithread: se podría agregar un constraint del lado de persistencia. — **Estado: Resuelta** (la regla la decide el dominio, `RoundResults.requireUnusedAttempt`, y el contrato de `RunResultRepository.save` suma el constraint: rechaza otra corrida para la misma ronda, equipo e intento. `InMemoryRunResultRepository` lo implementa con métodos `synchronized`. Ver `DESIGN.md` 4.3 y 4.12, `RunResultRepositoryContractTest`, `RunResultTest`)
+- ❌ No se verifica que las posiciones de la categoría no estén ya publicadas como `FINAL`. — **Estado: Resuelta** (`StandingsHistory.requireOpenForResults()`: si alguna revisión fue `FINAL`, la captura se rechaza aunque un recálculo posterior haya dejado la última como provisional. Ver `DESIGN.md` 3.3, `StandingsHistoryTest`, `StandingsLifecycleTest`)
+- Relacionado: las validaciones de la captura (turno del equipo, desafío de la ronda, intentos, mediciones, incidentes, evaluaciones) se movieron a la fábrica `RunResult.capture`, y `Round.heatFor` lanza si el equipo no tiene turno. Ver `DESIGN.md` 4.3.
 
 #### CalculateRunScore
 
 Consulta pura: el puntaje se recalcula cada vez desde las mediciones vigentes.
 
-- ❌ `CategoryScoringService` es lógica de negocio (cómo se puntúa una corrida) y vive en `application/service`: debería ser un servicio del dominio. — **Estado: Pendiente**
+- ❌ `CategoryScoringService` es lógica de negocio (cómo se puntúa una corrida) y vive en `application/service`: debería ser un servicio del dominio. — **Estado: Resuelta** (ahora es `domain.ranking.CategoryScoringService` y depende de interfaces de repositorio del dominio; suma `rank` y `runsOf`. Ver `DESIGN.md` 4.8)
 
 #### SubmitAppeal
 
 Valida que el equipo apele una corrida propia.
 
-- ❌ No hay plazo de apelación. — **Estado: Pendiente**
-- ❌ No hay control de apelaciones duplicadas sobre la misma corrida. — **Estado: Pendiente**
+- ❌ No hay plazo de apelación. — **Estado: Resuelta** (`AppealWindow` en el reglamento; `Appeal.file` exige presentar a más tardar `length` después de la captura, con el plazo de la versión fijada en la corrida. Ver `DESIGN.md` 4.5, `AppealTest`, `AppealRecalculationTest.anAppealIsAcceptedOnlyWithinTheWindowOfTheRulebookPinnedInTheRun`)
+- ❌ No hay control de apelaciones duplicadas sobre la misma corrida. — **Estado: Resuelta** (`Appeals.requireNoneOn(runId)` sobre `AppealRepository.findByRun`: una corrida se apela una sola vez, aunque la primera apelación ya esté resuelta. `AppealRecalculationTest.aRunCanBeAppealedOnlyOnceEvenAfterTheFirstAppealWasResolved`)
+- Relacionado: "el equipo apela una corrida propia" también pasó del caso de uso a `Appeal.file`.
 
 #### ResolveAppeal
 
 ✅ La corrección se valida antes de resolver, y no pisa la medición original sino que agrega un `ResultCorrection`. Sin embargo:
 
-- **Flag booleano en el comando**: dos casos de uso (`AcceptAppeal`/`RejectAppeal`) serían más claros. Si se acepta sin corrección, queda `ACCEPTED` sin efecto sobre el resultado, y si se rechaza con corrección, la corrección se descarta sin avisar. — **Estado: Pendiente**
-- **Demasiadas responsabilidades**: resuelve, valida, aplica la corrección y audita dos eventos. — **Estado: Pendiente**
-- **No dispara el recálculo de posiciones**: quien llama tiene que acordarse de ejecutar `RecalculateStandings`. — **Estado: Pendiente**
-- **Orden de persistencia incorrecto**: guarda la apelación (`appeals.save`) antes de aplicar la corrección. Si `apply` falla, la apelación queda `ACCEPTED` y la corrida sin corregir. El `DESIGN.md` lo reconoce (sección 8) pero no lo resuelve. Mutar todo en memoria y persistir al final lo evita. — **Estado: Pendiente**
+- **Flag booleano en el comando**: dos casos de uso (`AcceptAppeal`/`RejectAppeal`) serían más claros. Si se acepta sin corrección, queda `ACCEPTED` sin efecto sobre el resultado, y si se rechaza con corrección, la corrección se descarta sin avisar. — **Estado: Resuelta** (`ResolveAppeal` se reemplazó por `AcceptAppeal`, con corrección obligatoria, y `RejectAppeal`, sin corrección. Ver `DESIGN.md` 4.5)
+- **Demasiadas responsabilidades**: resuelve, valida, aplica la corrección y audita dos eventos. — **Estado: Resuelta** (resolver es `Appeal.accept`/`reject`; validar y aplicar la corrección es `RunResult.applyCorrection`; recalcular es el puerto `RecalculateStandings`. `AcceptAppealUseCase` sólo carga, invoca al dominio, persiste y audita, y `RejectAppealUseCase` es independiente)
+- **No dispara el recálculo de posiciones**: quien llama tiene que acordarse de ejecutar `RecalculateStandings`. — **Estado: Resuelta** (si la categoría ya tiene posiciones, `AcceptAppealUseCase` invoca `RecalculateStandings`. `AppealRecalculationTest.acceptingAnAppealRecalculatesTheStandingsWithTheSameRulebookVersion`; ver `DESIGN.md` 4.5 y 5.3)
+- **Orden de persistencia incorrecto**: guarda la apelación (`appeals.save`) antes de aplicar la corrección. Si `apply` falla, la apelación queda `ACCEPTED` y la corrida sin corregir. El `DESIGN.md` lo reconoce (sección 8) pero no lo resuelve. Mutar todo en memoria y persistir al final lo evita. — **Estado: Resuelta** (`Appeal` y `RunResult` son inmutables: el caso de uso obtiene la apelación aceptada y la corrida corregida en memoria y recién después guarda. `AppealRecalculationTest.anInvalidCorrectionLeavesTheAppealTheRunAndTheStandingsAsTheyWere`; ver `DESIGN.md` 4.5 y 4.11)
 
 #### GenerateStandings
 
 - ❌ Es donde se ve la [regla mal modelada](#regla-de-negocio-mal-modelada-agregación-de-intentos): entre `collect` (todos los intentos de cada equipo, sin filtrar) y `totalPoints()` no hay ningún paso que elija "el mejor intento". — **Estado: Resuelta** (`GenerateStandingsUseCase` pasa `rulebook.attemptAggregation()` a `collect`)
-- ❌ "No generar dos veces la misma tabla" es otra regla de negocio que se decide en el caso de uso consultando el repositorio (`standings.findLatest(...).isPresent()`). — **Estado: Pendiente**
+- ❌ "No generar dos veces la misma tabla" es otra regla de negocio que se decide en el caso de uso consultando el repositorio (`standings.findLatest(...).isPresent()`). — **Estado: Resuelta** (`StandingsHistory.generate` crea la revisión 1 o lanza `ConflictException`. Ver `DESIGN.md` 3.3, `StandingsHistoryTest`)
 
 #### RecalculateStandings
 
 - ✅ `Standings` es inmutable y `supersede` devuelve la revisión n+1 con el historial completo.
-- ⚠️ Recalcular reabre también posiciones `FINAL`, lo cual es razonable (una apelación tardía), pero tendría que ser una decisión explícita en el `DESIGN.md`. — **Estado: Pendiente**
+- ⚠️ Recalcular reabre también posiciones `FINAL`, lo cual es razonable (una apelación tardía), pero tendría que ser una decisión explícita en el `DESIGN.md`. — **Estado: Resuelta** (documentada en `DESIGN.md` 3.3: se agrega una revisión `n+1` provisional, la `FINAL` queda en el historial y hay que volver a publicar. La captura sigue cerrada y el plazo de apelación acota cuándo puede pasar)
 
 #### PublishStandings
 
 - ✅ Rechaza publicar dos veces.
-- ❌ No verifica que no haya apelaciones pendientes sobre corridas de la categoría. — **Estado: Pendiente**
+- ❌ No verifica que no haya apelaciones pendientes sobre corridas de la categoría. — **Estado: Resuelta** (`Appeals.requireNonePending()` sobre las apelaciones de las corridas de la categoría. `AppealRecalculationTest.standingsCannotBePublishedWhileAnAppealOfTheCategoryIsPending`; ver `DESIGN.md` 3.3)
 
 #### Consultas (`Find*`)
 
 - ✅ `FindCompetition` proyecta el agregado a una vista.
-- ❌ `FindRound`, `FindRunResult`, `FindTeamRegistration` y `FindAppeal` devuelven el agregado mutable. Como `accept()` y `applyCorrection()` son públicos, quien consulta puede aceptar una inscripción o corregir un resultado salteando el caso de uso y la auditoría. — **Estado: Pendiente**
-- ⚠️ Son 7 puertos sin otro consumidor que tests y demo, cuando su propio `DESIGN.md` dice *"no se crean interfaces sin cliente"*. Esto es esperable para esta entrega; en el futuro considerar si realmente existe un usuario que requiera estos casos de uso, o si son únicamente requisitos internos de la aplicación. Si lo último es cierto, es una buena señal para que no sean casos de uso. — **Estado: Pendiente**
+- ❌ `FindRound`, `FindRunResult`, `FindTeamRegistration` y `FindAppeal` devuelven el agregado mutable. Como `accept()` y `applyCorrection()` son públicos, quien consulta puede aceptar una inscripción o corregir un resultado salteando el caso de uso y la auditoría. — **Estado: Resuelta** (los agregados son inmutables: las transiciones devuelven una instancia nueva que sólo un caso de uso persiste, así que una consulta no abre un camino alternativo. Ver `DESIGN.md` 1.2 y 4.11)
+- ⚠️ Son 7 puertos sin otro consumidor que tests y demo, cuando su propio `DESIGN.md` dice *"no se crean interfaces sin cliente"*. Esto es esperable para esta entrega; en el futuro considerar si realmente existe un usuario que requiera estos casos de uso, o si son únicamente requisitos internos de la aplicación. Si lo último es cierto, es una buena señal para que no sean casos de uso. — **Estado: Descartada** (por ahora se conservan: cada una responde a una necesidad de un usuario de la Entrega 2, como un equipo que consulta su inscripción, su corrida o su apelación. `DESIGN.md` 1.2 deja asentado que se eliminan las que no tengan consumidor externo al diseñar la API)
 
 ---
 
@@ -222,12 +225,14 @@ Valida que el equipo apele una corrida propia.
 
 | Regla | Dónde vive hoy | Estado |
 |---|---|---|
-| "El intento no se capturó antes" | `CaptureRunResultUseCase.requireUnusedAttempt` | Pendiente |
-| "Equipo aceptado y de la categoría" | `ScheduleRoundUseCase.requireEligibleTeam` | Pendiente |
+| "El intento no se capturó antes" | `CaptureRunResultUseCase.requireUnusedAttempt` | Resuelta (`RoundResults.requireUnusedAttempt` + constraint en `RunResultRepository`) |
+| "Equipo aceptado y de la categoría" | `ScheduleRoundUseCase.requireEligibleTeam` | Resuelta (`TeamRegistration.requireAcceptedIn`, invocada por `Round.schedule`) |
 | "Veredicto → accept/reject" | `RegisterTeamUseCase` | Resuelta (`TeamRegistration.resolveWith`) |
-| "No generar dos veces la misma tabla" | `GenerateStandingsUseCase` | Pendiente |
+| "No generar dos veces la misma tabla" | `GenerateStandingsUseCase` | Resuelta (`StandingsHistory.generate`) |
 
-**`CategoryScoringService` está en `application/service` pero es un servicio de dominio.** El `DESIGN.md` (4.8) lo justifica diciendo que en el dominio *"lo obligaría a conocer repositorios"*, pero esa justificación supone que los repositorios no son del dominio (ver [punto 5](#5-arquitectura)). Si las interfaces de repositorio son del dominio, el argumento deja de valer. Otra opción es que el servicio reciba las corridas y los reglamentos ya cargados y sea puro. — **Estado: Pendiente**
+Además se movieron al dominio otras decisiones que quedaban en los casos de uso: equipo con turno y validación de la captura (`Round.heatFor`, `RunResult.capture`), turno dentro del período (`Competition.requireSlotWithinPeriod`), rechazo por conflictos de agenda (`ScheduleConflictDetector.requireNoConflicts`) y apelar una corrida propia (`Appeal.file`). Las reglas nuevas también viven en el dominio: ordinal único, temporadas sin superposición, plazo y duplicados de apelación, apelaciones pendientes al publicar y captura cerrada tras posiciones `FINAL`. El criterio general está en `DESIGN.md` 4.12.
+
+**`CategoryScoringService` está en `application/service` pero es un servicio de dominio.** El `DESIGN.md` (4.8) lo justifica diciendo que en el dominio *"lo obligaría a conocer repositorios"*, pero esa justificación supone que los repositorios no son del dominio (ver [punto 5](#5-arquitectura)). Si las interfaces de repositorio son del dominio, el argumento deja de valer. Otra opción es que el servicio reciba las corridas y los reglamentos ya cargados y sea puro. — **Estado: Resuelta** (`domain.ranking.CategoryScoringService`, que depende de las interfaces de repositorio del dominio. Ver `DESIGN.md` 1.3 y 4.8)
 
 ---
 
@@ -236,10 +241,10 @@ Valida que el equipo apele una corrida propia.
 | Principio | Estado | Comentario | Estado de la corrección |
 |---|---|---|---|
 | **OCP** | ✅ | Una fórmula, un desempate o una restricción nueva es una clase nueva. | — |
-| **OCP** | ⚠️ | `MetricKind.accepts` hace `switch (this)` con `default`. Lo polimórfico sería un método abstracto por constante. Lo mismo pasa con `ThresholdBonusRule.Comparison` (`switch (comparison)` sobre `AT_LEAST`/`AT_MOST`). | Pendiente |
+| **OCP** | ⚠️ | `MetricKind.accepts` hace `switch (this)` con `default`. Lo polimórfico sería un método abstracto por constante. Lo mismo pasa con `ThresholdBonusRule.Comparison` (`switch (comparison)` sobre `AT_LEAST`/`AT_MOST`). | Resuelta (`accepts` e `isMetBy` son abstractos y cada constante los implementa; `DESIGN.md` 4.6, `DomainEdgeCasesTest.everyMetricKindDecidesPolymorphicallyAndRejectsNegativeAmounts`) |
 | **LSP** | ✅ / ⚠️ | El contrato común de las 7 `ScoringRule` (dato ausente → 0 explicado) se verifica con un test parametrizado. Pero el contrato no alcanza a la configuración: una regla con parámetros negativos cumple la firma y rompe la semántica de `ContributionKind`. | Resuelta (`PointsRate`/`PointsAmount`, `DESIGN.md` 2.1.1) |
-| **SRP** | ❌ | `ResolveAppealUseCase` concentra responsabilidades que responden a distintos actores, cada uno con necesidades de cambio independientes. | Pendiente |
-| **ISP** | ✅ / ⚠️ | Los puertos son chicos, con una operación cada uno. Pero `ScoringRule` tiene un método `default breakdownFor` que no usa ningún código de producción, solo los tests (ver nota abajo). | Pendiente |
+| **SRP** | ❌ | `ResolveAppealUseCase` concentra responsabilidades que responden a distintos actores, cada uno con necesidades de cambio independientes. | Resuelta (`AcceptAppeal` y `RejectAppeal`; las reglas en `Appeal` y `RunResult`, el recálculo en su propio puerto; `DESIGN.md` 4.5) |
+| **ISP** | ✅ / ⚠️ | Los puertos son chicos, con una operación cada uno. Pero `ScoringRule` tiene un método `default breakdownFor` que no usa ningún código de producción, solo los tests (ver nota abajo). | Resuelta (se eliminó `breakdownFor`; también `RulebookRepository.findLatest`, que quedó sin cliente; `DESIGN.md` 2.1.1 y 5.9) |
 | **DIP** | ✅ | `Clock`, `IdGenerator`, repositorios y `AuditLog` se inyectan por constructor desde la raíz de composición. | — |
 
 > **Sobre `breakdownFor`:** contradice la sección 5.9 de su propio `DESIGN.md` (*"métodos por si acaso"*). Los métodos `default` son trampas donde es fácil caer; no son necesariamente malos, pero en el afán de ahorrar código podemos terminar implementando métodos donde no aplican, solamente para comunicar este hecho.
@@ -256,11 +261,11 @@ Valida que el equipo apele una corrida propia.
 
 ### ❌ A corregir
 
-- **Flag booleano** en `ResolveAppeal.Command`. — **Estado: Pendiente**
-- **`Optional` como campo** va contra lo visto en clase: se usa solo como tipo de retorno. Aparece en: — **Estado: Pendiente**
-  - `ResolveAppeal.Command.correction`
-  - `ResultCorrection.sourceAppeal` (el `DESIGN.md` 4.3 lo presenta como decisión)
-  - `FindCompetition.View.activeRulebookVersion`
+- **Flag booleano** en `ResolveAppeal.Command`. — **Estado: Resuelta** (dos casos de uso, `AcceptAppeal` y `RejectAppeal`; ver [ResolveAppeal](#resolveappeal))
+- **`Optional` como campo** va contra lo visto en clase: se usa solo como tipo de retorno. Aparece en: — **Estado: Resuelta** (ver `DESIGN.md` 4.6)
+  - `ResolveAppeal.Command.correction` — desapareció junto con el comando; `AcceptAppeal.Command` exige la corrección
+  - `ResultCorrection.sourceAppeal` (el `DESIGN.md` 4.3 lo presenta como decisión) — ahora es `AppealId` obligatorio: toda corrección nace de una apelación
+  - `FindCompetition.View.activeRulebookVersion` — ahora es `RulebookVersion`: la competencia nace con su reglamento
 
 ```java
 record Command(AppealId appealId, boolean accepted, String reviewer, String rationale,
@@ -279,7 +284,7 @@ if (command.accepted()) { appeal.accept(decision); } else { appeal.reject(decisi
 
 ### ❌ A revisar
 
-- **Ubicación de los puertos.** Los puertos driven (`*Repository`, `AuditLog`) están en `application.port.out`. Como se vio en clase, la interfaz del gateway/repositorio pertenece al negocio y solo la implementación es un detalle, así que **el dominio debería ser dueño de sus repositorios**. Lo mismo aplica a los puertos driving: las interfaces de los casos de uso (`port.in`) también son parte del dominio, y los interactors las implementan. El `DESIGN.md` (1.1 y 1.3) justifica lo contrario (*"repositorios declarados por la aplicación"*), y esa justificación es la que habría que revisar. — **Estado: Pendiente**
+- **Ubicación de los puertos.** Los puertos driven (`*Repository`, `AuditLog`) están en `application.port.out`. Como se vio en clase, la interfaz del gateway/repositorio pertenece al negocio y solo la implementación es un detalle, así que **el dominio debería ser dueño de sus repositorios**. Lo mismo aplica a los puertos driving: las interfaces de los casos de uso (`port.in`) también son parte del dominio, y los interactors las implementan. El `DESIGN.md` (1.1 y 1.3) justifica lo contrario (*"repositorios declarados por la aplicación"*), y esa justificación es la que habría que revisar. — **Estado: Resuelta** (las interfaces de casos de uso están en `domain.port.in` y los repositorios, `AuditLog` e `IdGenerator`, en el paquete de cada agregado del dominio; `application` sólo tiene los interactors. Ver `DESIGN.md` 1.1, 1.2 y 1.3)
 - **Primitive obsession.** La sección 4.6 dice que evitan primitive obsession, lo cual no se cumple en los casos listados en el [punto 1](#primitive-obsession-que-contradice-su-propio-criterio). — **Estado: Resuelta**
-- **DDD.** Los agregados están bien delimitados y referenciados por id, pero son **anémicos en los bordes**, porque las reglas se aplican desde la capa de aplicación (ver [punto 2](#2-separación-negocio-detalles)). — **Estado: Pendiente**
+- **DDD.** Los agregados están bien delimitados y referenciados por id, pero son **anémicos en los bordes**, porque las reglas se aplican desde la capa de aplicación (ver [punto 2](#2-separación-negocio-detalles)). — **Estado: Resuelta** (las reglas de borde pasaron a los agregados y a colecciones del dominio, y los agregados son inmutables. Ver `DESIGN.md` 4.11 y 4.12)
 - **Jerarquía de excepciones.** Una jerarquía (`NotFound`, `RuleViolation`…) va a hacer falta para mapear 404/409/422 en la Entrega 2. — **Estado: Resuelta** (ver [una única excepción de dominio](#una-única-excepción-de-dominio))

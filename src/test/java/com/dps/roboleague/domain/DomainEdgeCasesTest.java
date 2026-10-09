@@ -1,5 +1,6 @@
 package com.dps.roboleague.domain;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -7,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.dps.roboleague.domain.appeal.Appeal;
 import com.dps.roboleague.domain.appeal.AppealDecision;
+import com.dps.roboleague.domain.appeal.AppealWindow;
 import com.dps.roboleague.domain.challenge.AttemptLimit;
 import com.dps.roboleague.domain.challenge.AttemptNumber;
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
@@ -20,6 +22,7 @@ import com.dps.roboleague.domain.competition.Category;
 import com.dps.roboleague.domain.competition.Competition;
 import com.dps.roboleague.domain.competition.RobotClass;
 import com.dps.roboleague.domain.competition.Season;
+import com.dps.roboleague.domain.competition.SeasonCalendar;
 import com.dps.roboleague.domain.eligibility.EligibilityRequest;
 import com.dps.roboleague.domain.eligibility.EligibilityRuleCode;
 import com.dps.roboleague.domain.eligibility.EligibilityVerdict;
@@ -32,7 +35,9 @@ import com.dps.roboleague.domain.ranking.StandingEntry;
 import com.dps.roboleague.domain.result.ResultCorrection;
 import com.dps.roboleague.domain.result.RunResult;
 import com.dps.roboleague.domain.rulebook.Rulebook;
+import com.dps.roboleague.domain.rulebook.RulebookDraft;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
+import com.dps.roboleague.domain.schedule.CompetitionSchedule;
 import com.dps.roboleague.domain.schedule.Heat;
 import com.dps.roboleague.domain.schedule.Round;
 import com.dps.roboleague.domain.schedule.RoundOrdinal;
@@ -48,6 +53,7 @@ import com.dps.roboleague.domain.scoring.PenaltyCode;
 import com.dps.roboleague.domain.scoring.PenaltyDefinition;
 import com.dps.roboleague.domain.scoring.PointsAmount;
 import com.dps.roboleague.domain.scoring.PointsRate;
+import com.dps.roboleague.domain.scoring.ScoreBreakdown;
 import com.dps.roboleague.domain.scoring.ScoreContribution;
 import com.dps.roboleague.domain.scoring.ScoringContext;
 import com.dps.roboleague.domain.scoring.ScoringRuleCode;
@@ -77,6 +83,7 @@ import com.dps.roboleague.domain.team.Dimensions;
 import com.dps.roboleague.domain.team.DocumentType;
 import com.dps.roboleague.domain.team.Member;
 import com.dps.roboleague.domain.team.MemberRole;
+import com.dps.roboleague.domain.team.RegistrationStatus;
 import com.dps.roboleague.domain.team.Robot;
 import com.dps.roboleague.domain.team.TeamDocument;
 import com.dps.roboleague.domain.team.TeamMembers;
@@ -90,10 +97,12 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 class DomainEdgeCasesTest {
 
@@ -147,12 +156,18 @@ class DomainEdgeCasesTest {
         assertThrows(InvalidValueException.class, () -> MetricValue.of("-0.1"));
         assertEquals(MetricValue.of("1.250"), MetricValue.of(new BigDecimal("1.25")));
         assertEquals(MetricValue.of("1.250"), MetricValue.ofSeconds(Duration.ofMillis(1250)));
-        assertFalse(MetricKind.TIME_SECONDS.accepts(new BigDecimal("-1")));
         assertFalse(MetricKind.PRECISION_RATIO.accepts(new BigDecimal("1.1")));
         assertTrue(MetricKind.PRECISION_RATIO.accepts(BigDecimal.ONE));
         assertFalse(MetricKind.OBJECTIVE_COUNT.accepts(new BigDecimal("1.5")));
         assertTrue(MetricKind.OBJECTIVE_COUNT.accepts(new BigDecimal("2")));
-        assertTrue(MetricKind.RESOURCE_UNITS.accepts(BigDecimal.ONE));
+    }
+
+    @ParameterizedTest
+    @EnumSource(MetricKind.class)
+    void everyMetricKindDecidesPolymorphicallyAndRejectsNegativeAmounts(MetricKind kind) {
+        assertFalse(kind.accepts(new BigDecimal("-1")));
+        assertTrue(kind.accepts(BigDecimal.ZERO));
+        assertTrue(kind.accepts(BigDecimal.ONE));
     }
 
     @Test
@@ -201,8 +216,8 @@ class DomainEdgeCasesTest {
 
         ThresholdBonusRule atMost = new ThresholdBonusRule(objectives, ThresholdBonusRule.Comparison.AT_MOST,
                 MetricValue.of(5), PointsAmount.of(10));
-        assertEquals(Points.of(10), atMost.breakdownFor(measured(objectives, "4")).total());
-        assertEquals(Points.ZERO, atMost.breakdownFor(measured(objectives, "6")).total());
+        assertEquals(Points.of(10), new ScoreBreakdown(atMost.apply(measured(objectives, "4"))).total());
+        assertEquals(Points.ZERO, new ScoreBreakdown(atMost.apply(measured(objectives, "6"))).total());
     }
 
     @Test
@@ -235,8 +250,29 @@ class DomainEdgeCasesTest {
         assertThrows(InvalidValueException.class, () -> new TeamMembers(List.of()));
         TeamRegistration registration = registration("Team", TeamFixtures.eligibleMembers());
         assertEquals(CompetitionId.of("COMP-1"), registration.competitionId());
-        registration.resolveWith(new EligibilityVerdict(List.of()));
-        assertThrows(ConflictException.class, () -> registration.resolveWith(new EligibilityVerdict(List.of())));
+        TeamRegistration accepted = registration.resolveWith(new EligibilityVerdict(List.of()));
+        assertEquals(RegistrationStatus.SUBMITTED, registration.status());
+        assertThrows(ConflictException.class, () -> accepted.resolveWith(new EligibilityVerdict(List.of())));
+    }
+
+    @Test
+    void onlyAnAcceptedTeamOfTheCategoryMayCompeteInIt() {
+        TeamRegistration submitted = registration("Team", TeamFixtures.eligibleMembers());
+        TeamRegistration accepted = submitted.resolveWith(new EligibilityVerdict(List.of()));
+        TeamRegistration rejected = registration("Rookies", TeamFixtures.eligibleMembers())
+                .resolveWith(new EligibilityVerdict(List.of(new EligibilityViolation(
+                        EligibilityRuleCode.of("AGE_RANGE"), "too young"))));
+        CompetitionId competition = CompetitionId.of("COMP-1");
+
+        assertDoesNotThrow(() -> accepted.requireAcceptedIn(competition, CATEGORY.id()));
+        assertTrue(assertThrows(RuleViolationException.class,
+                () -> submitted.requireAcceptedIn(competition, CATEGORY.id())).getMessage().contains("not accepted"));
+        assertThrows(RuleViolationException.class, () -> rejected.requireAcceptedIn(competition, CATEGORY.id()));
+        assertTrue(assertThrows(RuleViolationException.class,
+                () -> accepted.requireAcceptedIn(competition, CategoryId.of("CAT-2"))).getMessage()
+                .contains("scheduled category"));
+        assertThrows(RuleViolationException.class,
+                () -> accepted.requireAcceptedIn(CompetitionId.of("COMP-2"), CATEGORY.id()));
     }
 
     @Test
@@ -299,12 +335,21 @@ class DomainEdgeCasesTest {
                 List.of(scoringRule), List.of(), AttemptLimit.of(2));
         assertThrows(RuleViolationException.class, () -> challenge.requireAttemptWithinLimit(AttemptNumber.of(3)));
         Rulebook rulebook = Rulebook.of(CompetitionId.of("COMP-1"), RulebookVersion.first(), TODAY,
-                List.of(challenge), RescueEditionFixture.eligibilityPolicy(), RescueEditionFixture.attemptAggregation(),
-                RescueEditionFixture.tiebreaks());
+                RescueEditionFixture.rulebook(challenge));
         assertThrows(NotFoundException.class, () -> rulebook.challenge(ChallengeId.of("UNKNOWN")));
-        assertThrows(InvalidValueException.class, () -> Rulebook.of(CompetitionId.of("COMP-1"),
-                RulebookVersion.first(), TODAY, List.of(challenge, challenge), RescueEditionFixture.eligibilityPolicy(),
-                RescueEditionFixture.attemptAggregation(), RescueEditionFixture.tiebreaks()));
+        assertEquals(RescueEditionFixture.appealWindow(), rulebook.appealWindow());
+        assertThrows(InvalidValueException.class, () -> new RulebookDraft(List.of(challenge, challenge),
+                RescueEditionFixture.eligibilityRequirements(), RescueEditionFixture.attemptAggregation(),
+                RescueEditionFixture.tiebreaks(), RescueEditionFixture.appealWindow()));
+        assertThrows(InvalidValueException.class, () -> new RulebookDraft(List.of(),
+                RescueEditionFixture.eligibilityRequirements(), RescueEditionFixture.attemptAggregation(),
+                RescueEditionFixture.tiebreaks(), RescueEditionFixture.appealWindow()));
+        assertThrows(InvalidValueException.class, () -> new Rulebook(CompetitionId.of("COMP-1"),
+                RulebookVersion.first(), TODAY, Map.of(), RescueEditionFixture.eligibilityRequirements(),
+                RescueEditionFixture.attemptAggregation(), RescueEditionFixture.tiebreaks(),
+                RescueEditionFixture.appealWindow()));
+        assertThrows(InvalidValueException.class, () -> AppealWindow.of(Duration.ZERO));
+        assertThrows(InvalidValueException.class, () -> AppealWindow.of(Duration.ofMinutes(-1)));
     }
 
     @Test
@@ -323,10 +368,18 @@ class DomainEdgeCasesTest {
         assertThrows(InvalidValueException.class, () -> competition("Competition", List.of(CATEGORY, CATEGORY)));
         Competition competition = competition("Competition", List.of(CATEGORY));
         assertThrows(NotFoundException.class, () -> competition.category(CategoryId.of("UNKNOWN")));
-        assertThrows(ConflictException.class, competition::requireActiveRulebookVersion);
-        competition.activateRulebook(RulebookVersion.of(2));
         assertThrows(ConflictException.class, () -> competition.activateRulebook(RulebookVersion.first()));
+        Competition activated = competition.activateRulebook(RulebookVersion.of(2));
+        assertEquals(RulebookVersion.first(), competition.activeRulebookVersion());
+        assertEquals(RulebookVersion.of(2), activated.activeRulebookVersion());
+        assertEquals(competition.categories(), activated.categories());
+        assertThrows(ConflictException.class, () -> activated.activateRulebook(RulebookVersion.of(2)));
         assertEquals(SeasonId.of("SEASON-1"), competition.seasonId());
+
+        DateRange march = DateRange.of(LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31));
+        assertTrue(march.overlaps(DateRange.of(LocalDate.of(2026, 3, 31), LocalDate.of(2026, 4, 30))));
+        assertFalse(march.overlaps(DateRange.of(LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30))));
+        assertFalse(march.overlaps(DateRange.of(LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 28))));
 
         assertThrows(InvalidValueException.class,
                 () -> new StandingEntry(0, TeamId.of("T"), Points.ZERO, List.of()));
@@ -348,17 +401,51 @@ class DomainEdgeCasesTest {
         assertFalse(later.overlaps(early));
 
         Round round = round();
+        TeamRegistration team = acceptedTeam("TEAM-1");
         Heat wrongRound = heat("H1", RoundId.of("OTHER"), TeamId.of("TEAM-1"), Set.of(JudgeId.of("J1")));
-        assertThrows(RuleViolationException.class, () -> round.schedule(wrongRound));
+        assertThrows(RuleViolationException.class, () -> round.schedule(wrongRound, team));
         Heat first = heat("H1", round.id(), TeamId.of("TEAM-1"), Set.of(JudgeId.of("J1")));
-        round.schedule(first);
+        assertThrows(RuleViolationException.class, () -> round.schedule(first, acceptedTeam("TEAM-2")));
+        assertThrows(RuleViolationException.class, () -> round.schedule(first,
+                registration("Team", TeamFixtures.eligibleMembers())));
+        Round scheduled = round.schedule(first, team);
         Heat duplicateTeam = heat("H2", round.id(), TeamId.of("TEAM-1"), Set.of(JudgeId.of("J2")));
-        assertThrows(InvalidValueException.class, () -> round.schedule(duplicateTeam));
-        assertEquals(List.of(first), round.heats().entries());
+        assertThrows(InvalidValueException.class, () -> scheduled.schedule(duplicateTeam, team));
+        assertTrue(round.heats().entries().isEmpty());
+        assertEquals(List.of(first), scheduled.heats().entries());
+        assertEquals(first, scheduled.heatFor(TeamId.of("TEAM-1")));
+        assertTrue(assertThrows(RuleViolationException.class, () -> scheduled.heatFor(TeamId.of("TEAM-2")))
+                .getMessage().contains("has no heat"));
         assertEquals(RoundOrdinal.of(1), round.ordinal());
         assertThrows(InvalidValueException.class,
                 () -> heat("EMPTY", round.id(), TeamId.of("TEAM-2"), Set.of()));
         assertTrue(new ScheduleConflictDetector().detect(List.of(first), first).isEmpty());
+        assertDoesNotThrow(() -> new ScheduleConflictDetector().requireNoConflicts(List.of(first), first));
+    }
+
+    @Test
+    void aCompetitionScheduleKnowsItsRoundOrdinalsAndBookedHeats() {
+        Round scheduled = round().schedule(heat("H1", RoundId.of("ROUND-1"), TeamId.of("TEAM-1"),
+                Set.of(JudgeId.of("J1"))), acceptedTeam("TEAM-1"));
+        CompetitionSchedule schedule = new CompetitionSchedule(List.of(scheduled));
+
+        assertThrows(ConflictException.class,
+                () -> schedule.requireAvailableOrdinal(CategoryId.of("CAT-1"), RoundOrdinal.of(1)));
+        assertDoesNotThrow(() -> schedule.requireAvailableOrdinal(CategoryId.of("CAT-1"), RoundOrdinal.of(2)));
+        assertDoesNotThrow(() -> schedule.requireAvailableOrdinal(CategoryId.of("CAT-2"), RoundOrdinal.of(1)));
+        assertEquals(scheduled.heats().entries(), schedule.bookedHeats());
+    }
+
+    @Test
+    void aSeasonCalendarRejectsOverlappingPeriods() {
+        Season season = new Season(SeasonId.of("S-1"), "Season 2026", 2026,
+                DateRange.of(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 6, 30)));
+        SeasonCalendar calendar = new SeasonCalendar(List.of(season));
+
+        assertThrows(ConflictException.class,
+                () -> calendar.requireAvailable(DateRange.of(LocalDate.of(2026, 6, 30), LocalDate.of(2026, 12, 31))));
+        assertDoesNotThrow(
+                () -> calendar.requireAvailable(DateRange.of(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 12, 31))));
     }
 
     @Test
@@ -368,7 +455,7 @@ class DomainEdgeCasesTest {
                 () -> new Appeal(AppealId.of("A2"), RunId.of("RUN-1"), TeamId.of("TEAM-1"), null, NOW));
         assertThrows(InvalidValueException.class,
                 () -> new Appeal(AppealId.of("A2"), RunId.of("RUN-1"), TeamId.of("TEAM-1"), " ", NOW));
-        assertFalse(appeal.isAccepted());
+        assertTrue(appeal.isPending());
         assertEquals(RunId.of("RUN-1"), appeal.runId());
         assertEquals(TeamId.of("TEAM-1"), appeal.teamId());
         assertEquals("claim", appeal.claim());
@@ -377,9 +464,9 @@ class DomainEdgeCasesTest {
         MeasurementSet measurements = MeasurementSet.empty();
         Actor actor = Actor.of("actor");
         assertThrows(InvalidValueException.class,
-                () -> new ResultCorrection(NOW, actor, null, measurements, List.of(), Optional.empty()));
+                () -> new ResultCorrection(NOW, actor, null, measurements, List.of(), AppealId.of("A1")));
         assertThrows(InvalidValueException.class,
-                () -> new ResultCorrection(NOW, actor, " ", measurements, List.of(), Optional.empty()));
+                () -> new ResultCorrection(NOW, actor, " ", measurements, List.of(), AppealId.of("A1")));
         RunResult run = run();
         assertEquals(HeatId.of("HEAT-1"), run.heatId());
         assertEquals(NOW, run.capturedAt());
@@ -406,7 +493,13 @@ class DomainEdgeCasesTest {
 
     private Competition competition(String name, List<Category> categories) {
         return new Competition(CompetitionId.of("COMP-1"), SeasonId.of("SEASON-1"), name,
-                DateRange.of(LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 5)), categories);
+                DateRange.of(LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 5)), categories, RulebookVersion.first());
+    }
+
+    private TeamRegistration acceptedTeam(String teamId) {
+        return new TeamRegistration(TeamId.of(teamId), CompetitionId.of("COMP-1"), CATEGORY.id(), teamId,
+                TeamFixtures.eligibleMembers(), TeamFixtures.eligibleRobot(), TeamFixtures.completeDocuments())
+                .resolveWith(new EligibilityVerdict(List.of()));
     }
 
     private Round round() {

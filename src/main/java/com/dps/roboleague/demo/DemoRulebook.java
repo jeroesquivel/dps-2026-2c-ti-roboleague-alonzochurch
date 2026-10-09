@@ -1,5 +1,6 @@
 package com.dps.roboleague.demo;
 
+import com.dps.roboleague.domain.appeal.AppealWindow;
 import com.dps.roboleague.domain.challenge.AttemptLimit;
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.challenge.MetricDefinition;
@@ -7,7 +8,7 @@ import com.dps.roboleague.domain.challenge.MetricKey;
 import com.dps.roboleague.domain.challenge.MetricKind;
 import com.dps.roboleague.domain.challenge.MetricUnit;
 import com.dps.roboleague.domain.challenge.MetricValue;
-import com.dps.roboleague.domain.eligibility.EligibilityPolicy;
+import com.dps.roboleague.domain.eligibility.EligibilityRequirements;
 import com.dps.roboleague.domain.eligibility.rule.AgeRangeRule;
 import com.dps.roboleague.domain.eligibility.rule.RequiredDocumentsRule;
 import com.dps.roboleague.domain.eligibility.rule.RobotClassRule;
@@ -19,6 +20,7 @@ import com.dps.roboleague.domain.ranking.aggregation.BestAttempt;
 import com.dps.roboleague.domain.ranking.rule.FastestMetricTiebreak;
 import com.dps.roboleague.domain.ranking.rule.FewestPenaltiesTiebreak;
 import com.dps.roboleague.domain.ranking.rule.HighestSingleRunTiebreak;
+import com.dps.roboleague.domain.rulebook.RulebookDraft;
 import com.dps.roboleague.domain.scoring.PenaltyCode;
 import com.dps.roboleague.domain.scoring.PenaltyDefinition;
 import com.dps.roboleague.domain.scoring.PointsAmount;
@@ -76,8 +78,13 @@ final class DemoRulebook {
                 new PenaltyDefinition(OUT_OF_BOUNDS, "robot out of bounds", PointsAmount.of(5)));
     }
 
-    static EligibilityPolicy eligibilityPolicy() {
-        return EligibilityPolicy.of(
+    static RulebookDraft rulebook() {
+        return new RulebookDraft(List.of(rescueChallenge()), eligibilityRequirements(), attemptAggregation(),
+                tiebreaks(), AppealWindow.of(Duration.ofHours(1)));
+    }
+
+    private static EligibilityRequirements eligibilityRequirements() {
+        return EligibilityRequirements.of(
                 new AgeRangeRule(),
                 new TeamCompositionRule(2, 4, 18),
                 new RobotClassRule(),
@@ -85,11 +92,11 @@ final class DemoRulebook {
                 new RequiredDocumentsRule(Set.of(DocumentType.PARENTAL_CONSENT, DocumentType.TECHNICAL_SHEET)));
     }
 
-    static AttemptAggregation attemptAggregation() {
+    private static AttemptAggregation attemptAggregation() {
         return new BestAttempt();
     }
 
-    static List<TiebreakRule> tiebreaks() {
+    private static List<TiebreakRule> tiebreaks() {
         return List.of(new HighestSingleRunTiebreak(), new FewestPenaltiesTiebreak(), new FastestMetricTiebreak(TIME));
     }
 }

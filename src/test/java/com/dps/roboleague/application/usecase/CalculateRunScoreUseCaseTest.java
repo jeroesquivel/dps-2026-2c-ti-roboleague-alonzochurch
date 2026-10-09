@@ -3,7 +3,7 @@ package com.dps.roboleague.application.usecase;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.dps.roboleague.application.port.in.CalculateRunScore;
+import com.dps.roboleague.domain.port.in.CalculateRunScore;
 import com.dps.roboleague.domain.scoring.ScoreBreakdown;
 import com.dps.roboleague.domain.scoring.ScoreContribution;
 import com.dps.roboleague.domain.scoring.rule.ObjectiveScoringRule;

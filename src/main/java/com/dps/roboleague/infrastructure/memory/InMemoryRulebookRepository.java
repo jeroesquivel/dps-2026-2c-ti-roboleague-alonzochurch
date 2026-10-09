@@ -1,11 +1,10 @@
 package com.dps.roboleague.infrastructure.memory;
 
-import com.dps.roboleague.application.port.out.RulebookRepository;
 import com.dps.roboleague.domain.rulebook.Rulebook;
+import com.dps.roboleague.domain.rulebook.RulebookRepository;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.shared.CompetitionId;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,11 +26,6 @@ public final class InMemoryRulebookRepository implements RulebookRepository {
         return versionsOf(competitionId).stream()
                 .filter(rulebook -> rulebook.version().equals(version))
                 .findFirst();
-    }
-
-    @Override
-    public Optional<Rulebook> findLatest(CompetitionId competitionId) {
-        return versionsOf(competitionId).stream().max(Comparator.comparing(Rulebook::version));
     }
 
     private List<Rulebook> versionsOf(CompetitionId competitionId) {

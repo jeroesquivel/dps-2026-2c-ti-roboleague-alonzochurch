@@ -1,26 +1,24 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.application.port.in.ScheduleRound;
-import com.dps.roboleague.application.port.out.AuditLog;
-import com.dps.roboleague.application.port.out.CompetitionRepository;
-import com.dps.roboleague.application.port.out.IdGenerator;
-import com.dps.roboleague.application.port.out.RoundRepository;
-import com.dps.roboleague.application.port.out.RulebookRepository;
-import com.dps.roboleague.application.port.out.TeamRegistrationRepository;
 import com.dps.roboleague.domain.audit.AuditAction;
 import com.dps.roboleague.domain.audit.AuditDetail;
 import com.dps.roboleague.domain.audit.AuditEvent;
+import com.dps.roboleague.domain.audit.AuditLog;
 import com.dps.roboleague.domain.competition.Competition;
+import com.dps.roboleague.domain.competition.CompetitionRepository;
+import com.dps.roboleague.domain.port.in.ScheduleRound;
+import com.dps.roboleague.domain.rulebook.RulebookRepository;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
+import com.dps.roboleague.domain.schedule.CompetitionSchedule;
 import com.dps.roboleague.domain.schedule.Heat;
 import com.dps.roboleague.domain.schedule.Round;
-import com.dps.roboleague.domain.schedule.ScheduleConflict;
+import com.dps.roboleague.domain.schedule.RoundRepository;
 import com.dps.roboleague.domain.schedule.ScheduleConflictDetector;
-import com.dps.roboleague.domain.schedule.ScheduleConflictException;
+import com.dps.roboleague.domain.shared.IdGenerator;
 import com.dps.roboleague.domain.shared.NotFoundException;
 import com.dps.roboleague.domain.shared.RoundId;
-import com.dps.roboleague.domain.shared.RuleViolationException;
 import com.dps.roboleague.domain.team.TeamRegistration;
+import com.dps.roboleague.domain.team.TeamRegistrationRepository;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,26 +53,25 @@ public final class ScheduleRoundUseCase implements ScheduleRound {
         Competition competition = competitions.findById(command.competitionId())
                 .orElseThrow(() -> NotFoundException.of("Competition", command.competitionId().value()));
         competition.category(command.categoryId());
-        RulebookVersion version = competition.requireActiveRulebookVersion();
+        RulebookVersion version = competition.activeRulebookVersion();
         rulebooks.find(competition.id(), version)
                 .orElseThrow(() -> NotFoundException.of("Rulebook", version.toString()))
                 .challenge(command.challengeId());
+        CompetitionSchedule schedule = new CompetitionSchedule(rounds.findByCompetition(competition.id()));
+        schedule.requireAvailableOrdinal(command.categoryId(), command.ordinal());
 
         RoundId roundId = idGenerator.nextRoundId();
         Round round = new Round(roundId, competition.id(), command.categoryId(), command.challengeId(),
                 command.ordinal(), version);
-        List<Heat> booked = new ArrayList<>(bookedHeats(competition));
-
+        List<Heat> booked = new ArrayList<>(schedule.bookedHeats());
         for (HeatDraft draft : command.heats()) {
-            requireEligibleTeam(command, draft);
-            requireSlotWithinCompetition(competition, draft);
+            TeamRegistration team = registrations.findById(draft.teamId())
+                    .orElseThrow(() -> NotFoundException.of("TeamRegistration", draft.teamId().value()));
+            competition.requireSlotWithinPeriod(draft.slot());
             Heat heat = new Heat(idGenerator.nextHeatId(), roundId, draft.teamId(), draft.arenaId(), draft.slot(),
                     draft.judges());
-            List<ScheduleConflict> conflicts = conflictDetector.detect(booked, heat);
-            if (!conflicts.isEmpty()) {
-                throw new ScheduleConflictException(conflicts);
-            }
-            round.schedule(heat);
+            conflictDetector.requireNoConflicts(booked, heat);
+            round = round.schedule(heat, team);
             booked.add(heat);
         }
 
@@ -83,27 +80,5 @@ public final class ScheduleRoundUseCase implements ScheduleRound {
                 Map.of(AuditDetail.HEATS, String.valueOf(round.heats().entries().size()),
                         AuditDetail.RULEBOOK, version.toString())));
         return roundId;
-    }
-
-    private List<Heat> bookedHeats(Competition competition) {
-        return rounds.findByCompetition(competition.id()).stream()
-                .flatMap(scheduled -> scheduled.heats().entries().stream())
-                .toList();
-    }
-
-    private void requireEligibleTeam(Command command, HeatDraft draft) {
-        TeamRegistration registration = registrations.findById(draft.teamId())
-                .orElseThrow(() -> NotFoundException.of("TeamRegistration", draft.teamId().value()));
-        if (!registration.isAccepted()) {
-            throw new RuleViolationException("team " + registration.name() + " is not accepted in the competition");
-        }
-        if (!registration.categoryId().equals(command.categoryId())) {
-            throw new RuleViolationException("team " + registration.name() + " does not compete in the scheduled category");
-        }
-    }
-
-    private void requireSlotWithinCompetition(Competition competition, HeatDraft draft) {
-        competition.requireDateWithinPeriod(draft.slot().start().toLocalDate());
-        competition.requireDateWithinPeriod(draft.slot().end().toLocalDate());
     }
 }

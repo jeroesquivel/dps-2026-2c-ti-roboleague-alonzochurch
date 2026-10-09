@@ -6,6 +6,7 @@ import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.CompetitionId;
 import com.dps.roboleague.domain.shared.ConflictException;
 import com.dps.roboleague.domain.shared.InvalidValueException;
+import com.dps.roboleague.domain.shared.RuleViolationException;
 import com.dps.roboleague.domain.shared.TeamId;
 import java.util.Collection;
 import java.util.EnumMap;
@@ -23,11 +24,17 @@ public final class TeamRegistration {
     private final TeamMembers members;
     private final Robot robot;
     private final Map<DocumentType, TeamDocument> documents = new EnumMap<>(DocumentType.class);
-    private RegistrationStatus status = RegistrationStatus.SUBMITTED;
-    private List<EligibilityViolation> rejectionReasons = List.of();
+    private final RegistrationStatus status;
+    private final List<EligibilityViolation> rejectionReasons;
 
     public TeamRegistration(TeamId id, CompetitionId competitionId, CategoryId categoryId, String name,
             TeamMembers members, Robot robot, Collection<TeamDocument> documents) {
+        this(id, competitionId, categoryId, name, members, robot, documents, RegistrationStatus.SUBMITTED, List.of());
+    }
+
+    private TeamRegistration(TeamId id, CompetitionId competitionId, CategoryId categoryId, String name,
+            TeamMembers members, Robot robot, Collection<TeamDocument> documents, RegistrationStatus status,
+            List<EligibilityViolation> rejectionReasons) {
         this.id = Objects.requireNonNull(id, "team id is required");
         this.competitionId = Objects.requireNonNull(competitionId, "competition id is required");
         this.categoryId = Objects.requireNonNull(categoryId, "category id is required");
@@ -38,15 +45,27 @@ public final class TeamRegistration {
         }
         this.name = name;
         documents.forEach(document -> this.documents.put(document.type(), document));
+        this.status = status;
+        this.rejectionReasons = List.copyOf(rejectionReasons);
     }
 
-    public void resolveWith(EligibilityVerdict verdict) {
+    public TeamRegistration resolveWith(EligibilityVerdict verdict) {
         Objects.requireNonNull(verdict, "eligibility verdict is required");
         if (status != RegistrationStatus.SUBMITTED) {
             throw new ConflictException("registration of team " + name + " was already resolved as " + status);
         }
-        this.status = verdict.isEligible() ? RegistrationStatus.ACCEPTED : RegistrationStatus.REJECTED;
-        this.rejectionReasons = verdict.violations();
+        RegistrationStatus resolved = verdict.isEligible() ? RegistrationStatus.ACCEPTED : RegistrationStatus.REJECTED;
+        return new TeamRegistration(id, competitionId, categoryId, name, members, robot, documents.values(), resolved,
+                verdict.violations());
+    }
+
+    public void requireAcceptedIn(CompetitionId competition, CategoryId category) {
+        if (!isAccepted()) {
+            throw new RuleViolationException("team " + name + " is not accepted in the competition");
+        }
+        if (!competitionId.equals(competition) || !categoryId.equals(category)) {
+            throw new RuleViolationException("team " + name + " does not compete in the scheduled category");
+        }
     }
 
     public boolean isAccepted() {

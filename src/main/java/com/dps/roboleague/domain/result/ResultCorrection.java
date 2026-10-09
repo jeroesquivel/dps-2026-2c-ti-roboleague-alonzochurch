@@ -8,10 +8,9 @@ import com.dps.roboleague.domain.shared.InvalidValueException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 public record ResultCorrection(Instant appliedAt, Actor actor, String reason, MeasurementSet measurements,
-        List<IncidentReport> incidents, Optional<AppealId> sourceAppeal) {
+        List<IncidentReport> incidents, AppealId sourceAppeal) {
 
     public ResultCorrection {
         Objects.requireNonNull(appliedAt, "correction timestamp is required");
@@ -22,10 +21,5 @@ public record ResultCorrection(Instant appliedAt, Actor actor, String reason, Me
             throw new InvalidValueException("a correction requires a reason");
         }
         incidents = List.copyOf(incidents);
-    }
-
-    public static ResultCorrection fromAppeal(AppealId appealId, Instant appliedAt, Actor actor, String reason,
-            MeasurementSet measurements, List<IncidentReport> incidents) {
-        return new ResultCorrection(appliedAt, actor, reason, measurements, incidents, Optional.of(appealId));
     }
 }

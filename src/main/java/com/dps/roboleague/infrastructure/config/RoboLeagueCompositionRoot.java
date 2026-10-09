@@ -1,35 +1,6 @@
 package com.dps.roboleague.infrastructure.config;
 
-import com.dps.roboleague.application.port.in.CalculateRunScore;
-import com.dps.roboleague.application.port.in.CaptureRunResult;
-import com.dps.roboleague.application.port.in.CreateCompetition;
-import com.dps.roboleague.application.port.in.CreateSeason;
-import com.dps.roboleague.application.port.in.FindAppeal;
-import com.dps.roboleague.application.port.in.FindAuditTrail;
-import com.dps.roboleague.application.port.in.FindCompetition;
-import com.dps.roboleague.application.port.in.FindRound;
-import com.dps.roboleague.application.port.in.FindRunResult;
-import com.dps.roboleague.application.port.in.FindTeamRegistration;
-import com.dps.roboleague.application.port.in.GenerateStandings;
-import com.dps.roboleague.application.port.in.GetStandings;
-import com.dps.roboleague.application.port.in.PublishRulebook;
-import com.dps.roboleague.application.port.in.PublishStandings;
-import com.dps.roboleague.application.port.in.RecalculateStandings;
-import com.dps.roboleague.application.port.in.RegisterTeam;
-import com.dps.roboleague.application.port.in.ResolveAppeal;
-import com.dps.roboleague.application.port.in.ScheduleRound;
-import com.dps.roboleague.application.port.in.SubmitAppeal;
-import com.dps.roboleague.application.port.out.AppealRepository;
-import com.dps.roboleague.application.port.out.AuditLog;
-import com.dps.roboleague.application.port.out.CompetitionRepository;
-import com.dps.roboleague.application.port.out.IdGenerator;
-import com.dps.roboleague.application.port.out.RoundRepository;
-import com.dps.roboleague.application.port.out.RulebookRepository;
-import com.dps.roboleague.application.port.out.RunResultRepository;
-import com.dps.roboleague.application.port.out.SeasonRepository;
-import com.dps.roboleague.application.port.out.StandingsRepository;
-import com.dps.roboleague.application.port.out.TeamRegistrationRepository;
-import com.dps.roboleague.application.service.CategoryScoringService;
+import com.dps.roboleague.application.usecase.AcceptAppealUseCase;
 import com.dps.roboleague.application.usecase.CalculateRunScoreUseCase;
 import com.dps.roboleague.application.usecase.CaptureRunResultUseCase;
 import com.dps.roboleague.application.usecase.CreateCompetitionUseCase;
@@ -46,11 +17,42 @@ import com.dps.roboleague.application.usecase.PublishRulebookUseCase;
 import com.dps.roboleague.application.usecase.PublishStandingsUseCase;
 import com.dps.roboleague.application.usecase.RecalculateStandingsUseCase;
 import com.dps.roboleague.application.usecase.RegisterTeamUseCase;
-import com.dps.roboleague.application.usecase.ResolveAppealUseCase;
+import com.dps.roboleague.application.usecase.RejectAppealUseCase;
 import com.dps.roboleague.application.usecase.ScheduleRoundUseCase;
 import com.dps.roboleague.application.usecase.SubmitAppealUseCase;
+import com.dps.roboleague.domain.appeal.AppealRepository;
+import com.dps.roboleague.domain.audit.AuditLog;
+import com.dps.roboleague.domain.competition.CompetitionRepository;
+import com.dps.roboleague.domain.competition.SeasonRepository;
+import com.dps.roboleague.domain.port.in.AcceptAppeal;
+import com.dps.roboleague.domain.port.in.CalculateRunScore;
+import com.dps.roboleague.domain.port.in.CaptureRunResult;
+import com.dps.roboleague.domain.port.in.CreateCompetition;
+import com.dps.roboleague.domain.port.in.CreateSeason;
+import com.dps.roboleague.domain.port.in.FindAppeal;
+import com.dps.roboleague.domain.port.in.FindAuditTrail;
+import com.dps.roboleague.domain.port.in.FindCompetition;
+import com.dps.roboleague.domain.port.in.FindRound;
+import com.dps.roboleague.domain.port.in.FindRunResult;
+import com.dps.roboleague.domain.port.in.FindTeamRegistration;
+import com.dps.roboleague.domain.port.in.GenerateStandings;
+import com.dps.roboleague.domain.port.in.GetStandings;
+import com.dps.roboleague.domain.port.in.PublishRulebook;
+import com.dps.roboleague.domain.port.in.PublishStandings;
+import com.dps.roboleague.domain.port.in.RecalculateStandings;
+import com.dps.roboleague.domain.port.in.RegisterTeam;
+import com.dps.roboleague.domain.port.in.RejectAppeal;
+import com.dps.roboleague.domain.port.in.ScheduleRound;
+import com.dps.roboleague.domain.port.in.SubmitAppeal;
+import com.dps.roboleague.domain.ranking.CategoryScoringService;
 import com.dps.roboleague.domain.ranking.RankingService;
+import com.dps.roboleague.domain.ranking.StandingsRepository;
+import com.dps.roboleague.domain.result.RunResultRepository;
+import com.dps.roboleague.domain.rulebook.RulebookRepository;
+import com.dps.roboleague.domain.schedule.RoundRepository;
 import com.dps.roboleague.domain.schedule.ScheduleConflictDetector;
+import com.dps.roboleague.domain.shared.IdGenerator;
+import com.dps.roboleague.domain.team.TeamRegistrationRepository;
 import com.dps.roboleague.infrastructure.id.SequentialIdGenerator;
 import com.dps.roboleague.infrastructure.memory.InMemoryAppealRepository;
 import com.dps.roboleague.infrastructure.memory.InMemoryAuditLog;
@@ -75,7 +77,6 @@ public final class RoboLeagueCompositionRoot {
     private final AppealRepository appeals;
     private final AuditLog auditLog;
     private final CategoryScoringService scoringService;
-    private final RankingService rankingService = new RankingService();
     private final ScheduleConflictDetector conflictDetector = new ScheduleConflictDetector();
     private final IdGenerator idGenerator;
     private final Clock clock;
@@ -95,7 +96,7 @@ public final class RoboLeagueCompositionRoot {
         this.auditLog = auditLog;
         this.idGenerator = idGenerator;
         this.clock = clock;
-        this.scoringService = new CategoryScoringService(rounds, runResults, rulebooks);
+        this.scoringService = new CategoryScoringService(rounds, runResults, rulebooks, new RankingService());
     }
 
     public static RoboLeagueCompositionRoot inMemory(Clock clock) {
@@ -111,7 +112,7 @@ public final class RoboLeagueCompositionRoot {
     }
 
     public CreateCompetition createCompetitionUseCase() {
-        return new CreateCompetitionUseCase(seasons, competitions, idGenerator, auditLog, clock);
+        return new CreateCompetitionUseCase(seasons, competitions, rulebooks, idGenerator, auditLog, clock);
     }
 
     public PublishRulebook publishRulebookUseCase() {
@@ -128,28 +129,32 @@ public final class RoboLeagueCompositionRoot {
     }
 
     public CaptureRunResult captureRunResultUseCase() {
-        return new CaptureRunResultUseCase(rounds, rulebooks, runResults, idGenerator, auditLog, clock);
+        return new CaptureRunResultUseCase(rounds, rulebooks, runResults, standings, idGenerator, auditLog, clock);
     }
 
     public GenerateStandings generateStandingsUseCase() {
-        return new GenerateStandingsUseCase(competitions, rulebooks, standings, scoringService, rankingService,
-                auditLog, clock);
+        return new GenerateStandingsUseCase(competitions, rulebooks, standings, scoringService, auditLog, clock);
     }
 
     public PublishStandings publishStandingsUseCase() {
-        return new PublishStandingsUseCase(standings, auditLog, clock);
+        return new PublishStandingsUseCase(standings, scoringService, appeals, auditLog, clock);
     }
 
     public SubmitAppeal submitAppealUseCase() {
-        return new SubmitAppealUseCase(runResults, appeals, idGenerator, auditLog, clock);
+        return new SubmitAppealUseCase(runResults, rounds, rulebooks, appeals, idGenerator, auditLog, clock);
     }
 
-    public ResolveAppeal resolveAppealUseCase() {
-        return new ResolveAppealUseCase(appeals, runResults, rounds, rulebooks, auditLog, clock);
+    public AcceptAppeal acceptAppealUseCase() {
+        return new AcceptAppealUseCase(appeals, runResults, rounds, rulebooks, standings,
+                recalculateStandingsUseCase(), auditLog, clock);
+    }
+
+    public RejectAppeal rejectAppealUseCase() {
+        return new RejectAppealUseCase(appeals, auditLog, clock);
     }
 
     public RecalculateStandings recalculateStandingsUseCase() {
-        return new RecalculateStandingsUseCase(standings, rulebooks, scoringService, rankingService, auditLog, clock);
+        return new RecalculateStandingsUseCase(standings, rulebooks, scoringService, auditLog, clock);
     }
 
 

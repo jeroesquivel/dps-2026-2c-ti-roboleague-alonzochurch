@@ -5,12 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.dps.roboleague.application.port.in.CalculateRunScore;
-import com.dps.roboleague.application.port.in.CaptureRunResult;
 import com.dps.roboleague.domain.challenge.AttemptNumber;
 import com.dps.roboleague.domain.challenge.MeasurementSet;
 import com.dps.roboleague.domain.challenge.MetricKey;
 import com.dps.roboleague.domain.challenge.MetricValue;
+import com.dps.roboleague.domain.port.in.CalculateRunScore;
+import com.dps.roboleague.domain.port.in.CaptureRunResult;
 import com.dps.roboleague.domain.result.RunResult;
 import com.dps.roboleague.domain.result.RunStatus;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;

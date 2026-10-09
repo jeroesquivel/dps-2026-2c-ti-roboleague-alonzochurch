@@ -1,8 +1,8 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.application.port.in.FindAuditTrail;
-import com.dps.roboleague.application.port.out.AuditLog;
 import com.dps.roboleague.domain.audit.AuditEvent;
+import com.dps.roboleague.domain.audit.AuditLog;
+import com.dps.roboleague.domain.port.in.FindAuditTrail;
 import java.util.List;
 
 public final class FindAuditTrailUseCase implements FindAuditTrail {

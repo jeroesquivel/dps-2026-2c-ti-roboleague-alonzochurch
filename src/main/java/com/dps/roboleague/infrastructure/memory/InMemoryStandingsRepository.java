@@ -1,8 +1,8 @@
 package com.dps.roboleague.infrastructure.memory;
 
-import com.dps.roboleague.application.port.out.StandingsRepository;
 import com.dps.roboleague.domain.ranking.Revision;
 import com.dps.roboleague.domain.ranking.Standings;
+import com.dps.roboleague.domain.ranking.StandingsRepository;
 import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.CompetitionId;
 import java.util.HashMap;

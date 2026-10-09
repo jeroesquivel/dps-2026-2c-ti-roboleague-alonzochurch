@@ -5,10 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.dps.roboleague.application.port.in.RegisterTeam;
 import com.dps.roboleague.domain.audit.AuditAction;
 import com.dps.roboleague.domain.eligibility.EligibilityVerdict;
 import com.dps.roboleague.domain.eligibility.rule.AgeRangeRule;
+import com.dps.roboleague.domain.port.in.RegisterTeam;
 import com.dps.roboleague.domain.shared.ConflictException;
 import com.dps.roboleague.domain.team.RegistrationStatus;
 import com.dps.roboleague.domain.team.TeamRegistration;
@@ -22,7 +22,7 @@ class RegisterTeamUseCaseTest {
     private final TestEdition edition = TestEdition.start();
 
     @Test
-    void acceptsATeamThatSatisfiesTheEligibilityPolicyOfTheActiveRulebook() {
+    void acceptsATeamThatSatisfiesTheEligibilityRequirementsOfTheActiveRulebook() {
         RegisterTeam.Outcome outcome = edition.register("Delta Bots", TeamFixtures.eligibleMembers(),
                 TeamFixtures.eligibleRobot(), TeamFixtures.completeDocuments());
 

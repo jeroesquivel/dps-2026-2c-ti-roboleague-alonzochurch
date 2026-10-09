@@ -39,43 +39,43 @@ class ScoringRulesTest {
     void timeRuleRewardsEverySecondSavedAgainstTheReference() {
         TimeScoringRule rule = new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsAmount.of(30));
 
-        assertEquals(Points.of("12.25"), rule.breakdownFor(measured(TIME, "95.5")).total());
+        assertEquals(Points.of("12.25"), new ScoreBreakdown(rule.apply(measured(TIME, "95.5"))).total());
     }
 
     @Test
     void timeRuleGivesNoPointsWhenTheReferenceIsExceeded() {
         TimeScoringRule rule = new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsAmount.of(30));
 
-        assertEquals(Points.ZERO, rule.breakdownFor(measured(TIME, "130")).total());
+        assertEquals(Points.ZERO, new ScoreBreakdown(rule.apply(measured(TIME, "130"))).total());
     }
 
     @Test
     void timeRuleNeverExceedsItsMaximum() {
         TimeScoringRule rule = new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsAmount.of(10));
 
-        assertEquals(Points.of(10), rule.breakdownFor(measured(TIME, "10")).total());
+        assertEquals(Points.of(10), new ScoreBreakdown(rule.apply(measured(TIME, "10"))).total());
     }
 
     @Test
     void objectiveRuleIgnoresObjectivesReportedAboveTheMaximum() {
         ObjectiveScoringRule rule = new ObjectiveScoringRule(OBJECTIVES, PointsRate.of(10), 5);
 
-        assertEquals(Points.of(50), rule.breakdownFor(measured(OBJECTIVES, "7")).total());
+        assertEquals(Points.of(50), new ScoreBreakdown(rule.apply(measured(OBJECTIVES, "7"))).total());
     }
 
     @Test
     void precisionRuleScalesTheMaximumByTheAchievedRatio() {
         PrecisionScoringRule rule = new PrecisionScoringRule(PRECISION, PointsAmount.of(20));
 
-        assertEquals(Points.of("15.00"), rule.breakdownFor(measured(PRECISION, "0.75")).total());
+        assertEquals(Points.of("15.00"), new ScoreBreakdown(rule.apply(measured(PRECISION, "0.75"))).total());
     }
 
     @Test
     void resourceRuleOnlyDeductsTheConsumptionAboveTheAllowance() {
         ResourceScoringRule rule = new ResourceScoringRule(ENERGY, MetricValue.of(50), PointsRate.of(1));
 
-        assertEquals(Points.ZERO, rule.breakdownFor(measured(ENERGY, "42")).total());
-        assertEquals(Points.of(-5), rule.breakdownFor(measured(ENERGY, "55")).total());
+        assertEquals(Points.ZERO, new ScoreBreakdown(rule.apply(measured(ENERGY, "42"))).total());
+        assertEquals(Points.of(-5), new ScoreBreakdown(rule.apply(measured(ENERGY, "55"))).total());
     }
 
     @Test
@@ -84,7 +84,7 @@ class ScoringRulesTest {
         ScoringContext context = new ScoringContext(MeasurementSet.empty(),
                 JudgeEvaluations.of(evaluation("J1", 8), evaluation("J2", 9), evaluation("J3", 7)), List.of());
 
-        assertEquals(Points.of(16), rule.breakdownFor(context).total());
+        assertEquals(Points.of(16), new ScoreBreakdown(rule.apply(context)).total());
     }
 
     @Test
@@ -94,7 +94,7 @@ class ScoringRulesTest {
         ScoringContext context = new ScoringContext(MeasurementSet.empty(), JudgeEvaluations.none(),
                 List.of(new IncidentReport(RESTART, 2)));
 
-        assertEquals(Points.of(-6), rule.breakdownFor(context).total());
+        assertEquals(Points.of(-6), new ScoreBreakdown(rule.apply(context)).total());
     }
 
     @Test
@@ -102,8 +102,8 @@ class ScoringRulesTest {
         ThresholdBonusRule rule = new ThresholdBonusRule(OBJECTIVES, ThresholdBonusRule.Comparison.AT_LEAST,
                 MetricValue.of(5), PointsAmount.of(15));
 
-        assertEquals(Points.of(15), rule.breakdownFor(measured(OBJECTIVES, "5")).total());
-        assertEquals(Points.ZERO, rule.breakdownFor(measured(OBJECTIVES, "4")).total());
+        assertEquals(Points.of(15), new ScoreBreakdown(rule.apply(measured(OBJECTIVES, "5"))).total());
+        assertEquals(Points.ZERO, new ScoreBreakdown(rule.apply(measured(OBJECTIVES, "4"))).total());
     }
 
     static Stream<ScoringRule> everyRule() {
@@ -121,7 +121,7 @@ class ScoringRulesTest {
     @ParameterizedTest
     @MethodSource("everyRule")
     void everyRuleExplainsTheAbsenceOfItsInputInsteadOfFailing(ScoringRule rule) {
-        ScoreBreakdown breakdown = rule.breakdownFor(ScoringContext.of(MeasurementSet.empty()));
+        ScoreBreakdown breakdown = new ScoreBreakdown(rule.apply(ScoringContext.of(MeasurementSet.empty())));
 
         assertFalse(breakdown.contributions().isEmpty(), "a rule always emits at least one contribution");
         assertEquals(Points.ZERO, breakdown.total());
@@ -134,7 +134,7 @@ class ScoringRulesTest {
         ScoringContext context = new ScoringContext(MeasurementSet.empty(), JudgeEvaluations.none(),
                 List.of(IncidentReport.once(RESTART)));
 
-        ScoreBreakdown breakdown = rule.breakdownFor(context);
+        ScoreBreakdown breakdown = new ScoreBreakdown(rule.apply(context));
 
         assertEquals(Points.ZERO, breakdown.total());
         assertTrue(breakdown.contributions().getFirst().explanation().contains("is not defined"));

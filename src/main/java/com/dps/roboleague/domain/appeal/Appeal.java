@@ -1,5 +1,6 @@
 package com.dps.roboleague.domain.appeal;
 
+import com.dps.roboleague.domain.result.RunResult;
 import com.dps.roboleague.domain.shared.AppealId;
 import com.dps.roboleague.domain.shared.ConflictException;
 import com.dps.roboleague.domain.shared.InvalidValueException;
@@ -17,10 +18,15 @@ public final class Appeal {
     private final TeamId teamId;
     private final String claim;
     private final Instant submittedAt;
-    private AppealStatus status = AppealStatus.SUBMITTED;
-    private AppealDecision decision;
+    private final AppealStatus status;
+    private final AppealDecision decision;
 
     public Appeal(AppealId id, RunId runId, TeamId teamId, String claim, Instant submittedAt) {
+        this(id, runId, teamId, claim, submittedAt, AppealStatus.SUBMITTED, null);
+    }
+
+    private Appeal(AppealId id, RunId runId, TeamId teamId, String claim, Instant submittedAt, AppealStatus status,
+            AppealDecision decision) {
         this.id = Objects.requireNonNull(id, "appeal id is required");
         this.runId = Objects.requireNonNull(runId, "run id is required");
         this.teamId = Objects.requireNonNull(teamId, "team id is required");
@@ -29,30 +35,40 @@ public final class Appeal {
             throw new InvalidValueException("an appeal requires a claim");
         }
         this.claim = claim;
+        this.status = status;
+        this.decision = decision;
     }
 
-    public void accept(AppealDecision decision) {
-        resolveWith(decision, AppealStatus.ACCEPTED);
+    public static Appeal file(AppealId id, RunResult run, TeamId teamId, String claim, Instant submittedAt,
+            AppealWindow window) {
+        if (!run.teamId().equals(teamId)) {
+            throw new RuleViolationException("team " + teamId.value() + " cannot appeal a run of another team");
+        }
+        window.requireOpen(run.capturedAt(), submittedAt);
+        return new Appeal(id, run.id(), teamId, claim, submittedAt);
     }
 
-    public void reject(AppealDecision decision) {
-        resolveWith(decision, AppealStatus.REJECTED);
+    public Appeal accept(AppealDecision decision) {
+        return resolveWith(decision, AppealStatus.ACCEPTED);
     }
 
-    public boolean isAccepted() {
-        return status == AppealStatus.ACCEPTED;
+    public Appeal reject(AppealDecision decision) {
+        return resolveWith(decision, AppealStatus.REJECTED);
     }
 
-    private void resolveWith(AppealDecision newDecision, AppealStatus newStatus) {
+    public boolean isPending() {
+        return status == AppealStatus.SUBMITTED;
+    }
+
+    private Appeal resolveWith(AppealDecision newDecision, AppealStatus newStatus) {
         Objects.requireNonNull(newDecision, "decision is required");
-        if (status != AppealStatus.SUBMITTED) {
+        if (!isPending()) {
             throw new ConflictException("appeal " + id.value() + " was already resolved as " + status);
         }
         if (newDecision.decidedAt().isBefore(submittedAt)) {
             throw new RuleViolationException("a decision cannot predate the submission of appeal " + id.value());
         }
-        this.decision = newDecision;
-        this.status = newStatus;
+        return new Appeal(id, runId, teamId, claim, submittedAt, newStatus, newDecision);
     }
 
     public AppealId id() {

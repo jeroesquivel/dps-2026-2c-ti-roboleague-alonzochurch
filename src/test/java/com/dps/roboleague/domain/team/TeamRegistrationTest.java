@@ -27,27 +27,37 @@ class TeamRegistrationTest {
 
     @Test
     void anEligibleVerdictAcceptsTheRegistration() {
-        registration.resolveWith(new EligibilityVerdict(List.of()));
+        TeamRegistration accepted = registration.resolveWith(new EligibilityVerdict(List.of()));
 
-        assertTrue(registration.isAccepted());
-        assertTrue(registration.rejectionReasons().isEmpty());
+        assertTrue(accepted.isAccepted());
+        assertTrue(accepted.rejectionReasons().isEmpty());
+        assertEquals(registration.documentTypes(), accepted.documentTypes());
+        assertEquals(CategoryId.of("CAT-1"), accepted.categoryId());
     }
 
     @Test
     void anIneligibleVerdictRejectsTheRegistrationKeepingWhichRuleFailed() {
-        registration.resolveWith(new EligibilityVerdict(List.of(UNDERAGE)));
+        TeamRegistration rejected = registration.resolveWith(new EligibilityVerdict(List.of(UNDERAGE)));
 
-        assertFalse(registration.isAccepted());
-        assertEquals(RegistrationStatus.REJECTED, registration.status());
+        assertFalse(rejected.isAccepted());
+        assertEquals(RegistrationStatus.REJECTED, rejected.status());
         assertEquals(List.of(AgeRangeRule.CODE),
-                registration.rejectionReasons().stream().map(EligibilityViolation::ruleCode).toList());
+                rejected.rejectionReasons().stream().map(EligibilityViolation::ruleCode).toList());
     }
 
     @Test
     void anIneligibleTeamCannotEndUpAcceptedByASecondDecision() {
-        registration.resolveWith(new EligibilityVerdict(List.of(UNDERAGE)));
+        TeamRegistration rejected = registration.resolveWith(new EligibilityVerdict(List.of(UNDERAGE)));
 
-        assertThrows(ConflictException.class, () -> registration.resolveWith(new EligibilityVerdict(List.of())));
-        assertEquals(RegistrationStatus.REJECTED, registration.status());
+        assertThrows(ConflictException.class, () -> rejected.resolveWith(new EligibilityVerdict(List.of())));
+        assertEquals(RegistrationStatus.REJECTED, rejected.status());
+    }
+
+    @Test
+    void resolvingReturnsANewRegistrationAndLeavesTheSubmittedOneUntouched() {
+        registration.resolveWith(new EligibilityVerdict(List.of()));
+
+        assertEquals(RegistrationStatus.SUBMITTED, registration.status());
+        assertFalse(registration.isAccepted());
     }
 }

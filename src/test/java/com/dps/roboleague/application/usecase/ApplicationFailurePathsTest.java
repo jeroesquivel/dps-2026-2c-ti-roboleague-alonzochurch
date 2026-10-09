@@ -4,22 +4,23 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.dps.roboleague.Main;
-import com.dps.roboleague.application.port.in.CalculateRunScore;
-import com.dps.roboleague.application.port.in.CaptureRunResult;
-import com.dps.roboleague.application.port.in.GenerateStandings;
-import com.dps.roboleague.application.port.in.GetStandings;
-import com.dps.roboleague.application.port.in.RecalculateStandings;
-import com.dps.roboleague.application.port.in.RegisterTeam;
-import com.dps.roboleague.application.port.in.ResolveAppeal;
-import com.dps.roboleague.application.port.in.ScheduleRound;
-import com.dps.roboleague.application.port.in.SubmitAppeal;
-import com.dps.roboleague.application.service.CategoryScoringService;
 import com.dps.roboleague.domain.appeal.Appeal;
 import com.dps.roboleague.domain.challenge.AttemptNumber;
 import com.dps.roboleague.domain.challenge.MeasurementSet;
 import com.dps.roboleague.domain.competition.Category;
 import com.dps.roboleague.domain.competition.Competition;
 import com.dps.roboleague.domain.eligibility.EligibilityVerdict;
+import com.dps.roboleague.domain.port.in.AcceptAppeal;
+import com.dps.roboleague.domain.port.in.CalculateRunScore;
+import com.dps.roboleague.domain.port.in.CaptureRunResult;
+import com.dps.roboleague.domain.port.in.GenerateStandings;
+import com.dps.roboleague.domain.port.in.GetStandings;
+import com.dps.roboleague.domain.port.in.RecalculateStandings;
+import com.dps.roboleague.domain.port.in.RegisterTeam;
+import com.dps.roboleague.domain.port.in.RejectAppeal;
+import com.dps.roboleague.domain.port.in.ScheduleRound;
+import com.dps.roboleague.domain.port.in.SubmitAppeal;
+import com.dps.roboleague.domain.ranking.CategoryScoringService;
 import com.dps.roboleague.domain.ranking.RankingService;
 import com.dps.roboleague.domain.ranking.Standings;
 import com.dps.roboleague.domain.result.RunResult;
@@ -67,7 +68,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -107,7 +107,7 @@ class ApplicationFailurePathsTest {
         appeals = new InMemoryAppealRepository();
         auditLog = new InMemoryAuditLog();
         ids = new SequentialIdGenerator();
-        scoring = new CategoryScoringService(rounds, runResults, rulebooks);
+        scoring = new CategoryScoringService(rounds, runResults, rulebooks, new RankingService());
     }
 
     @Test
@@ -124,7 +124,7 @@ class ApplicationFailurePathsTest {
         assertThrows(NotFoundException.class, () -> module.getStandingsUseCase()
                 .execute(new GetStandings.Command(COMPETITION_ID, CATEGORY_ID)));
         assertThrows(NotFoundException.class, () -> module.publishStandingsUseCase()
-                .execute(new com.dps.roboleague.application.port.in.PublishStandings.Command(
+                .execute(new com.dps.roboleague.domain.port.in.PublishStandings.Command(
                         COMPETITION_ID, CATEGORY_ID, ACTOR)));
         assertThrows(NotFoundException.class, () -> module.recalculateStandingsUseCase()
                 .execute(new RecalculateStandings.Command(COMPETITION_ID, CATEGORY_ID, "reason", ACTOR)));
@@ -135,8 +135,10 @@ class ApplicationFailurePathsTest {
                         MeasurementSet.empty(), JudgeEvaluations.none(), List.of(), ACTOR)));
         assertThrows(NotFoundException.class, () -> module.submitAppealUseCase()
                 .execute(new SubmitAppeal.Command(RUN_ID, TEAM_ID, "claim", ACTOR)));
-        assertThrows(NotFoundException.class, () -> module.resolveAppealUseCase()
-                .execute(resolveCommand()));
+        assertThrows(NotFoundException.class, () -> module.acceptAppealUseCase()
+                .execute(acceptCommand()));
+        assertThrows(NotFoundException.class, () -> module.rejectAppealUseCase()
+                .execute(new RejectAppeal.Command(APPEAL_ID, "rationale", ACTOR)));
         assertThrows(NotFoundException.class, () -> module.registerTeamUseCase()
                 .execute(registerCommand(COMPETITION_ID)));
         assertThrows(NotFoundException.class, () -> module.generateStandingsUseCase()
@@ -153,7 +155,7 @@ class ApplicationFailurePathsTest {
         RegisterTeamUseCase register = new RegisterTeamUseCase(competitions, rulebooks, registrations, ids, auditLog,
                 CLOCK);
         GenerateStandingsUseCase generate = new GenerateStandingsUseCase(competitions, rulebooks, standings, scoring,
-                new RankingService(), auditLog, CLOCK);
+                auditLog, CLOCK);
         ScheduleRoundUseCase schedule = new ScheduleRoundUseCase(competitions, rulebooks, registrations, rounds,
                 new ScheduleConflictDetector(), ids, auditLog, CLOCK);
 
@@ -166,19 +168,35 @@ class ApplicationFailurePathsTest {
                 List.of());
         standings.save(current);
         RecalculateStandingsUseCase recalculate = new RecalculateStandingsUseCase(standings, rulebooks, scoring,
-                new RankingService(), auditLog, CLOCK);
+                auditLog, CLOCK);
         assertThrows(NotFoundException.class,
                 () -> recalculate.execute(new RecalculateStandings.Command(COMPETITION_ID, CATEGORY_ID, "reason",
                         ACTOR)));
 
         Round round = scheduledRound();
         rounds.save(round);
-        CaptureRunResultUseCase capture = new CaptureRunResultUseCase(rounds, rulebooks, runResults, ids, auditLog,
-                CLOCK);
+        CaptureRunResultUseCase capture = new CaptureRunResultUseCase(rounds, rulebooks, runResults, standings, ids,
+                auditLog, CLOCK);
         assertThrows(NotFoundException.class,
                 () -> capture.execute(new CaptureRunResult.Command(ROUND_ID, TEAM_ID, AttemptNumber.first(),
                         MeasurementSet.empty(), JudgeEvaluations.none(), List.of(), ACTOR)));
         assertThrows(NotFoundException.class, () -> scoring.scoreRun(run(), COMPETITION_ID));
+
+        runResults.save(run());
+        SubmitAppealUseCase submit = new SubmitAppealUseCase(runResults, rounds, rulebooks, appeals, ids, auditLog,
+                CLOCK);
+        assertThrows(NotFoundException.class,
+                () -> submit.execute(new SubmitAppeal.Command(RUN_ID, TEAM_ID, "claim", ACTOR)));
+    }
+
+    @Test
+    void appealSubmissionReportsAMissingRound() {
+        runResults.save(run());
+        SubmitAppealUseCase submit = new SubmitAppealUseCase(runResults, rounds, rulebooks, appeals, ids, auditLog,
+                CLOCK);
+
+        assertThrows(NotFoundException.class,
+                () -> submit.execute(new SubmitAppeal.Command(RUN_ID, TEAM_ID, "claim", ACTOR)));
     }
 
     @Test
@@ -190,10 +208,7 @@ class ApplicationFailurePathsTest {
 
         assertThrows(NotFoundException.class, () -> schedule.execute(scheduleCommand(TEAM_ID, CATEGORY_ID)));
 
-        TeamRegistration registration = new TeamRegistration(TEAM_ID, COMPETITION_ID, OTHER_CATEGORY_ID, "Team",
-                TeamFixtures.eligibleMembers(), TeamFixtures.eligibleRobot(), TeamFixtures.completeDocuments());
-        registration.resolveWith(new EligibilityVerdict(List.of()));
-        registrations.save(registration);
+        registrations.save(acceptedTeam(OTHER_CATEGORY_ID));
         assertThrows(RuleViolationException.class,
                 () -> schedule.execute(scheduleCommand(TEAM_ID, CATEGORY_ID)));
     }
@@ -211,14 +226,14 @@ class ApplicationFailurePathsTest {
     void appealResolutionReportsEachMissingCorrectionDependency() {
         Appeal appeal = new Appeal(APPEAL_ID, RUN_ID, TEAM_ID, "claim", NOW);
         appeals.save(appeal);
-        ResolveAppealUseCase resolve = new ResolveAppealUseCase(appeals, runResults, rounds, rulebooks, auditLog,
-                CLOCK);
+        AcceptAppealUseCase accept = new AcceptAppealUseCase(appeals, runResults, rounds, rulebooks, standings,
+                new RecalculateStandingsUseCase(standings, rulebooks, scoring, auditLog, CLOCK), auditLog, CLOCK);
 
-        assertThrows(NotFoundException.class, () -> resolve.execute(resolveCommand()));
+        assertThrows(NotFoundException.class, () -> accept.execute(acceptCommand()));
         runResults.save(run());
-        assertThrows(NotFoundException.class, () -> resolve.execute(resolveCommand()));
+        assertThrows(NotFoundException.class, () -> accept.execute(acceptCommand()));
         rounds.save(scheduledRound());
-        assertThrows(NotFoundException.class, () -> resolve.execute(resolveCommand()));
+        assertThrows(NotFoundException.class, () -> accept.execute(acceptCommand()));
     }
 
     @Test
@@ -230,8 +245,7 @@ class ApplicationFailurePathsTest {
     private Competition activeCompetition() {
         Competition competition = new Competition(COMPETITION_ID, SeasonId.of("SEASON-1"), "Competition",
                 DateRange.of(LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 5)),
-                List.of(category(CATEGORY_ID), category(OTHER_CATEGORY_ID)));
-        competition.activateRulebook(RulebookVersion.first());
+                List.of(category(CATEGORY_ID), category(OTHER_CATEGORY_ID)), RulebookVersion.first());
         return competition;
     }
 
@@ -241,17 +255,21 @@ class ApplicationFailurePathsTest {
 
     private Rulebook rulebook() {
         return Rulebook.of(COMPETITION_ID, RulebookVersion.first(), LocalDate.of(2026, 3, 1),
-                List.of(RescueEditionFixture.rescueChallenge()), RescueEditionFixture.eligibilityPolicy(),
-                RescueEditionFixture.attemptAggregation(), RescueEditionFixture.tiebreaks());
+                RescueEditionFixture.rulebook());
     }
 
     private Round scheduledRound() {
         Round round = new Round(ROUND_ID, COMPETITION_ID, CATEGORY_ID, RescueEditionFixture.CHALLENGE_ID,
                 RoundOrdinal.of(1), RulebookVersion.first());
-        round.schedule(new Heat(HeatId.of("HEAT-1"), ROUND_ID, TEAM_ID, ArenaId.of("A1"),
+        return round.schedule(new Heat(HeatId.of("HEAT-1"), ROUND_ID, TEAM_ID, ArenaId.of("A1"),
                 new TimeSlot(LocalDateTime.of(2026, 3, 2, 10, 0), Duration.ofMinutes(15)),
-                Set.of(JudgeId.of("J1"))));
-        return round;
+                Set.of(JudgeId.of("J1"))), acceptedTeam(CATEGORY_ID));
+    }
+
+    private TeamRegistration acceptedTeam(CategoryId categoryId) {
+        return new TeamRegistration(TEAM_ID, COMPETITION_ID, categoryId, "Team", TeamFixtures.eligibleMembers(),
+                TeamFixtures.eligibleRobot(), TeamFixtures.completeDocuments())
+                .resolveWith(new EligibilityVerdict(List.of()));
     }
 
     private RunResult run() {
@@ -274,8 +292,7 @@ class ApplicationFailurePathsTest {
                 RoundOrdinal.of(1), List.of(heat), ACTOR);
     }
 
-    private ResolveAppeal.Command resolveCommand() {
-        ResolveAppeal.Correction correction = new ResolveAppeal.Correction(MeasurementSet.empty(), List.of());
-        return new ResolveAppeal.Command(APPEAL_ID, true, ACTOR, "rationale", Optional.of(correction), ACTOR);
+    private AcceptAppeal.Command acceptCommand() {
+        return new AcceptAppeal.Command(APPEAL_ID, "rationale", MeasurementSet.empty(), List.of(), ACTOR);
     }
 }

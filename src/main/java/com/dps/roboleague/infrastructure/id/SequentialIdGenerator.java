@@ -1,10 +1,10 @@
 package com.dps.roboleague.infrastructure.id;
 
-import com.dps.roboleague.application.port.out.IdGenerator;
 import com.dps.roboleague.domain.shared.AppealId;
 import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.CompetitionId;
 import com.dps.roboleague.domain.shared.HeatId;
+import com.dps.roboleague.domain.shared.IdGenerator;
 import com.dps.roboleague.domain.shared.MemberId;
 import com.dps.roboleague.domain.shared.RoundId;
 import com.dps.roboleague.domain.shared.RunId;

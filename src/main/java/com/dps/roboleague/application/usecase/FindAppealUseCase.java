@@ -1,8 +1,8 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.application.port.in.FindAppeal;
-import com.dps.roboleague.application.port.out.AppealRepository;
 import com.dps.roboleague.domain.appeal.Appeal;
+import com.dps.roboleague.domain.appeal.AppealRepository;
+import com.dps.roboleague.domain.port.in.FindAppeal;
 import com.dps.roboleague.domain.shared.AppealId;
 import com.dps.roboleague.domain.shared.NotFoundException;
 

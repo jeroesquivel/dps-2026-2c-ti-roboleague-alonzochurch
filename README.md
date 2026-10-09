@@ -62,8 +62,9 @@ mvn test -Dtest=CalculateRunScoreUseCaseTest
 
 ```
 src/main/java/com/dps/roboleague
-├── domain           reglas y modelos de negocio
-├── application      casos de uso y contratos (puertos de entrada y salida)
+├── domain           reglas y modelos de negocio, y sus puertos: interfaces de los casos de uso
+│                    (domain.port.in) y de repositorios, auditoría e ids (junto a cada agregado)
+├── application      interactors que implementan los casos de uso y sólo coordinan
 ├── infrastructure   adaptadores en memoria y composition root
 └── demo             recorrido de ejemplo sobre los casos de uso
 ```

@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.dps.roboleague.application.port.in.ScheduleRound;
+import com.dps.roboleague.domain.port.in.ScheduleRound;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.schedule.Round;
 import com.dps.roboleague.domain.schedule.ScheduleConflict;
@@ -12,6 +12,7 @@ import com.dps.roboleague.domain.schedule.ScheduleConflictException;
 import com.dps.roboleague.domain.schedule.ScheduleConflictType;
 import com.dps.roboleague.domain.schedule.TimeSlot;
 import com.dps.roboleague.domain.shared.ArenaId;
+import com.dps.roboleague.domain.shared.ConflictException;
 import com.dps.roboleague.domain.shared.JudgeId;
 import com.dps.roboleague.domain.shared.RoundId;
 import com.dps.roboleague.domain.shared.RuleViolationException;
@@ -41,8 +42,8 @@ class ScheduleRoundUseCaseTest {
 
         assertEquals(2, round.heats().entries().size());
         assertEquals(RulebookVersion.first(), round.rulebookVersion());
-        assertTrue(round.heatFor(delta).isPresent());
-        assertEquals(2, round.heatFor(omega).orElseThrow().judges().size());
+        assertEquals(delta, round.heatFor(delta).teamId());
+        assertEquals(2, round.heatFor(omega).judges().size());
     }
 
     @Test
@@ -52,8 +53,8 @@ class ScheduleRoundUseCaseTest {
 
         RoundId next = edition.scheduleRound(2, List.of(edition.heat(delta, "A1", TEN.plusMinutes(15))));
 
-        assertEquals(edition.round(first).heatFor(delta).orElseThrow().slot().end(),
-                edition.round(next).heatFor(delta).orElseThrow().slot().start());
+        assertEquals(edition.round(first).heatFor(delta).slot().end(),
+                edition.round(next).heatFor(delta).slot().start());
         assertEquals(1, edition.round(first).heats().entries().size());
         assertEquals(1, edition.round(next).heats().entries().size());
     }
@@ -69,9 +70,9 @@ class ScheduleRoundUseCaseTest {
 
         Round round = edition.round(roundId);
         assertEquals(2, round.heats().entries().size());
-        assertEquals(round.heatFor(delta).orElseThrow().slot(), round.heatFor(omega).orElseThrow().slot());
-        assertEquals(ArenaId.of("A2"), round.heatFor(omega).orElseThrow().arenaId());
-        assertEquals(Set.of(JudgeId.of("J3")), round.heatFor(omega).orElseThrow().judges());
+        assertEquals(round.heatFor(delta).slot(), round.heatFor(omega).slot());
+        assertEquals(ArenaId.of("A2"), round.heatFor(omega).arenaId());
+        assertEquals(Set.of(JudgeId.of("J3")), round.heatFor(omega).judges());
     }
 
     @Test
@@ -128,5 +129,19 @@ class ScheduleRoundUseCaseTest {
                 () -> edition.scheduleRound(1, List.of(edition.heat(rejected, "A1", TEN))));
 
         assertTrue(error.getMessage().contains("not accepted"));
+    }
+
+    @Test
+    void rejectsARoundOrdinalThatIsAlreadyScheduledInTheCategory() {
+        TeamId delta = edition.registerEligibleTeam("Delta Bots");
+        TeamId omega = edition.registerEligibleTeam("Omega Crew");
+        edition.scheduleRound(1, List.of(edition.heat(delta, "A1", TEN)));
+
+        ConflictException error = assertThrows(ConflictException.class,
+                () -> edition.scheduleRound(1, List.of(edition.heat(omega, "A2", TEN.plusHours(1)))));
+
+        assertTrue(error.getMessage().contains("round 1 is already scheduled"));
+        assertEquals(1, edition.round(edition.scheduleRound(2,
+                List.of(edition.heat(omega, "A2", TEN.plusHours(1))))).heats().entries().size());
     }
 }

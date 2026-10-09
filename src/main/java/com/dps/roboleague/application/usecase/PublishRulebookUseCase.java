@@ -1,14 +1,14 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.application.port.in.PublishRulebook;
-import com.dps.roboleague.application.port.out.AuditLog;
-import com.dps.roboleague.application.port.out.CompetitionRepository;
-import com.dps.roboleague.application.port.out.RulebookRepository;
 import com.dps.roboleague.domain.audit.AuditAction;
 import com.dps.roboleague.domain.audit.AuditDetail;
 import com.dps.roboleague.domain.audit.AuditEvent;
+import com.dps.roboleague.domain.audit.AuditLog;
 import com.dps.roboleague.domain.competition.Competition;
+import com.dps.roboleague.domain.competition.CompetitionRepository;
+import com.dps.roboleague.domain.port.in.PublishRulebook;
 import com.dps.roboleague.domain.rulebook.Rulebook;
+import com.dps.roboleague.domain.rulebook.RulebookRepository;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.shared.NotFoundException;
 import java.time.Clock;
@@ -35,16 +35,12 @@ public final class PublishRulebookUseCase implements PublishRulebook {
         Competition competition = competitions.findById(command.competitionId())
                 .orElseThrow(() -> NotFoundException.of("Competition", command.competitionId().value()));
 
-        RulebookVersion version = rulebooks.findLatest(competition.id())
-                .map(rulebook -> rulebook.version().next())
-                .orElseGet(RulebookVersion::first);
+        RulebookVersion version = competition.activeRulebookVersion().next();
+        Rulebook rulebook = Rulebook.of(competition.id(), version, LocalDate.now(clock), command.rulebook());
+        Competition activated = competition.activateRulebook(version);
 
-        Rulebook rulebook = Rulebook.of(competition.id(), version, LocalDate.now(clock), command.challenges(),
-                command.eligibilityPolicy(), command.attemptAggregation(), command.tiebreakRules());
         rulebooks.save(rulebook);
-        competition.activateRulebook(version);
-        competitions.save(competition);
-
+        competitions.save(activated);
         auditLog.record(new AuditEvent(clock.instant(), AuditAction.RULEBOOK_PUBLISHED, competition.id(),
                 command.actor(), Map.of(AuditDetail.VERSION, version.toString())));
         return version;

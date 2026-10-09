@@ -3,8 +3,8 @@ package com.dps.roboleague.demo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.dps.roboleague.application.port.in.FindAuditTrail;
 import com.dps.roboleague.domain.audit.AuditAction;
+import com.dps.roboleague.domain.port.in.FindAuditTrail;
 import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.infrastructure.config.RoboLeagueCompositionRoot;
 import com.dps.roboleague.support.TestEdition;
