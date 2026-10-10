@@ -414,7 +414,8 @@ recortado sin cambios propios.
 `BonusCapTiebreakTest` y `BonusCapScoringTest`.
 
 **Clases modificadas:** `ChallengeSpec` (componente `bonusCap`, constructor de siete argumentos que lo
-deja vacío y `score`); en tests, `RescueEditionFixture` (`challengeCappingBonuses` y
+deja vacío y `score`); `DemoRulebook` y `DemoScenario` (tope en `RESCUE` y desglose de la corrida de
+Kappa); en tests, `DemoScenarioTest`, `RescueEditionFixture` (`challengeCappingBonuses` y
 `scoringRulesWithThreeBonuses`).
 
 **Refactorizaciones:** `ChallengeSpec.score` pasó de concatenar dos flujos a armar primero el desglose
@@ -429,7 +430,8 @@ de las reglas y combinar tres partes en orden fijo.
   opcional convendría agruparlas en un value object o un builder.
 - No se valida que el tope sea alcanzable ni que el desafío tenga reglas que bonifiquen: el desafío no
   puede saberlo sin agregar métodos a `ScoringRule`.
-- El demo todavía no configura un tope (ver 7.1).
+- El demo configura el tope en `RESCUE` (ver 7.1): las bonificaciones nuevas suman 10 a cada equipo
+  para conservar el empate de cuatro equipos que separa la cadena de desempates.
 
 ## 3. Reglamento, versionado y recálculo
 
@@ -1427,7 +1429,7 @@ FastestMetric(TIME)`:
 
 | Desafío | Rondas | Reglas | Configuración |
 | --- | --- | --- | --- |
-| `RESCUE` | 1 | `Time`, `Objective`, `JudgePanel`, `Resource`, `ThresholdBonus` y las penalizaciones `RESTART` y `OUT_OF_BOUNDS` | todas las corridas suman |
+| `RESCUE` | 1 | `Time`, `Objective`, `JudgePanel`, `Resource`, tres `ThresholdBonus` (OBJECTIVES ≥ 5 → 15, TIME ≤ 110 → 10, ENERGY ≤ 48 → 10) y las penalizaciones `RESTART` y `OUT_OF_BOUNDS` | todas las corridas suman; tope global de bonificaciones de 25 |
 | `SPRINT` | 2 | `Time`, `Objective` | todas las corridas suman |
 | `PRECISION` | 3, 4, 5 | `Precision` | mejores 2 de 3 rondas |
 
@@ -1435,16 +1437,19 @@ Recorrido:
 
 1. Inscripción y programación de los cuatro equipos en cada ronda, con turnos consecutivos que
    comparten pista y jueces.
-2. Captura y desglose explicado de una corrida de `RESCUE`, con sus seis contribuciones.
-3. Generación y publicación de la tabla. Los cuatro equipos empatan en 177,50 y la explicación de cada
+2. Captura y desglose explicado de la corrida de Kappa en `RESCUE`: obtiene las tres bonificaciones
+   (15 + 10 + 10 = 35) y la contribución `BONUS_CAP` recorta 10 hasta el tope de 25. Los otros tres
+   equipos obtienen exactamente 25 en bonificaciones, así que su recorte es 0.
+3. Generación y publicación de la tabla. Los cuatro equipos empatan en 187,50 y la explicación de cada
    uno detalla el subtotal de la política de intentos y el de `BEST_ROUNDS`, ronda por ronda. Cada
    criterio de la cadena separa un par distinto: Kappa supera a Delta por la mejor corrida individual
-   (83,50 contra 71,50); Delta supera a Omega por penalizaciones (0 contra −8); Omega supera a Sigma
+   (93,50 contra 81,50); Delta supera a Omega por penalizaciones (0 contra −8; el recorte de Kappa no
+   cuenta como penalización); Omega supera a Sigma
    por el menor tiempo (44 s contra 46 s). Kappa empata 26 contra 26 en las rondas 4 y 5 de
    `PRECISION` y se descarta la 5 por mayor ordinal.
 4. Sigma apela su ronda 5 de `PRECISION`, descartada con 24 puntos. Al aceptarse la apelación
    (precisión 0,98, 39,20 puntos), la tabla se recalcula: la ronda 5 pasa a `COUNTED`, la 4 a
-   `DISCARDED` y Sigma queda primera con 182,70. La revisión publicada conserva su explicación
+   `DISCARDED` y Sigma queda primera con 192,70. La revisión publicada conserva su explicación
    original.
 
 **Cobertura de la demostración sugerida por el enunciado:**
@@ -1456,12 +1461,12 @@ Recorrido:
 | Diez tipos de reglas | **Parcial:** se usan los 7 tipos existentes |
 | Una regla compuesta | **Pendiente:** no existe (ver 5.10) |
 | Una penalización | Cubierto: `RESTART` y `OUT_OF_BOUNDS` en `RESCUE` |
-| Bonificaciones con tope global (F2) | **Pendiente:** F2 está implementada (2.5) pero el demo todavía no configura un tope; hay una bonificación sin tope |
+| Bonificaciones con tope global (F2) | Cubierto: tres bonificaciones en `RESCUE` con tope de 25; Kappa recorta 10 |
 | Un desafío con mejores N de M rondas | Cubierto: `PRECISION` |
 | Tres criterios encadenados de desempate | Cubierto: cada uno decide un par de la tabla publicada |
 | Una apelación que provoque el recálculo del ranking | Cubierto: reordena la tabla y cambia las rondas consideradas |
 
-Cuando se implementen F2, F3, la regla compuesta y los tipos de regla faltantes, se agregan a
+Cuando se implementen F3, la regla compuesta y los tipos de regla faltantes, se agregan a
 `DemoRulebook` y `DemoScenario`, junto con sus aserciones en `DemoScenarioTest`.
 
 **Alternativas descartadas:** un script o un fixture externo (JSON o SQL). No hay persistencia real
@@ -1566,12 +1571,12 @@ intento después de quitar el incidente inválido; un conflicto dentro del coman
 los primeros turnos. Eso no implica atomicidad frente a todos los fallos posteriores.
 
 Verificación del código actual el 10 de octubre de 2026: Maven recompiló los 199
-archivos Java de producción y los 39 de pruebas, y ejecutó **263 tests, 0 fallos, 0 errores y 0
+archivos Java de producción y los 39 de pruebas, y ejecutó **264 tests, 0 fallos, 0 errores y 0
 omitidos**. Es una comprobación fechada, no un total garantizado para futuras versiones.
 No se establece una proporción obligatoria de tests exitosos/negativos ni se equipara cantidad con
 porcentaje de cobertura.
 JaCoCo 0.8.15 midió **100 % de instrucciones, ramas, líneas, complejidad, métodos y clases**. Son
-11.714 instrucciones, 482 ramas, 2.096 líneas, 1.037 puntos de complejidad, 796 métodos y 200 clases
+11.734 instrucciones, 482 ramas, 2.107 líneas, 1.037 puntos de complejidad, 796 métodos y 200 clases
 cubiertos. `mvn verify` genera el informe y falla si cualquiera de esos porcentajes baja del 100 %.
 La suite no prueba HTTP, proveedores, SQL, transacciones o concurrencia porque esas integraciones aún
 no existen; tendrán pruebas propias cuando se incorporen.

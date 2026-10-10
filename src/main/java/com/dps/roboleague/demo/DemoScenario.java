@@ -87,8 +87,8 @@ public final class DemoScenario {
         List<TeamId> teams = List.of(kappa, delta, omega, sigma);
 
         RoundId rescue = scheduleRound(competitionId, categoryId, DemoRulebook.CHALLENGE_ID, 1, teams);
-        captureRescue(rescue, kappa, "99", 5, "48", List.of(8, 8), List.of());
-        RunId deltaRescue = captureRescue(rescue, delta, "117", 5, "48", List.of(5, 5), List.of());
+        RunId kappaRescue = captureRescue(rescue, kappa, "99", 5, "48", List.of(8, 8), List.of());
+        captureRescue(rescue, delta, "117", 5, "48", List.of(5, 5), List.of());
         captureRescue(rescue, omega, "105", 5, "55", List.of(7, 7), List.of(IncidentReport.once(DemoRulebook.RESTART)));
         captureRescue(rescue, sigma, "107", 5, "50", List.of(8, 8), List.of(IncidentReport.once(DemoRulebook.RESTART),
                 IncidentReport.once(DemoRulebook.OUT_OF_BOUNDS)));
@@ -104,7 +104,7 @@ public final class DemoScenario {
         RunId sigmaWorstPrecision = capturePrecisionRound(competitionId, categoryId, 5, teams,
                 List.of("0.65", "0.50", "0.40", "0.60")).get(3);
 
-        printScore(module.calculateRunScoreUseCase().execute(new CalculateRunScore.Command(deltaRescue)));
+        printScore(module.calculateRunScoreUseCase().execute(new CalculateRunScore.Command(kappaRescue)));
         module.generateStandingsUseCase().execute(new GenerateStandings.Command(competitionId, categoryId, ORGANISER));
         printStandings("Published standings",
                 module.publishStandingsUseCase().execute(new PublishStandings.Command(competitionId, categoryId, ORGANISER)));

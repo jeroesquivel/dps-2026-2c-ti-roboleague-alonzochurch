@@ -22,6 +22,7 @@ import com.dps.roboleague.domain.ranking.rule.FastestMetricTiebreak;
 import com.dps.roboleague.domain.ranking.rule.FewestPenaltiesTiebreak;
 import com.dps.roboleague.domain.ranking.rule.HighestSingleRunTiebreak;
 import com.dps.roboleague.domain.rulebook.RulebookDraft;
+import com.dps.roboleague.domain.scoring.BonusCap;
 import com.dps.roboleague.domain.scoring.BonusPoints;
 import com.dps.roboleague.domain.scoring.PenaltyCode;
 import com.dps.roboleague.domain.scoring.PenaltyDefinition;
@@ -68,7 +69,7 @@ final class DemoRulebook {
                 MetricDefinition.required(ENERGY, MetricKind.RESOURCE_UNITS, MetricUnit.of("mAh")),
                 MetricDefinition.optional(DESIGN, MetricKind.JUDGE_CRITERION, MetricUnit.of("points")));
         return new ChallengeSpec(CHALLENGE_ID, "Rescue mission", metrics, scoringRules(), penalties(),
-                AttemptLimit.of(2));
+                AttemptLimit.of(2), Optional.empty(), Optional.of(BonusCap.of(25)));
     }
 
     static List<ScoringRule> scoringRules() {
@@ -78,7 +79,11 @@ final class DemoRulebook {
                 new JudgePanelScoringRule(DESIGN, PointsRate.of(1)),
                 new ResourceScoringRule(ENERGY, MetricValue.of(50), PointsRate.of(1)),
                 new ThresholdBonusRule(OBJECTIVES, ThresholdBonusRule.Comparison.AT_LEAST, MetricValue.of(5),
-                        BonusPoints.of(15)));
+                        BonusPoints.of(15)),
+                new ThresholdBonusRule(TIME, ThresholdBonusRule.Comparison.AT_MOST, MetricValue.of(110),
+                        BonusPoints.of(10)),
+                new ThresholdBonusRule(ENERGY, ThresholdBonusRule.Comparison.AT_MOST, MetricValue.of(48),
+                        BonusPoints.of(10)));
     }
 
     static ChallengeSpec sprintChallenge() {

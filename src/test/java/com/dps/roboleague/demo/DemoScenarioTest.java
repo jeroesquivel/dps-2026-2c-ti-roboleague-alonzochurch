@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.dps.roboleague.domain.audit.AuditAction;
 import com.dps.roboleague.domain.challenge.BestRounds;
+import com.dps.roboleague.domain.port.in.CalculateRunScore;
 import com.dps.roboleague.domain.port.in.FindAuditTrail;
 import com.dps.roboleague.domain.port.in.GetStandings;
 import com.dps.roboleague.domain.ranking.AppliedTiebreak;
@@ -17,9 +18,15 @@ import com.dps.roboleague.domain.ranking.Standings;
 import com.dps.roboleague.domain.ranking.rule.FastestMetricTiebreak;
 import com.dps.roboleague.domain.ranking.rule.FewestPenaltiesTiebreak;
 import com.dps.roboleague.domain.ranking.rule.HighestSingleRunTiebreak;
+import com.dps.roboleague.domain.scoring.BonusCap;
+import com.dps.roboleague.domain.scoring.ContributionKind;
+import com.dps.roboleague.domain.scoring.ScoreBreakdown;
+import com.dps.roboleague.domain.scoring.ScoreContribution;
+import com.dps.roboleague.domain.scoring.rule.ThresholdBonusRule;
 import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.CompetitionId;
 import com.dps.roboleague.domain.shared.Points;
+import com.dps.roboleague.domain.shared.RunId;
 import com.dps.roboleague.domain.shared.TeamId;
 import com.dps.roboleague.infrastructure.config.RoboLeagueCompositionRoot;
 import com.dps.roboleague.support.TestEdition;
@@ -56,9 +63,28 @@ class DemoScenarioTest {
 
         assertTrue(published.isFinal());
         assertEquals(List.of(KAPPA, DELTA, OMEGA, SIGMA), teamsOf(published));
-        assertTrue(published.entries().stream().allMatch(entry -> entry.totalPoints().equals(Points.of("177.50"))));
+        assertTrue(published.entries().stream().allMatch(entry -> entry.totalPoints().equals(Points.of("187.50"))));
         assertEquals(List.of(List.of(), List.of(HighestSingleRunTiebreak.CODE), List.of(FewestPenaltiesTiebreak.CODE),
                 List.of(FastestMetricTiebreak.CODE)), published.entries().stream().map(this::tiebreakCodesOf).toList());
+    }
+
+    @Test
+    void theRescueChallengeCapsTheSumOfTheBonusesAndExplainsTheTrim() {
+        ScoreBreakdown kappa = rescueBreakdownOf("RUN-1");
+
+        assertEquals(List.of(Points.of(15), Points.of(10), Points.of(10)), kappa.contributions().stream()
+                .filter(contribution -> contribution.ruleCode().equals(ThresholdBonusRule.CODE))
+                .map(ScoreContribution::points)
+                .toList());
+        assertEquals(Points.of(-10), kappa.totalFor(BonusCap.CODE));
+        assertEquals(Points.of(25), kappa.totalOf(ContributionKind.BONUS));
+        assertEquals(Points.of("93.50"), kappa.total());
+        assertTrue(kappa.contributions().stream().anyMatch(contribution -> contribution.explanation()
+                .equals("bonuses obtained 35.00 exceed the cap of 25.00: 10.00 trimmed")));
+        List.of("RUN-2", "RUN-3", "RUN-4").forEach(run -> {
+            assertEquals(Points.ZERO, rescueBreakdownOf(run).totalFor(BonusCap.CODE));
+            assertEquals(Points.of(25), rescueBreakdownOf(run).totalOf(ContributionKind.BONUS));
+        });
     }
 
     @Test
@@ -76,11 +102,15 @@ class DemoScenarioTest {
         Standings recalculated = history().getLast();
 
         assertEquals(List.of(SIGMA, KAPPA, DELTA, OMEGA), teamsOf(recalculated));
-        assertEquals(Points.of("182.70"), recalculated.entryFor(SIGMA).orElseThrow().totalPoints());
+        assertEquals(Points.of("192.70"), recalculated.entryFor(SIGMA).orElseThrow().totalPoints());
         assertEquals(List.of(RoundStatus.COUNTED, RoundStatus.DISCARDED, RoundStatus.COUNTED),
                 statusesOf(bestRoundsOf(recalculated, SIGMA)));
         assertEquals(List.of(RoundStatus.COUNTED, RoundStatus.COUNTED, RoundStatus.DISCARDED),
                 statusesOf(bestRoundsOf(published, SIGMA)));
+    }
+
+    private ScoreBreakdown rescueBreakdownOf(String run) {
+        return module.calculateRunScoreUseCase().execute(new CalculateRunScore.Command(RunId.of(run))).breakdown();
     }
 
     private List<Standings> history() {
