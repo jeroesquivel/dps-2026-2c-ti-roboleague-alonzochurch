@@ -44,7 +44,7 @@ public final class Appeal {
         if (!run.teamId().equals(teamId)) {
             throw new RuleViolationException("team " + teamId.value() + " cannot appeal a run of another team");
         }
-        window.requireOpen(run.capturedAt(), submittedAt);
+        window.requireOpen(run.requireCompletedAt(), submittedAt);
         return new Appeal(id, run.id(), teamId, claim, submittedAt);
     }
 

@@ -25,11 +25,11 @@ class StandingsHistoryTest {
             new StandingEntry(1, TeamId.of("DELTA"), Points.of(60), List.of()));
 
     private final Standings provisional = Standings.provisional(COMPETITION, CATEGORY, RulebookVersion.first(), NOW,
-            ENTRIES);
+            ENTRIES, PendingRuns.none());
 
     @Test
     void theFirstGenerationOpensRevisionOne() {
-        Standings generated = history().generate(RulebookVersion.of(2), NOW, ENTRIES);
+        Standings generated = history().generate(RulebookVersion.of(2), NOW, ENTRIES, PendingRuns.none());
 
         assertEquals(Revision.first(), generated.revision());
         assertEquals(RulebookVersion.of(2), generated.rulebookVersion());
@@ -39,7 +39,7 @@ class StandingsHistoryTest {
     @Test
     void aCategoryIsGeneratedOnlyOnceAndLaterChangesGoThroughARecalculation() {
         ConflictException error = assertThrows(ConflictException.class,
-                () -> history(provisional).generate(RulebookVersion.first(), NOW, ENTRIES));
+                () -> history(provisional).generate(RulebookVersion.first(), NOW, ENTRIES, PendingRuns.none()));
 
         assertTrue(error.getMessage().contains("recalculation"));
     }
@@ -47,7 +47,7 @@ class StandingsHistoryTest {
     @Test
     void aCategoryWithFinalStandingsAcceptsNoNewResultsEvenAfterARecalculationReopensIt() {
         Standings published = provisional.publish();
-        Standings reopened = published.supersede(ENTRIES, NOW.plusSeconds(60));
+        Standings reopened = published.supersede(ENTRIES, PendingRuns.none(), NOW.plusSeconds(60));
 
         assertDoesNotThrow(() -> history().requireOpenForResults());
         assertDoesNotThrow(() -> history(provisional).requireOpenForResults());
@@ -58,9 +58,9 @@ class StandingsHistoryTest {
     @Test
     void holdsOnlyRevisionsOfItsOwnCompetitionAndCategory() {
         Standings otherCategory = Standings.provisional(COMPETITION, CategoryId.of("CAT-2"), RulebookVersion.first(),
-                NOW, ENTRIES);
+                NOW, ENTRIES, PendingRuns.none());
         Standings otherCompetition = Standings.provisional(CompetitionId.of("COMP-2"), CATEGORY,
-                RulebookVersion.first(), NOW, ENTRIES);
+                RulebookVersion.first(), NOW, ENTRIES, PendingRuns.none());
 
         assertThrows(InvalidValueException.class, () -> history(otherCategory));
         assertThrows(InvalidValueException.class, () -> history(otherCompetition));

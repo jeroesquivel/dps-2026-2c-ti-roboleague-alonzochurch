@@ -4,6 +4,7 @@ import com.dps.roboleague.domain.challenge.MetricKey;
 import com.dps.roboleague.domain.shared.InvalidValueException;
 import com.dps.roboleague.domain.shared.JudgeId;
 import com.dps.roboleague.domain.shared.RuleViolationException;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -48,5 +49,27 @@ public record JudgeEvaluations(List<JudgeEvaluation> evaluations) {
                     throw new RuleViolationException(
                             "judge " + outsider.value() + " is not assigned to the heat and cannot evaluate it");
                 });
+    }
+
+    public void requireComplete(Set<JudgeId> panel, List<MetricKey> criteria) {
+        panel.stream()
+                .sorted(Comparator.comparing(JudgeId::value))
+                .flatMap(judge -> criteria.stream()
+                        .filter(criterion -> forCriterion(criterion).stream()
+                                .noneMatch(evaluation -> evaluation.judge().equals(judge)))
+                        .map(criterion -> "judge " + judge.value() + " has not evaluated criterion "
+                                + criterion.value()))
+                .findFirst()
+                .ifPresent(missing -> {
+                    throw new RuleViolationException("the panel evaluations are incomplete: " + missing);
+                });
+    }
+
+    @Override
+    public String toString() {
+        return evaluations.stream()
+                .map(evaluation -> evaluation.judge().value() + ":" + evaluation.criterion().value() + "="
+                        + evaluation.score().value().toPlainString())
+                .collect(Collectors.joining(", ", "{", "}"));
     }
 }

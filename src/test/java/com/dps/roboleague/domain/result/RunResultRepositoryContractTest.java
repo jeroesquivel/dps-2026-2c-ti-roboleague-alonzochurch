@@ -13,7 +13,9 @@ import com.dps.roboleague.domain.challenge.MetricKey;
 import com.dps.roboleague.domain.challenge.MetricKind;
 import com.dps.roboleague.domain.challenge.MetricUnit;
 import com.dps.roboleague.domain.challenge.MetricValue;
+import com.dps.roboleague.domain.challenge.ResultSource;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
+import com.dps.roboleague.domain.schedule.Round;
 import com.dps.roboleague.domain.scoring.JudgeEvaluations;
 import com.dps.roboleague.domain.scoring.PointsRate;
 import com.dps.roboleague.domain.scoring.rule.ObjectiveScoringRule;
@@ -25,6 +27,7 @@ import com.dps.roboleague.domain.shared.HeatId;
 import com.dps.roboleague.domain.shared.RoundId;
 import com.dps.roboleague.domain.shared.RunId;
 import com.dps.roboleague.domain.shared.TeamId;
+import com.dps.roboleague.support.ShowcaseFixture;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -33,6 +36,9 @@ public abstract class RunResultRepositoryContractTest {
 
     private static final MetricKey OBJECTIVES = MetricKey.of("OBJECTIVES");
     private static final Instant NOW = Instant.parse("2026-03-02T10:00:00Z");
+    private static final TeamId TEAM = TeamId.of("TEAM-1");
+    private static final Round ROUND = ShowcaseFixture.scheduledRound("ROUND-1", "HEAT-1", TEAM);
+    private static final ChallengeSpec SHOWCASE = ShowcaseFixture.mixedShowcase();
 
     protected abstract RunResultRepository repository();
 
@@ -72,6 +78,50 @@ public abstract class RunResultRepositoryContractTest {
                 AppealId.of("APPEAL-1")), challenge));
 
         assertEquals(RunStatus.CORRECTED, repository.findById(RunId.of("RUN-1")).orElseThrow().status());
+    }
+
+    @Test
+    void twoSourcesArrivingTogetherNeverLoseOneSilently() {
+        RunResultRepository repository = repository();
+        RunResult automaticFirst = RunResult.open(RunId.of("RUN-1"), ROUND, TEAM, SHOWCASE, AttemptNumber.first(),
+                automatic());
+        RunResult panelFirst = RunResult.open(RunId.of("RUN-2"), ROUND, TEAM, SHOWCASE, AttemptNumber.first(),
+                panel("head-judge"));
+        repository.save(automaticFirst);
+
+        assertThrows(ConflictException.class, () -> repository.save(panelFirst));
+
+        RunResult retried = new RoundResults(repository.findByRound(ROUND.id())).receive(() -> RunId.of("RUN-3"),
+                ROUND, TEAM, AttemptNumber.first(), SHOWCASE, panel("head-judge"));
+        repository.save(retried);
+        RunResult stored = repository.findById(RunId.of("RUN-1")).orElseThrow();
+        assertEquals(CompletionStatus.COMPLETE, stored.completion().status());
+        assertEquals(1, repository.findByRound(ROUND.id()).size());
+    }
+
+    @Test
+    void aStaleCopyCannotOverwriteASourceRegisteredMeanwhile() {
+        RunResultRepository repository = repository();
+        RunResult pending = RunResult.open(RunId.of("RUN-1"), ROUND, TEAM, SHOWCASE, AttemptNumber.first(),
+                automatic());
+        repository.save(pending);
+        RunResult byFirstJudge = pending.receive(ROUND, SHOWCASE, panel("head-judge"));
+        RunResult bySecondJudge = pending.receive(ROUND, SHOWCASE, panel("assistant-judge"));
+        repository.save(byFirstJudge);
+
+        assertThrows(ConflictException.class, () -> repository.save(bySecondJudge));
+
+        assertEquals(Actor.of("head-judge"), repository.findById(RunId.of("RUN-1")).orElseThrow().completion()
+                .receiptOf(ResultSource.JUDGES).orElseThrow().actor());
+    }
+
+    private static AutomaticSubmission automatic() {
+        return new AutomaticSubmission(ShowcaseFixture.exampleMeasurements(), Actor.of("track-operator"), NOW);
+    }
+
+    private static PanelSubmission panel(String judge) {
+        return new PanelSubmission(ShowcaseFixture.exampleEvaluations(), List.of(), Actor.of(judge),
+                NOW.plusSeconds(60));
     }
 
     private RunResult run(String runId, String roundId, String teamId, int attempt) {

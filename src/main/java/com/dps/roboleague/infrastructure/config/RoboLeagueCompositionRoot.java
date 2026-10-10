@@ -16,6 +16,8 @@ import com.dps.roboleague.application.usecase.GetStandingsUseCase;
 import com.dps.roboleague.application.usecase.PublishRulebookUseCase;
 import com.dps.roboleague.application.usecase.PublishStandingsUseCase;
 import com.dps.roboleague.application.usecase.RecalculateStandingsUseCase;
+import com.dps.roboleague.application.usecase.RegisterAutomaticMeasurementsUseCase;
+import com.dps.roboleague.application.usecase.RegisterPanelEvaluationsUseCase;
 import com.dps.roboleague.application.usecase.RegisterTeamUseCase;
 import com.dps.roboleague.application.usecase.RejectAppealUseCase;
 import com.dps.roboleague.application.usecase.ScheduleRoundUseCase;
@@ -40,6 +42,8 @@ import com.dps.roboleague.domain.port.in.GetStandings;
 import com.dps.roboleague.domain.port.in.PublishRulebook;
 import com.dps.roboleague.domain.port.in.PublishStandings;
 import com.dps.roboleague.domain.port.in.RecalculateStandings;
+import com.dps.roboleague.domain.port.in.RegisterAutomaticMeasurements;
+import com.dps.roboleague.domain.port.in.RegisterPanelEvaluations;
 import com.dps.roboleague.domain.port.in.RegisterTeam;
 import com.dps.roboleague.domain.port.in.RejectAppeal;
 import com.dps.roboleague.domain.port.in.ScheduleRound;
@@ -130,6 +134,16 @@ public final class RoboLeagueCompositionRoot {
 
     public CaptureRunResult captureRunResultUseCase() {
         return new CaptureRunResultUseCase(rounds, rulebooks, runResults, standings, idGenerator, auditLog, clock);
+    }
+
+    public RegisterAutomaticMeasurements registerAutomaticMeasurementsUseCase() {
+        return new RegisterAutomaticMeasurementsUseCase(rounds, rulebooks, runResults, standings, idGenerator,
+                auditLog, clock);
+    }
+
+    public RegisterPanelEvaluations registerPanelEvaluationsUseCase() {
+        return new RegisterPanelEvaluationsUseCase(rounds, rulebooks, runResults, standings, idGenerator, auditLog,
+                clock);
     }
 
     public GenerateStandings generateStandingsUseCase() {

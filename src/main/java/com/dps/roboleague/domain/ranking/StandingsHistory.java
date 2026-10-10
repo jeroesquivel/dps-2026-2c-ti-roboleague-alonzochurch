@@ -23,11 +23,12 @@ public record StandingsHistory(CompetitionId competitionId, CategoryId categoryI
         }
     }
 
-    public Standings generate(RulebookVersion version, Instant generatedAt, List<StandingEntry> entries) {
+    public Standings generate(RulebookVersion version, Instant generatedAt, List<StandingEntry> entries,
+            PendingRuns pendingRuns) {
         if (!revisions.isEmpty()) {
             throw new ConflictException("standings already exist for this category, use a recalculation instead");
         }
-        return Standings.provisional(competitionId, categoryId, version, generatedAt, entries);
+        return Standings.provisional(competitionId, categoryId, version, generatedAt, entries, pendingRuns);
     }
 
     public void requireOpenForResults() {

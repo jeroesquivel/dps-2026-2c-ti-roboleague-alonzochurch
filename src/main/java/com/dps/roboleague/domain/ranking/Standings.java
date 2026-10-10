@@ -19,9 +19,11 @@ public final class Standings {
     private final PublicationStatus status;
     private final Instant generatedAt;
     private final List<StandingEntry> entries;
+    private final PendingRuns pendingRuns;
 
     private Standings(CompetitionId competitionId, CategoryId categoryId, RulebookVersion rulebookVersion,
-            Revision revision, PublicationStatus status, Instant generatedAt, List<StandingEntry> entries) {
+            Revision revision, PublicationStatus status, Instant generatedAt, List<StandingEntry> entries,
+            PendingRuns pendingRuns) {
         this.competitionId = Objects.requireNonNull(competitionId, "competition id is required");
         this.categoryId = Objects.requireNonNull(categoryId, "category id is required");
         this.rulebookVersion = Objects.requireNonNull(rulebookVersion, "rulebook version is required");
@@ -29,12 +31,13 @@ public final class Standings {
         this.status = Objects.requireNonNull(status, "publication status is required");
         this.generatedAt = Objects.requireNonNull(generatedAt, "generation timestamp is required");
         this.entries = List.copyOf(entries);
+        this.pendingRuns = Objects.requireNonNull(pendingRuns, "pending runs are required, even if none");
     }
 
     public static Standings provisional(CompetitionId competitionId, CategoryId categoryId, RulebookVersion version,
-            Instant generatedAt, List<StandingEntry> entries) {
+            Instant generatedAt, List<StandingEntry> entries, PendingRuns pendingRuns) {
         return new Standings(competitionId, categoryId, version, Revision.first(), PublicationStatus.PROVISIONAL,
-                generatedAt, entries);
+                generatedAt, entries, pendingRuns);
     }
 
     public Standings publish() {
@@ -42,12 +45,12 @@ public final class Standings {
             throw new ConflictException("standings revision " + revision + " is already final");
         }
         return new Standings(competitionId, categoryId, rulebookVersion, revision, PublicationStatus.FINAL,
-                generatedAt, entries);
+                generatedAt, entries, pendingRuns);
     }
 
-    public Standings supersede(List<StandingEntry> newEntries, Instant recalculatedAt) {
+    public Standings supersede(List<StandingEntry> newEntries, PendingRuns newPendingRuns, Instant recalculatedAt) {
         return new Standings(competitionId, categoryId, rulebookVersion, revision.next(),
-                PublicationStatus.PROVISIONAL, recalculatedAt, newEntries);
+                PublicationStatus.PROVISIONAL, recalculatedAt, newEntries, newPendingRuns);
     }
 
     public boolean isFinal() {
@@ -84,5 +87,9 @@ public final class Standings {
 
     public List<StandingEntry> entries() {
         return entries;
+    }
+
+    public PendingRuns pendingRuns() {
+        return pendingRuns;
     }
 }

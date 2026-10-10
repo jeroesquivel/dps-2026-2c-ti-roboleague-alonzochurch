@@ -26,6 +26,11 @@ public final class InMemoryRunResultRepository implements RunResultRepository {
             throw new ConflictException("attempt " + result.attemptNumber() + " of team " + result.teamId().value()
                     + " is already stored for round " + result.roundId().value());
         }
+        RunResult stored = results.get(result.id());
+        if (stored != null && !result.completion().keepsReceiptsOf(stored.completion())) {
+            throw new ConflictException("run " + result.id().value()
+                    + " changed since it was read: saving it would drop a registered source");
+        }
         results.put(result.id(), result);
     }
 

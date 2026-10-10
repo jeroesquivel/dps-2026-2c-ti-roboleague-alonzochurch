@@ -49,7 +49,8 @@ public final class GenerateStandingsUseCase implements GenerateStandings {
         Rulebook rulebook = rulebooks.find(competition.id(), version)
                 .orElseThrow(() -> NotFoundException.of("Rulebook", version.toString()));
         Standings generated = history.generate(version, clock.instant(),
-                scoringService.rank(competition.id(), command.categoryId(), rulebook));
+                scoringService.rank(competition.id(), command.categoryId(), rulebook),
+                scoringService.pendingRuns(competition.id(), command.categoryId()));
 
         standings.save(generated);
         auditLog.record(new AuditEvent(clock.instant(), AuditAction.STANDINGS_GENERATED,

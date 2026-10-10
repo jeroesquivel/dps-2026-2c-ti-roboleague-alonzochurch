@@ -1,5 +1,7 @@
 package com.dps.roboleague.domain.ranking;
 
+import com.dps.roboleague.domain.challenge.ChallengeSpec;
+import com.dps.roboleague.domain.challenge.SourcedScore;
 import com.dps.roboleague.domain.result.RunResult;
 import com.dps.roboleague.domain.result.RunResultRepository;
 import com.dps.roboleague.domain.rulebook.Rulebook;
@@ -14,6 +16,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public final class CategoryScoringService {
 
@@ -38,10 +41,10 @@ public final class CategoryScoringService {
         Map<TeamId, List<PlayedRound>> roundsByTeam = new LinkedHashMap<>();
         for (Round round : rounds.findByCategory(competitionId, categoryId)) {
             Map<TeamId, List<ScoredRun>> attemptsByTeam = new LinkedHashMap<>();
-            for (RunResult run : runResults.findByRound(round.id())) {
-                attemptsByTeam.computeIfAbsent(run.teamId(), team -> new ArrayList<>())
-                        .add(scoreRun(run, competitionId));
-            }
+            runResults.findByRound(round.id()).stream()
+                    .filter(run -> run.completion().isComplete())
+                    .forEach(run -> attemptsByTeam.computeIfAbsent(run.teamId(), team -> new ArrayList<>())
+                            .add(scoreRun(run, competitionId)));
             attemptsByTeam.forEach((team, attempts) -> roundsByTeam.computeIfAbsent(team, key -> new ArrayList<>())
                     .add(new PlayedRound(round.ordinal(), round.challengeId(), attempts)));
         }
@@ -59,11 +62,23 @@ public final class CategoryScoringService {
         return List.copyOf(runs);
     }
 
+    public PendingRuns pendingRuns(CompetitionId competitionId, CategoryId categoryId) {
+        return PendingRuns.among(runsOf(competitionId, categoryId));
+    }
+
     public ScoredRun scoreRun(RunResult run, CompetitionId competitionId) {
-        Rulebook rulebook = rulebooks.find(competitionId, run.rulebookVersion())
-                .orElseThrow(() -> NotFoundException.of("Rulebook", run.rulebookVersion().toString()));
         return new ScoredRun(run.id(), run.challengeId(), run.currentMeasurements(),
-                rulebook.challenge(run.challengeId()).score(run.scoringContext()));
+                challengeOf(run, competitionId).score(run.scoringContext()));
+    }
+
+    public Optional<SourcedScore> scoreBySource(RunResult run, CompetitionId competitionId) {
+        return challengeOf(run, competitionId).scoreBySource(run.scoringContext());
+    }
+
+    private ChallengeSpec challengeOf(RunResult run, CompetitionId competitionId) {
+        return rulebooks.find(competitionId, run.rulebookVersion())
+                .orElseThrow(() -> NotFoundException.of("Rulebook", run.rulebookVersion().toString()))
+                .challenge(run.challengeId());
     }
 
     private static TeamScoreSummary summaryOf(TeamId teamId, TeamRounds teamRounds, AttemptAggregation aggregation,

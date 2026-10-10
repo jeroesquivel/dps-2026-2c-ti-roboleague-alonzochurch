@@ -39,7 +39,8 @@ public final class RecalculateStandingsUseCase implements RecalculateStandings {
                 .orElseThrow(() -> NotFoundException.of("Rulebook", current.rulebookVersion().toString()));
 
         Standings recalculated = current.supersede(
-                scoringService.rank(command.competitionId(), command.categoryId(), rulebook), clock.instant());
+                scoringService.rank(command.competitionId(), command.categoryId(), rulebook),
+                scoringService.pendingRuns(command.competitionId(), command.categoryId()), clock.instant());
         standings.save(recalculated);
 
         auditLog.record(new AuditEvent(clock.instant(), AuditAction.STANDINGS_RECALCULATED,

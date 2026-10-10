@@ -19,8 +19,8 @@ public record AppealWindow(Duration length) {
         return new AppealWindow(length);
     }
 
-    public void requireOpen(Instant capturedAt, Instant submittedAt) {
-        Instant closesAt = capturedAt.plus(length);
+    public void requireOpen(Instant completedAt, Instant submittedAt) {
+        Instant closesAt = completedAt.plus(length);
         if (submittedAt.isAfter(closesAt)) {
             throw new RuleViolationException("the appeal window of " + length + " closed at " + closesAt);
         }

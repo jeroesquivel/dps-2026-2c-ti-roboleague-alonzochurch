@@ -24,6 +24,10 @@ public record MetricDefinition(MetricKey key, MetricKind kind, MetricUnit unit, 
         return requirement == MetricRequirement.REQUIRED;
     }
 
+    public boolean isSuppliedBy(ResultSource source) {
+        return kind.source() == source;
+    }
+
     public void validate(MetricValue value) {
         if (!kind.accepts(value.amount())) {
             throw new RuleViolationException(

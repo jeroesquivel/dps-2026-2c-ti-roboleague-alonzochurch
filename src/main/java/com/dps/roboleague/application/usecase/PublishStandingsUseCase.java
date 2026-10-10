@@ -8,10 +8,13 @@ import com.dps.roboleague.domain.audit.AuditEvent;
 import com.dps.roboleague.domain.audit.AuditLog;
 import com.dps.roboleague.domain.port.in.PublishStandings;
 import com.dps.roboleague.domain.ranking.CategoryScoringService;
+import com.dps.roboleague.domain.ranking.PendingRuns;
 import com.dps.roboleague.domain.ranking.Standings;
 import com.dps.roboleague.domain.ranking.StandingsRepository;
+import com.dps.roboleague.domain.result.RunResult;
 import com.dps.roboleague.domain.shared.NotFoundException;
 import java.time.Clock;
+import java.util.List;
 import java.util.Map;
 
 public final class PublishStandingsUseCase implements PublishStandings {
@@ -35,9 +38,11 @@ public final class PublishStandingsUseCase implements PublishStandings {
     public Standings execute(Command command) {
         Standings provisional = standings.findLatest(command.competitionId(), command.categoryId())
                 .orElseThrow(() -> NotFoundException.of("Standings", command.categoryId().value()));
-        new Appeals(scoringService.runsOf(command.competitionId(), command.categoryId()).stream()
+        List<RunResult> runs = scoringService.runsOf(command.competitionId(), command.categoryId());
+        new Appeals(runs.stream()
                 .flatMap(run -> appeals.findByRun(run.id()).stream())
                 .toList()).requireNonePending();
+        PendingRuns.among(runs).requireNone();
 
         Standings published = provisional.publish();
         standings.save(published);

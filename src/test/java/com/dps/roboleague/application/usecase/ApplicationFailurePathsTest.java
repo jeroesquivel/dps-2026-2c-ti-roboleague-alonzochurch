@@ -17,10 +17,13 @@ import com.dps.roboleague.domain.port.in.GenerateStandings;
 import com.dps.roboleague.domain.port.in.GetStandings;
 import com.dps.roboleague.domain.port.in.RecalculateStandings;
 import com.dps.roboleague.domain.port.in.RegisterTeam;
+import com.dps.roboleague.domain.port.in.RegisterAutomaticMeasurements;
+import com.dps.roboleague.domain.port.in.RegisterPanelEvaluations;
 import com.dps.roboleague.domain.port.in.RejectAppeal;
 import com.dps.roboleague.domain.port.in.ScheduleRound;
 import com.dps.roboleague.domain.port.in.SubmitAppeal;
 import com.dps.roboleague.domain.ranking.CategoryScoringService;
+import com.dps.roboleague.domain.ranking.PendingRuns;
 import com.dps.roboleague.domain.ranking.RankingService;
 import com.dps.roboleague.domain.ranking.Standings;
 import com.dps.roboleague.domain.result.RunResult;
@@ -133,6 +136,10 @@ class ApplicationFailurePathsTest {
         assertThrows(NotFoundException.class, () -> module.captureRunResultUseCase()
                 .execute(new CaptureRunResult.Command(ROUND_ID, TEAM_ID, AttemptNumber.first(),
                         MeasurementSet.empty(), JudgeEvaluations.none(), List.of(), ACTOR)));
+        assertThrows(NotFoundException.class, () -> module.registerAutomaticMeasurementsUseCase()
+                .execute(automaticCommand()));
+        assertThrows(NotFoundException.class, () -> module.registerPanelEvaluationsUseCase()
+                .execute(panelCommand()));
         assertThrows(NotFoundException.class, () -> module.submitAppealUseCase()
                 .execute(new SubmitAppeal.Command(RUN_ID, TEAM_ID, "claim", ACTOR)));
         assertThrows(NotFoundException.class, () -> module.acceptAppealUseCase()
@@ -165,7 +172,7 @@ class ApplicationFailurePathsTest {
         assertThrows(NotFoundException.class, () -> schedule.execute(scheduleCommand(TEAM_ID, CATEGORY_ID)));
 
         Standings current = Standings.provisional(COMPETITION_ID, CATEGORY_ID, RulebookVersion.first(), NOW,
-                List.of());
+                List.of(), PendingRuns.none());
         standings.save(current);
         RecalculateStandingsUseCase recalculate = new RecalculateStandingsUseCase(standings, rulebooks, scoring,
                 auditLog, CLOCK);
@@ -180,6 +187,10 @@ class ApplicationFailurePathsTest {
         assertThrows(NotFoundException.class,
                 () -> capture.execute(new CaptureRunResult.Command(ROUND_ID, TEAM_ID, AttemptNumber.first(),
                         MeasurementSet.empty(), JudgeEvaluations.none(), List.of(), ACTOR)));
+        assertThrows(NotFoundException.class, () -> new RegisterAutomaticMeasurementsUseCase(rounds, rulebooks,
+                runResults, standings, ids, auditLog, CLOCK).execute(automaticCommand()));
+        assertThrows(NotFoundException.class, () -> new RegisterPanelEvaluationsUseCase(rounds, rulebooks,
+                runResults, standings, ids, auditLog, CLOCK).execute(panelCommand()));
         assertThrows(NotFoundException.class, () -> scoring.scoreRun(run(), COMPETITION_ID));
 
         runResults.save(run());
@@ -187,6 +198,16 @@ class ApplicationFailurePathsTest {
                 CLOCK);
         assertThrows(NotFoundException.class,
                 () -> submit.execute(new SubmitAppeal.Command(RUN_ID, TEAM_ID, "claim", ACTOR)));
+    }
+
+    private static RegisterAutomaticMeasurements.Command automaticCommand() {
+        return new RegisterAutomaticMeasurements.Command(ROUND_ID, TEAM_ID, AttemptNumber.first(),
+                MeasurementSet.empty(), ACTOR);
+    }
+
+    private static RegisterPanelEvaluations.Command panelCommand() {
+        return new RegisterPanelEvaluations.Command(ROUND_ID, TEAM_ID, AttemptNumber.first(),
+                JudgeEvaluations.none(), List.of(), ACTOR);
     }
 
     @Test

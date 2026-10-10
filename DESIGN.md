@@ -244,6 +244,13 @@ pueden ser negativos (ver 2.1), y
 `ScoringRulesTest.penaltyContributionsNeverAddPoints` verifica que ninguna regla de `everyRule()`
 emite una penalización positiva.
 
+**Ausencia de datos frente a espera.** En un desafío mixto (4.13), unas notas que todavía no llegaron
+no son unas notas ausentes. El contrato de la regla no cambia —sigue puntuando cero ante un dato
+ausente—; lo que cambia es que una corrida pendiente nunca llega a las reglas:
+`RunResult.scoringContext()` exige que esté completa, `CategoryScoringService.collect` la excluye y
+`CalculateRunScore` informa que el puntaje está pendiente. Así una corrida sin notas se distingue de
+una con notas en cero sin agregar a `ScoringRule` un estado "esperando".
+
 **Alternativas descartadas:** dar a cada regla un manejo incompatible de la ausencia de datos;
 declarar una excepción chequeada en la firma sin acordar qué significa el resultado de la operación;
 validar el signo de cada parámetro en el constructor de cada regla, repitiendo la misma regla en
@@ -293,6 +300,12 @@ es información que el juez necesita ver.
 **Por qué:** el requisito de "cálculo explicable" exige poder mostrar cómo se llegó a cada puntaje.
 Si el dominio devolviera un `BigDecimal`, la explicación habría que reconstruirla afuera, duplicando
 las reglas.
+
+**Explicación por fuente.** En un desafío mixto (4.13), `CalculateRunScore` devuelve además
+`bySource`: un `SourcedScore` que agrupa las mismas contribuciones por la fuente de la que derivan
+(`AUTOMATIC`, `JUDGES` con las deducciones por incidentes) y deja aparte las que no derivan de una
+sola fuente (`BONUS_CAP`). Cada grupo tiene su subtotal y la suma de los subtotales es el total del
+desglose plano, que no cambia.
 
 **Alternativas descartadas:** loguear el cálculo (la explicación queda fuera del modelo y no es
 consultable); recalcular la explicación en la capa de presentación (duplica las reglas y se
@@ -425,9 +438,9 @@ de las reglas y combinar tres partes en orden fijo.
 
 - La explicación del recorte es texto en inglés generado por el dominio; las tres cifras no son
   campos tipados de la contribución, como en el resto de `ScoreContribution`.
-- El constructor de `ChallengeSpec` acumula componentes opcionales (`bestRounds`, `bonusCap`) y
-  constructores telescópicos para mantener la compatibilidad. Si aparece una tercera configuración
-  opcional convendría agruparlas en un value object o un builder.
+- El constructor de `ChallengeSpec` acumula componentes opcionales (`bestRounds`, `bonusCap` y, desde
+  F3, `mixedSources`) y constructores telescópicos para mantener la compatibilidad. Convendría
+  agruparlas en un value object o un builder (ver 4.13, deuda).
 - No se valida que el tope sea alcanzable ni que el desafío tenga reglas que bonifiquen: el desafío no
   puede saberlo sin agregar métodos a `ScoringRule`.
 - El demo configura el tope en `RESCUE` (ver 7.1): las bonificaciones nuevas suman 10 a cada equipo
@@ -520,6 +533,12 @@ categoría (sólo admite revisiones de su competencia y categoría):
 apelaciones de las corridas de la categoría (`CategoryScoringService.runsOf` +
 `AppealRepository.findByRun`) y `Appeals.requireNonePending()` rechaza la publicación con
 `ConflictException` mientras alguna siga `SUBMITTED` (ver 4.5).
+
+**Publicar exige que no haya corridas pendientes.** Una corrida de un desafío mixto que todavía espera
+una fuente (4.13) no cuenta en la tabla: generar y recalcular la excluyen y cada revisión lista esas
+corridas en `Standings.pendingRuns()`. `PublishStandingsUseCase` invoca además
+`PendingRuns.requireNone()`, que rechaza la publicación con `ConflictException` indicando cuántas
+corridas esperan cada fuente.
 
 **Recalcular reabre también posiciones `FINAL` (decisión explícita).** `supersede()` no distingue el
 estado de la revisión vigente: si una apelación tardía, aceptada dentro de su plazo, corrige una
@@ -861,6 +880,13 @@ El constructor público de `RunResult` crea una corrida sin correcciones a parti
 validados: es el que usaría un adaptador de persistencia para reconstituirla. El flujo de negocio
 captura siempre con `RunResult.capture`.
 
+**Desafío mixto (4.13).** Un desafío mixto no se captura con `RunResult.capture`
+(`ChallengeSpec.requireSingleCapture`): la primera fuente abre la corrida con `RunResult.open` y la
+segunda la completa con `RunResult.receive`, ambas validadas contra el desafío antes de construir la
+corrida nueva. `RunResult.completion()` registra qué fuente llegó, quién la registró y cuándo; las
+evaluaciones del panel tampoco se corrigen en una corrida mixta y la corrección no puede ser anterior a
+la completitud.
+
 **Un intento se captura una sola vez.** `RoundResults`, la colección de corridas de una ronda,
 decide con `requireUnusedAttempt(teamId, attempt)` y lanza `ConflictException` si ese equipo ya tiene
 ese intento. Antes era `CaptureRunResultUseCase.requireUnusedAttempt`. Como esa verificación consulta
@@ -1121,14 +1147,15 @@ decidir el tratamiento).
 **Patrón / principio:** First-Class Collection, lenguaje ubicuo.
 
 **Dónde:** `domain/scoring/JudgeEvaluations`, `domain/ranking/TeamRuns`, `domain/ranking/TeamRounds`,
-`domain/ranking/RoundScores`, `domain/result/CorrectionHistory`,
+`domain/ranking/RoundScores`, `domain/result/CorrectionHistory`, `domain/result/RunCompletion`,
+`domain/ranking/PendingRuns`,
 `domain/schedule/Heats`, `domain/team/TeamMembers` y las colecciones que concentran reglas que antes
 decidían los casos de uso: `domain/competition/SeasonCalendar`, `domain/schedule/CompetitionSchedule`,
 `domain/result/RoundResults`, `domain/ranking/StandingsHistory` y `domain/appeal/Appeals`.
 
 | Colección | Reemplaza a | Invariante que concentra |
 | --- | --- | --- |
-| `JudgeEvaluations` | `List<JudgeEvaluation>` | un juez evalúa una vez cada criterio; `requireEvaluatorsWithin(panel)` |
+| `JudgeEvaluations` | `List<JudgeEvaluation>` | un juez evalúa una vez cada criterio; `requireEvaluatorsWithin(panel)`; `requireComplete(panel, criterios)` en un desafío mixto |
 | `TeamRuns` | `List<ScoredRun>` + agregación en `TeamScoreSummary` | una corrida cuenta una sola vez; es donde se aplica la `AttemptAggregation` y nace su subtotal |
 | `TeamRounds` | corridas aplanadas en `CategoryScoringService.collect` | rondas del equipo ordenadas por ordinal; reparte desafíos entre la `AttemptAggregation` y "mejores N de M" |
 | `RoundScores` | ningún equivalente | una ronda se puntúa una vez por equipo; selecciona las N mejores con desempate por menor ordinal |
@@ -1137,7 +1164,9 @@ decidían los casos de uso: `domain/competition/SeasonCalendar`, `domain/schedul
 | `TeamMembers` | `List<Member>` | al menos un integrante, sin integrantes repetidos; `competitors()`, `hasCoach()` |
 | `SeasonCalendar` | consulta suelta en `CreateSeasonUseCase` | dos temporadas no se superponen; `requireAvailable(period)` |
 | `CompetitionSchedule` | recorrido de rondas en `ScheduleRoundUseCase` | ordinal único por categoría; a lo sumo M rondas de un desafío "mejores N de M" por categoría; `bookedHeats()` para detectar conflictos |
-| `RoundResults` | `CaptureRunResultUseCase.requireUnusedAttempt` | un intento de un equipo se captura una sola vez |
+| `RoundResults` | `CaptureRunResultUseCase.requireUnusedAttempt` | un intento de un equipo se captura una sola vez; `receive` abre o completa la corrida mixta del turno |
+| `RunCompletion` | ningún equivalente | cada fuente esperada se registra una sola vez; `missing()` y estado `PENDING` / `COMPLETE` |
+| `PendingRuns` | ningún equivalente | corridas que esperan una fuente; no se publica con corridas pendientes |
 | `StandingsHistory` | `findLatest(...).isPresent()` en `GenerateStandingsUseCase` | se genera una sola vez; tras una revisión `FINAL` no se capturan corridas |
 | `Appeals` | ningún control | una corrida se apela una sola vez; no se publica con apelaciones pendientes |
 
@@ -1167,6 +1196,7 @@ una nueva, construida con un constructor privado que recibe el estado completo.
 | `TeamRegistration` | `resolveWith(verdict)` | inscripción aceptada o rechazada |
 | `Round` | `schedule(heat, team)` | ronda con un turno más |
 | `RunResult` | `applyCorrection(correction, challenge)` | corrida con la corrección en su historial |
+| `RunResult` | `receive(round, challenge, submission)` | corrida mixta con la segunda fuente, completa |
 | `Appeal` | `accept(decision)` / `reject(decision)` | apelación resuelta |
 
 La configuración `BestRounds` y los valores de la explicación (`ScoreExplanation`, `ScoreSubtotal`,
@@ -1220,13 +1250,18 @@ Es el mismo criterio que ya seguía `Season.requireCompetitionPeriodInside` en `
 | Equipo con turno en la ronda; validar la captura | `CaptureRunResultUseCase` | `Round.heatFor`, `RunResult.capture` |
 | Turno dentro del período (inicio y fin) | `ScheduleRoundUseCase.requireSlotWithinCompetition` | `Competition.requireSlotWithinPeriod` |
 | Hay conflictos → rechazar | `if` en `ScheduleRoundUseCase` | `ScheduleConflictDetector.requireNoConflicts` |
+| Abrir o completar la corrida mixta del turno | (no existía) | `RoundResults.receive` → `RunResult.open` / `receive` |
+| Cada fuente una sola vez, completa y del desafío mixto | (no existía) | `RunCompletion.receive`, `ChallengeSpec.validateAutomaticSource` / `validatePanelSource`, `JudgeEvaluations.requireComplete` |
+| No puntuar, apelar ni publicar con corridas pendientes | (no existía) | `RunResult.requireCompletedAt`, `PendingRuns.requireNone` |
 
 **Concurrencia.** Verificar consultando el repositorio no escala a dos pedidos simultáneos: ambos
 pueden ver que el intento está libre y guardar. Por eso, además de la regla del dominio, el contrato
 de `RunResultRepository.save` rechaza con `ConflictException` una corrida distinta para la misma
 ronda, equipo e intento, el equivalente de una restricción única en una base de datos.
 `InMemoryRunResultRepository` lo implementa con métodos `synchronized`, y
-`RunResultRepositoryContractTest` fija el comportamiento para cualquier adaptador. El ordinal de
+`RunResultRepositoryContractTest` fija el comportamiento para cualquier adaptador. El mismo contrato
+rechaza guardar una corrida que no conserve los recibos de fuente ya guardados, para que dos fuentes
+simultáneas de un desafío mixto nunca se pierdan en silencio (4.13). El ordinal de
 ronda, la superposición de temporadas, la generación única y las apelaciones duplicadas tienen la
 misma limitación; una persistencia real debería sumar restricciones equivalentes (ver sección 8).
 
@@ -1237,6 +1272,209 @@ repositorios, y los agregados dejan de ser anémicos en los bordes.
 lenguaje del dominio y no protege ante concurrencia); dejarla sólo en la persistencia (la regla se
 vuelve un detalle de cada adaptador); ampliar los agregados para que contengan a los otros (por
 ejemplo, que `Round` guarde las corridas), que mezclaría ciclos de vida distintos.
+
+### 4.13 Desafío mixto: mediciones automáticas y panel de jueces (F3)
+
+**Patrón / principio:** Value Object de configuración (como 2.5 y 3.6), Strategy para lo que entrega
+cada fuente (`SourceSubmission`), First-Class Collection (`RunCompletion`, `PendingRuns`), agregado
+inmutable con transiciones (4.11), Open/Closed sobre las reglas de puntaje y casos de uso que
+coordinan (4.12).
+
+**Dónde:** `domain/challenge/{ResultSource, MixedSources, SourceBreakdown, SourcedScore}`,
+`MetricKind.source`, `MetricDefinition.isSuppliedBy`, `ChallengeSpec.{mixedSources,
+requireSingleCapture, validateAutomaticSource, validatePanelSource, scoreBySource}`,
+`JudgeEvaluations.requireComplete`, `domain/result/{SourceReceipt, RunCompletion,
+CompletionStatus, SourceSubmission, AutomaticSubmission, PanelSubmission}`, `RunResult.{open, receive,
+completion, requireCompletedAt}`, `RoundResults.receive`, `domain/ranking/{PendingRun, PendingRuns}`,
+`Standings.pendingRuns`, los puertos `RegisterAutomaticMeasurements` y `RegisterPanelEvaluations` con
+sus interactors, y la spec `.docs/specs/SPEC_mixed_challenge.md`.
+
+**Configuración (FR-1, FR-2).** `MixedSources` es un componente opcional de `ChallengeSpec`
+(`Optional<MixedSources>`), igual que `BestRounds` y `BonusCap`: los constructores de seis, siete y
+ocho argumentos siguen existiendo y equivalen a "no mixto" (C-6). Es un `record` sin parámetros, como
+las estrategias sin estado de `AttemptAggregation`: su presencia convierte al desafío en mixto y
+concentra lo que sólo hace un desafío mixto (de qué fuente es cada regla y qué métricas se miden).
+Como vive en el `ChallengeSpec`, viaja en la versión del reglamento: cada ronda registra y puntúa sus
+corridas según su versión (3.2), y un mismo desafío puede ser mixto en una versión y no en otra.
+
+La fuente de un dato la declara su `MetricKind`: `source()` es un método abstracto que implementa
+cada constante (`JUDGE_CRITERION` → `JUDGES`, el resto → `AUTOMATIC`), así una constante nueva no
+compila sin decidir de dónde llega. La fuente de una regla se **deduce** de `referencedMetrics()`, sin
+tocar `ScoringRule` (C-1): ninguna métrica o sólo métricas automáticas → `AUTOMATIC`; sólo criterios
+→ `JUDGES`. Al construir un desafío mixto, `MixedSources.requireRulesOfEverySource` rechaza con
+`InvalidValueException` una regla que lea las dos fuentes y un desafío sin reglas de alguna de ellas.
+Un desafío no mixto sigue admitiendo cualquier combinación (FR-16).
+
+**Registro por fuente (FR-3 a FR-7).** Cada fuente es un puerto de entrada propio:
+`RegisterAutomaticMeasurements` (el sistema de pista: mediciones) y `RegisterPanelEvaluations` (el
+panel: evaluaciones e incidentes, ver OQ-2). Los dos interactors cargan la ronda y el desafío de su
+versión, invocan `StandingsHistory.requireOpenForResults` y delegan en `RoundResults.receive`, que
+decide qué pasa con el turno: si el equipo ya tiene una corrida para ese intento, `RunResult.receive`
+la completa; si no, `RunResult.open` abre una corrida pendiente con un id nuevo. El caso de uso no
+tiene un `if`: guarda lo que devuelve el dominio y audita.
+
+Lo que cambia entre las fuentes vive en `SourceSubmission`, con dos implementaciones
+(`AutomaticSubmission`, `PanelSubmission`): cada una arma su `SourceReceipt` (fuente, actor y momento
+de recepción), se valida contra el desafío y aporta sus datos a los ya recibidos (`addTo`).
+`RunResult` nunca pregunta qué fuente está recibiendo.
+
+| Regla | Dónde |
+| --- | --- |
+| Registrar por separado exige un desafío mixto | `ChallengeSpec.validateAutomaticSource` / `validatePanelSource` (`RuleViolationException`) |
+| Un desafío mixto no se captura en una sola operación | `ChallengeSpec.requireSingleCapture`, invocada por `RunResult.capture` |
+| La fuente automática trae toda métrica automática `REQUIRED` y ningún criterio de jueces | `ChallengeSpec.validate`: en un desafío mixto sólo mide las métricas automáticas (`MixedSources.measuredAmong`), así un criterio en las mediciones "no es una medición del desafío" y nunca se exige, aunque sea `REQUIRED` |
+| El panel está completo: cada juez del heat evaluó cada criterio que leen las reglas | `JudgeEvaluations.requireComplete(panel, criterios)`; una nota 0 cuenta y el mensaje nombra juez y criterio |
+| Validaciones actuales del panel y de los incidentes | `ChallengeSpec.validateEvaluations` y `validateIncidents` |
+| Turno en la ronda, desafío de la ronda y límite de intentos | `RunResult.open` (`Round.heatFor`, `requireAttemptWithinLimit`) |
+| Una fuente se registra una sola vez | `RunCompletion.receive` (`ConflictException`) |
+
+Toda validación ocurre antes de construir la corrida nueva: un rechazo no guarda ni audita nada, y la
+pendiente conserva sus datos (C-3).
+
+**Completitud (FR-8).** `RunCompletion(expected, receipts)` es la colección de recibos de una corrida:
+las fuentes que espera y las que llegaron, cada una a lo sumo una vez. `immediate()` no espera ninguna:
+es la de toda captura en una sola operación y la que arma el constructor público de `RunResult` (C-6);
+`awaitingSources()` espera las dos. Expone `missing()`, `status()` (`PENDING` / `COMPLETE`),
+`receiptOf(fuente)` y `lastReceivedAt()`. Recibir una fuente en una corrida que no la espera es una
+regla violada, no una operación "que no aplica". `RunStatus` (`CAPTURED` / `CORRECTED`) no cambia: son
+dos ejes distintos.
+
+`RunResult.requireCompletedAt()` es la única puerta: devuelve el momento en que la corrida quedó
+completa (la última recepción, o la captura si fue en una sola operación) y lanza
+`RuleViolationException` con las fuentes faltantes mientras esté pendiente. `scoringContext()` la
+invoca, así que una corrida pendiente no se puede puntuar; `applyCorrection` la usa como cota de la
+corrección; `Appeal.file` mide desde ahí el `AppealWindow` (FR-13).
+
+**Estado visible.** `FindRunResult` devuelve la corrida con su `completion()`. `CalculateRunScore` sobre
+una corrida pendiente lanza `RuleViolationException` ("run RUN-1 is pending: it still waits for the
+[JUDGES] source and has no score yet"): no devuelve total ni desglose y nunca presenta cero. Para una
+corrida completa, `RunScore` suma `completion` (recibos con actor y momento) y `bySource`.
+
+**Explicación por fuente (FR-9, FR-10).** La fórmula es la suma de siempre (OQ-3):
+`ChallengeSpec.score` no cambió y su desglose plano es el que usan la tabla y los desempates.
+`ChallengeSpec.scoreBySource` devuelve además `Optional<SourcedScore>`, vacío en un desafío no mixto.
+Agrupa en un `SourceBreakdown(fuente, desglose)` las contribuciones de cada regla según su fuente, en
+el orden de `ResultSource` y, dentro de cada grupo, en el orden de las reglas; las deducciones por
+incidentes van al grupo de `MixedSources.INCIDENT_SOURCE` (`JUDGES`) y el recorte `BONUS_CAP` (2.5)
+queda aparte, en `acrossSources`. `SourcedScore.total()` es igual al total del desglose plano y
+`totalOf(kind)` sigue sumando por tipo. Como las reglas son funciones puras de los datos, el orden de
+llegada no cambia nada (C-5). Quién registró cada grupo y cuándo es el `SourceReceipt` de esa fuente en
+`RunScore.completion()`.
+
+**Posiciones y publicación (FR-11, FR-12).** `CategoryScoringService.collect` sólo puntúa corridas
+completas: una pendiente no entra en la agregación de intentos, en las mejores rondas ni en los
+desempates, y un equipo sin corridas completas no figura. `pendingRuns(...)` arma `PendingRuns`
+(corrida, equipo, ronda, intento y fuentes faltantes), que cada revisión de `Standings` conserva junto
+a sus posiciones. Generar y recalcular con pendientes está permitido (OQ-4); publicar no:
+`PublishStandingsUseCase` invoca `PendingRuns.among(corridas).requireNone()`, que lanza
+`ConflictException` contando cuántas corridas esperan cada fuente ("2 runs are still pending: 1
+waiting for AUTOMATIC, 1 waiting for JUDGES"), igual que con las apelaciones pendientes.
+
+**Correcciones y auditoría (FR-14, FR-15).** Una apelación aceptada corrige mediciones e incidentes
+como siempre; las evaluaciones del panel quedan como se registraron (4.3) y `validate` aplica a la
+corrección las reglas de la fuente automática. Cada registro deja un evento `RESULT_SOURCE_RECEIVED`
+con `SOURCE`, los datos recibidos (`MEASUREMENTS`, o `EVALUATIONS` e `INCIDENTS`), `STATUS` y
+`RULEBOOK`; el `STATUS = COMPLETE` del evento de la segunda fuente es la constancia de que la corrida
+quedó completa.
+
+**Concurrencia (C-4).** Si las dos fuentes de un turno llegan a la vez, ambas ven el turno libre y
+abren corridas distintas: la restricción única del contrato de `RunResultRepository` (4.12) rechaza la
+segunda con `ConflictException`, y al reintentar completa la primera. Para que una copia leída antes
+no pise una fuente registrada mientras tanto (dos paneles simultáneos sobre la misma pendiente), el
+contrato de `save` suma una regla: rechaza una corrida que no conserve los recibos de la versión
+guardada (`RunCompletion.keepsReceiptsOf`). `RunResultRepositoryContractTest` fija los dos casos.
+
+**Preguntas abiertas de la spec, resueltas como propone:** OQ-1, el panel entrega sus notas en un
+único registro y sin quórum; OQ-2, los incidentes llegan con el panel; OQ-3, las fuentes se suman sin
+pesos propios (el peso relativo está en `PointsRate` y `PointsCap` de cada regla); OQ-4, se generan y
+recalculan posiciones provisionales con pendientes y sólo se bloquea la publicación.
+
+**Por qué:**
+
+- **OCP sobre el puntaje.** Ninguna `ScoringRule`, ni su interfaz, ni `ScoreBreakdown` o
+  `ScoreContribution` cambió; `ScoringRulesTest.everyRule()` pasa sin cambios. Una regla nueva queda
+  asignada a su fuente por las métricas que declara.
+- **SRP.** Un caso de uso por fuente, porque responden a actores distintos (el sistema de pista y el
+  panel). `SourceSubmission` encapsula lo que difiere entre fuentes; `RunCompletion` sólo sabe qué
+  fuentes llegaron; `RoundResults` decide abrir o completar el turno; `PendingRuns` concentra la regla
+  de publicación; los interactors sólo cargan, delegan, guardan y auditan.
+- **LSP.** Las dos `SourceSubmission` cumplen el mismo contrato completo. El contrato de `ScoringRule`
+  (2.1.1) no cambia: sigue puntuando cero ante un dato ausente, porque una corrida pendiente nunca
+  llega a una regla.
+- **ISP.** Dos puertos con un único `execute` y un `Command` propio: el de la fuente automática no
+  tiene evaluaciones ni incidentes, así que no puede traer datos del panel. No se agregó `source()` a
+  `ScoringRule` (5.9).
+- **DIP.** Los interactors reciben repositorios, `IdGenerator`, `AuditLog` y `Clock` por constructor;
+  sólo `RoboLeagueCompositionRoot` los instancia.
+
+**Alternativas descartadas:**
+
+- **Un único `RegisterResultSource` con la fuente como enum.** Es un flag en el comando que elige entre
+  dos comportamientos y dos actores.
+- **Declarar la fuente en `ScoringRule`.** Cambia la interfaz y sus siete implementaciones (C-1, 5.9).
+- **Un agregado aparte para la corrida pendiente** que al completarse crea el `RunResult`: habría dos
+  entidades por turno, la restricción única del repositorio dejaría de cubrir el caso y
+  `FindRunResult` no vería las pendientes.
+- **Puntuar la corrida pendiente con lo que hay.** Es lo que la spec prohíbe: unas notas ausentes no
+  valen cero.
+- **`RunScore` con un `Optional<ScoreBreakdown>`** para informar el pendiente sin excepción: cambia
+  `breakdown()` y `total()` y rompe a sus clientes (C-6). El puntaje sólo existe para corridas
+  completas y el estado se consulta con `FindRunResult`.
+- **Un `boolean mixed` en `ChallengeSpec`.** Obligaría a un `if (mixed)` en cada operación;
+  `Optional<MixedSources>` sigue el criterio de `BestRounds` y `BonusCap` y deja el comportamiento en
+  el valor.
+- **Guardar el `SourceReceipt` dentro de `SourceBreakdown`.** `challenge` pasaría a depender de
+  `result`, que ya depende de `challenge`.
+- **Bloquear también la generación con pendientes (OQ-4).** Un panel demorado frenaría la categoría y
+  una apelación aceptada sobre otra corrida no podría recalcular.
+
+**Clases agregadas:** `ResultSource`, `MixedSources`, `SourceBreakdown`, `SourcedScore`,
+`SourceReceipt`, `RunCompletion`, `CompletionStatus`, `SourceSubmission`, `AutomaticSubmission`,
+`PanelSubmission`, `PendingRun`, `PendingRuns`, `RegisterAutomaticMeasurements`,
+`RegisterPanelEvaluations`, `RegisterAutomaticMeasurementsUseCase`, `RegisterPanelEvaluationsUseCase`;
+tests `MixedChallengeSpecTest`, `RunCompletionTest`, `MixedRunResultTest`, `RoundResultsTest`,
+`PendingRunsTest`, `MixedChallengeTest` y `support/ShowcaseFixture`.
+
+**Clases modificadas:** `MetricKind` (`source` por constante), `MetricDefinition` (`isSuppliedBy`),
+`ChallengeSpec` (componente `mixedSources`, constructor de ocho argumentos que lo deja vacío,
+`validate`, `requireSingleCapture`, `validateAutomaticSource`, `validatePanelSource`,
+`scoreBySource`), `JudgeEvaluations` (`requireComplete`, `toString` para la auditoría), `RunResult`
+(componente `completion`, `open`, `receive`, `requireCompletedAt`; `capture`, `applyCorrection` y
+`scoringContext` la usan), `RoundResults` (`receive`), `Appeal.file` y `AppealWindow.requireOpen`
+(plazo desde la completitud), `Standings` y `StandingsHistory.generate` (`pendingRuns`),
+`CategoryScoringService` (`collect` sin pendientes, `pendingRuns`, `scoreBySource`),
+`CalculateRunScore.RunScore` (`completion`, `bySource`), `CalculateRunScoreUseCase`,
+`GenerateStandingsUseCase`, `RecalculateStandingsUseCase`, `PublishStandingsUseCase`, `AuditAction`
+(`RESULT_SOURCE_RECEIVED`), `AuditDetail` (`SOURCE`, `EVALUATIONS`, `INCIDENTS`),
+`InMemoryRunResultRepository` (conservar recibos) y `RoboLeagueCompositionRoot`; en tests,
+`RunResultRepositoryContractTest`, `JudgeEvaluationsTest`, `ApplicationFailurePathsTest` y las
+llamadas a `Standings.provisional`, `supersede` y `generate`, que reciben `PendingRuns.none()` sin
+cambiar sus expectativas.
+
+**Refactorizaciones:** `ChallengeSpec.score` extrajo `scoreByRules` y `trimOf` para compartirlos con
+`scoreBySource`; `ChallengeSpec.validate` valida contra las métricas medidas y su mensaje pasó a "is
+not a measurement of challenge"; `RoundResults` extrajo el predicado `isAttempt`;
+`CategoryScoringService` extrajo `challengeOf`; `PublishStandingsUseCase` carga una sola vez las
+corridas de la categoría para apelaciones y pendientes.
+
+**Deuda técnica no resuelta:**
+
+- El demo no incluye un desafío mixto: la spec pide que el demo y los fixtures existentes no cambien
+  (AC-21). El desafío `SHOWCASE` vive en `support/ShowcaseFixture` y lo recorre `MixedChallengeTest`.
+- `CalculateRunScore` informa el pendiente con una excepción cuyo mensaje nombra la fuente faltante;
+  el dato tipado está en `FindRunResult`. Un adaptador REST tendrá que combinar ambos.
+- Un grupo de `SourcedScore` no lleva su `SourceReceipt`: el cliente lo busca en
+  `RunScore.completion()` por la fuente del grupo.
+- `scoreBySource` vuelve a aplicar las reglas que ya aplicó `score`; son puras, sólo cuesta tiempo.
+- `AutomaticSubmission.validateAgainst` recibe el panel del heat aunque no lo use.
+- La publicación mira las corridas pendientes actuales de la categoría, no las listadas en la revisión:
+  completar una corrida y publicar sin recalcular publica una tabla que no la cuenta, como ya ocurre con
+  una corrida capturada después de generar.
+- Una corrida que nunca se completa queda pendiente para siempre y bloquea la publicación; no hay
+  vencimiento ni quórum del panel (OQ-1, fuera de alcance).
+- `ChallengeSpec` acumula ya tres configuraciones opcionales con constructores telescópicos (la deuda
+  anunciada en 2.5); agruparlas en un value object cambiaría el constructor canónico y todos sus
+  clientes.
 
 ## 5. Patrones que decidimos no aplicar
 
@@ -1363,12 +1601,13 @@ sublista, sin cambiar la interfaz. El mismo criterio se aplicó a la elegibilida
 | Elegibilidad | `EligibilityRequirements` y las reglas de `domain/eligibility/rule` |
 | Configuración de desafíos | `ChallengeSpec`, `MetricDefinition`, `domain/scoring/rule/*`, `PenaltyDefinition`, `PointsRate`, `PointsCap`, `BonusPoints`, `BonusCap`, `PointsDeducted` |
 | Programación | `ScheduleRoundUseCase`, `Round`, `Heat`, `TimeSlot`, `CompetitionSchedule`, `ScheduleConflictDetector`, `Competition.requireSlotWithinPeriod`, `TeamRegistration.requireAcceptedIn` |
-| Captura de resultados | `CaptureRunResultUseCase`, `RunResult.capture`, `RoundResults`, `StandingsHistory.requireOpenForResults`, `MeasurementSet`, `JudgeEvaluations`, `JudgeScore`, `IncidentReport` |
+| Captura de resultados | `CaptureRunResultUseCase`, `RunResult.capture`, `RoundResults`, `StandingsHistory.requireOpenForResults`, `MeasurementSet`, `JudgeEvaluations`, `JudgeScore`, `IncidentReport`; por fuente, `RegisterAutomaticMeasurementsUseCase` y `RegisterPanelEvaluationsUseCase` |
+| Desafío mixto (F3) | `MixedSources`, `ResultSource`, `MetricKind.source`, `ChallengeSpec.validateAutomaticSource` / `validatePanelSource` / `scoreBySource`, `SourceSubmission`, `RunCompletion`, `RunResult.open` / `receive`, `RoundResults.receive`, `SourcedScore`, `PendingRuns`, `RegisterAutomaticMeasurements`, `RegisterPanelEvaluations` |
 | Cálculo explicable | `CalculateRunScoreUseCase`, `ScoreBreakdown`, `ScoreContribution`, `ContributionKind` |
 | Ranking | `CategoryScoringService`, `RankingService`, `TeamRuns`, `TeamRounds`, `AttemptAggregation`, `domain/ranking/aggregation/*`, `TiebreakRule`, `domain/ranking/rule/*` y `AppliedTiebreak` |
 | Tope global de bonificaciones (F2) | `BonusCap`, `ChallengeSpec.bonusCap`, `ChallengeSpec.score` |
 | Mejores N de M rondas (F1) | `BestRounds`, `ChallengeSpec.bestRounds`, `CompetitionSchedule.requireRoomForRound`, `PlayedRound`, `RoundScores`, `ScoreExplanation`, `ScoreSubtotal`, `RoundOutcome`, `StandingEntry.explanation` |
-| Publicación | `Standings`, `StandingsHistory`, `PublicationStatus`, `GenerateStandingsUseCase`, `PublishStandingsUseCase`, `GetStandingsUseCase` |
+| Publicación | `Standings`, `StandingsHistory`, `PublicationStatus`, `PendingRuns`, `GenerateStandingsUseCase`, `PublishStandingsUseCase`, `GetStandingsUseCase` |
 | Apelaciones | `Appeal`, `AppealWindow`, `Appeals`, `SubmitAppealUseCase`, `AcceptAppealUseCase`, `RejectAppealUseCase` |
 | Recálculo | `RecalculateStandingsUseCase` (también disparado por `AcceptAppealUseCase`), `CategoryScoringService` |
 | Auditoría | `CorrectionHistory`, `Standings.revision()`, `AuditLog`, `AuditEvent`, `AuditDetail`, `Actor`, `FindAuditTrailUseCase` |
@@ -1457,7 +1696,7 @@ Recorrido:
 | Elemento sugerido | Estado |
 | --- | --- |
 | Al menos tres desafíos | Cubierto: `RESCUE`, `SPRINT`, `PRECISION` |
-| Un desafío mixto (F3) | **Pendiente:** F3 no está implementada |
+| Un desafío mixto (F3) | **Parcial:** F3 está implementada y `MixedChallengeTest` recorre el desafío `SHOWCASE`; el demo no lo incluye porque la spec exige no cambiar el demo existente (4.13) |
 | Diez tipos de reglas | **Parcial:** se usan los 7 tipos existentes |
 | Una regla compuesta | **Pendiente:** no existe (ver 5.10) |
 | Una penalización | Cubierto: `RESTART` y `OUT_OF_BOUNDS` en `RESCUE` |
@@ -1466,8 +1705,8 @@ Recorrido:
 | Tres criterios encadenados de desempate | Cubierto: cada uno decide un par de la tabla publicada |
 | Una apelación que provoque el recálculo del ranking | Cubierto: reordena la tabla y cambia las rondas consideradas |
 
-Cuando se implementen F3, la regla compuesta y los tipos de regla faltantes, se agregan a
-`DemoRulebook` y `DemoScenario`, junto con sus aserciones en `DemoScenarioTest`.
+Cuando se incorporen el desafío mixto, la regla compuesta y los tipos de regla faltantes, se agregan
+a `DemoRulebook` y `DemoScenario`, junto con sus aserciones en `DemoScenarioTest`.
 
 **Alternativas descartadas:** un script o un fixture externo (JSON o SQL). No hay persistencia real
 (ver 5.8), y el demo recorre los mismos puertos de entrada que usará la API, así que sirve también
@@ -1498,6 +1737,8 @@ requisito concreto, no componentes HTTP ya implementados.
 | Cambia cómo cuentan los intentos (mejor intento, suma, promedio) | Nueva versión del reglamento con otra `AttemptAggregation` | Probar escenarios donde las políticas producen ganadores distintos y la conservación de la tabla anterior |
 | Un desafío pasa a contar sólo sus mejores N de M rondas, o cambian N o M | Nueva versión del reglamento con `BestRounds` en el `ChallengeSpec` (3.6); ninguna regla de puntaje cambia | Probar selección, empate por ordinal, rondas no jugadas, límite de M al programar y recálculo con la N de la versión de la tabla |
 | Un desafío limita la suma de sus bonificaciones, o cambia ese tope | Nueva versión del reglamento con `BonusCap` en el `ChallengeSpec` (2.5); ninguna regla de puntaje cambia | Probar recorte sobre la suma y no sobre cada bonificación, tope cero, explicación con obtenidas/tope/recorte, desempate por penalizaciones intacto y recálculo con el tope de la versión de la ronda |
+| Un desafío pasa a recibir mediciones y notas del panel por separado, o deja de hacerlo | Nueva versión del reglamento con `MixedSources` en el `ChallengeSpec` (4.13); ninguna regla de puntaje cambia | Probar que cada ronda usa la forma de registro de su versión, fuentes en cualquier orden, panel incompleto, pendientes fuera de la tabla y publicación bloqueada |
+| Llegan las mediciones desde un sistema de cronometraje o sensores | Adaptador de entrada que invoca `RegisterAutomaticMeasurements` | Traducir unidades y reintentar ante `ConflictException`; un registro repetido de la misma fuente es un conflicto, no un reemplazo |
 | Aparece otra política sobre rondas (promedio, descartar la peor, ponderar) | `TeamRounds` y una configuración nueva junto a `BestRounds` (3.6, consecuencia) | Conservar `BEST_ROUNDS` y los totales sin configuración; probar la explicación de la política nueva |
 | Cambia el plazo de apelación | Nueva versión del reglamento con otra `AppealWindow` | Probar el límite exacto y que una corrida conserva el plazo de su versión |
 | Cambian permisos o etapas de apelación | `Appeal`, `Appeals` y, si corresponde, estados de dominio y casos de uso | Probar transiciones permitidas y prohibidas; el DTO HTTP no decide estas políticas |
@@ -1560,7 +1801,8 @@ estado y motivos; no todo camino alternativo debe lanzar una excepción.
 | Agregar intentos | Mejor intento y suma de intentos; la política viaja en el reglamento y se conserva al recalcular | Equipo sin corridas; suma y mejor intento con ganadores distintos; corrida contada dos veces | `AttemptAggregationTest`, `RankingServiceTest`, `StandingsLifecycleTest` |
 | Tope de bonificaciones | Recorte sobre la suma, explicado en el desglose de `CalculateRunScore`; tope según la versión de la ronda; recálculo tras una corrección | Suma igual al tope, tope cero, ninguna bonificación obtenida, una sola bonificación mayor que el tope, bonificación de una regla nueva, tope negativo, desafío sin tope, desempate por penalizaciones | `BonusCapTest`, `ChallengeSpecBonusCapTest`, `BonusCapTiebreakTest`, `BonusCapScoringTest` |
 | Mejores N de M rondas | Selección de las N mejores con explicación por ronda; desafíos con y sin configuración en la misma categoría; recálculo tras apelación y con la N de la versión de la tabla; puntaje de corrida y desempates intactos | N o M inválidos; ronda M+1 rechazada sin guardarse; empate en el corte; menos rondas que N; puntajes negativos; subtotal o total incoherentes | `BestRoundsTest`, `BestRoundsSelectionTest`, `CompetitionScheduleTest`, `BestRoundsStandingsTest` |
-| Publicar posiciones | Provisional a definitiva | Generación y publicación repetidas; apelaciones pendientes en la categoría | `StandingsLifecycleTest`, `StandingsTest`, `StandingsHistoryTest`, `AppealRecalculationTest` |
+| Desafío mixto | Fuentes en cualquier orden sobre la misma corrida; desglose por fuente con actor y momento; notas en cero; corrida mixta corregida por apelación; plazo de apelación desde la completitud; forma de registro según la versión de la ronda; auditoría por fuente | Configuración sin reglas de una fuente o con una regla que lee las dos; fuente repetida, con datos de la otra fuente, incompleta o inválida sin crear la corrida; desafío no mixto; intento fuera de límite y posiciones definitivas; puntaje, apelación y publicación de una pendiente; dos fuentes simultáneas y copia vieja en el repositorio | `MixedChallengeSpecTest`, `RunCompletionTest`, `MixedRunResultTest`, `RoundResultsTest`, `PendingRunsTest`, `JudgeEvaluationsTest`, `RunResultRepositoryContractTest`, `MixedChallengeTest` |
+| Publicar posiciones | Provisional a definitiva | Generación y publicación repetidas; apelaciones o corridas pendientes en la categoría | `StandingsLifecycleTest`, `StandingsTest`, `StandingsHistoryTest`, `AppealRecalculationTest` |
 | Apelar | Aceptación con corrección que recalcula la tabla; aceptación antes de que existan posiciones; rechazo; presentación en el límite del plazo | Equipo ajeno, fuera de plazo, corrida ya apelada, corrección inválida o incidente desconocido sin cambiar apelación/corrida/posiciones, corrección fuera de orden, decisión repetida/fecha inválida | `AppealRecalculationTest`, `AppealTest`, `RunResultTest` |
 | Recalcular | Nueva revisión (también tras una tabla `FINAL`) y reglas históricas | Revisiones anteriores conservadas aun publicando otro reglamento | `AppealRecalculationTest`, `StandingsRepositoryContractTest` |
 | Auditar/conservar | Actor, fecha, acciones, originales y correcciones | Consultas vacías e historiales separados por categoría y competencia | Pruebas de configuración, resultados, apelación y repositorio |
@@ -1570,13 +1812,13 @@ verifican conservación del estado: corregir un incidente desconocido permite ca
 intento después de quitar el incidente inválido; un conflicto dentro del comando no deja reservados
 los primeros turnos. Eso no implica atomicidad frente a todos los fallos posteriores.
 
-Verificación del código actual el 10 de octubre de 2026: Maven recompiló los 199
-archivos Java de producción y los 39 de pruebas, y ejecutó **264 tests, 0 fallos, 0 errores y 0
+Verificación del código actual el 10 de octubre de 2026: Maven recompiló los 215
+archivos Java de producción y los 46 de pruebas, y ejecutó **320 tests, 0 fallos, 0 errores y 0
 omitidos**. Es una comprobación fechada, no un total garantizado para futuras versiones.
 No se establece una proporción obligatoria de tests exitosos/negativos ni se equipara cantidad con
 porcentaje de cobertura.
 JaCoCo 0.8.15 midió **100 % de instrucciones, ramas, líneas, complejidad, métodos y clases**. Son
-11.734 instrucciones, 482 ramas, 2.107 líneas, 1.037 puntos de complejidad, 796 métodos y 200 clases
+13.445 instrucciones, 514 ramas, 2.398 líneas, 1.171 puntos de complejidad, 914 métodos y 215 clases
 cubiertos. `mvn verify` genera el informe y falla si cualquiera de esos porcentajes baja del 100 %.
 La suite no prueba HTTP, proveedores, SQL, transacciones o concurrencia porque esas integraciones aún
 no existen; tendrán pruebas propias cuando se incorporen.

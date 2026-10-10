@@ -29,6 +29,7 @@ public final class CalculateRunScoreUseCase implements CalculateRunScore {
         Round round = rounds.findById(run.roundId())
                 .orElseThrow(() -> NotFoundException.of("Round", run.roundId().value()));
         ScoredRun scored = scoringService.scoreRun(run, round.competitionId());
-        return new RunScore(run.id(), run.teamId(), run.challengeId(), run.rulebookVersion(), scored.breakdown());
+        return new RunScore(run.id(), run.teamId(), run.challengeId(), run.rulebookVersion(), scored.breakdown(),
+                run.completion(), scoringService.scoreBySource(run, round.competitionId()));
     }
 }

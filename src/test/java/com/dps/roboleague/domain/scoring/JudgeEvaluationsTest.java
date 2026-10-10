@@ -50,6 +50,28 @@ class JudgeEvaluationsTest {
                 () -> evaluations.requireEvaluatorsWithin(Set.of(JudgeId.of("J1"), JudgeId.of("J2"))));
     }
 
+    @Test
+    void thePanelIsCompleteWhenEveryJudgeEvaluatedEveryCriterionEvenWithZero() {
+        Set<JudgeId> panel = Set.of(JudgeId.of("J1"), JudgeId.of("J2"));
+        JudgeEvaluations complete = JudgeEvaluations.of(evaluation("J1", DESIGN, 0), evaluation("J1", STYLE, 0),
+                evaluation("J2", DESIGN, 0), evaluation("J2", STYLE, 0));
+        JudgeEvaluations withoutJ2Style = JudgeEvaluations.of(evaluation("J1", DESIGN, 8),
+                evaluation("J1", STYLE, 6), evaluation("J2", DESIGN, 6));
+
+        RuleViolationException error = assertThrows(RuleViolationException.class,
+                () -> withoutJ2Style.requireComplete(panel, List.of(DESIGN, STYLE)));
+
+        assertEquals("the panel evaluations are incomplete: judge J2 has not evaluated criterion STYLE",
+                error.getMessage());
+        assertDoesNotThrow(() -> complete.requireComplete(panel, List.of(DESIGN, STYLE)));
+    }
+
+    @Test
+    void describesEachEvaluationForTheAuditTrail() {
+        assertEquals("{J1:DESIGN=8.00, J2:STYLE=6.00}",
+                JudgeEvaluations.of(evaluation("J1", DESIGN, 8), evaluation("J2", STYLE, 6)).toString());
+    }
+
     private JudgeEvaluation evaluation(String judge, MetricKey criterion, long score) {
         return new JudgeEvaluation(JudgeId.of(judge), criterion, JudgeScore.of(score));
     }

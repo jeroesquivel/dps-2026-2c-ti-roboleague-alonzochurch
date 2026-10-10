@@ -20,7 +20,7 @@ class StandingsTest {
     private static final Instant GENERATED_AT = Instant.parse("2026-03-02T12:00:00Z");
 
     private final Standings provisional = Standings.provisional(CompetitionId.of("COMP-1"), CategoryId.of("CAT-1"),
-            RulebookVersion.first(), GENERATED_AT, entries("TEAM-1", "TEAM-2"));
+            RulebookVersion.first(), GENERATED_AT, entries("TEAM-1", "TEAM-2"), PendingRuns.none());
 
     @Test
     void isProvisionalUntilItIsPublished() {
@@ -40,7 +40,7 @@ class StandingsTest {
     @Test
     void aRecalculationOpensANewProvisionalRevisionWithTheSameRulebook() {
         Standings recalculated = provisional.publish().supersede(entries("TEAM-2", "TEAM-1"),
-                GENERATED_AT.plusSeconds(3600));
+                PendingRuns.none(), GENERATED_AT.plusSeconds(3600));
 
         assertEquals(Revision.of(2), recalculated.revision());
         assertEquals(PublicationStatus.PROVISIONAL, recalculated.status());

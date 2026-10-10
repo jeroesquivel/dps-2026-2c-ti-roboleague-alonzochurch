@@ -34,18 +34,19 @@ public final class RunResult {
     private final List<IncidentReport> originalIncidents;
     private final JudgeEvaluations evaluations;
     private final CorrectionHistory corrections;
+    private final RunCompletion completion;
 
     public RunResult(RunId id, RoundId roundId, HeatId heatId, TeamId teamId, ChallengeId challengeId,
             RulebookVersion rulebookVersion, AttemptNumber attemptNumber, Instant capturedAt,
             MeasurementSet measurements, JudgeEvaluations evaluations, Collection<IncidentReport> incidents) {
         this(id, roundId, heatId, teamId, challengeId, rulebookVersion, attemptNumber, capturedAt, measurements,
-                evaluations, incidents, CorrectionHistory.empty());
+                evaluations, incidents, CorrectionHistory.empty(), RunCompletion.immediate());
     }
 
     private RunResult(RunId id, RoundId roundId, HeatId heatId, TeamId teamId, ChallengeId challengeId,
             RulebookVersion rulebookVersion, AttemptNumber attemptNumber, Instant capturedAt,
             MeasurementSet measurements, JudgeEvaluations evaluations, Collection<IncidentReport> incidents,
-            CorrectionHistory corrections) {
+            CorrectionHistory corrections, RunCompletion completion) {
         this.id = Objects.requireNonNull(id, "run id is required");
         this.roundId = Objects.requireNonNull(roundId, "round id is required");
         this.heatId = Objects.requireNonNull(heatId, "heat id is required");
@@ -58,6 +59,7 @@ public final class RunResult {
         this.evaluations = Objects.requireNonNull(evaluations, "evaluations are required");
         this.originalIncidents = List.copyOf(incidents);
         this.corrections = corrections;
+        this.completion = completion;
     }
 
     public static RunResult capture(RunId id, Round round, TeamId teamId, ChallengeSpec challenge,
@@ -65,6 +67,7 @@ public final class RunResult {
             JudgeEvaluations evaluations, List<IncidentReport> incidents) {
         Heat heat = round.heatFor(teamId);
         requireSameChallenge(round.challengeId(), challenge, "round " + round.id().value());
+        challenge.requireSingleCapture();
         challenge.requireAttemptWithinLimit(attemptNumber);
         challenge.validate(measurements);
         challenge.validateIncidents(incidents);
@@ -73,16 +76,51 @@ public final class RunResult {
                 attemptNumber, capturedAt, measurements, evaluations, incidents);
     }
 
+    public static RunResult open(RunId id, Round round, TeamId teamId, ChallengeSpec challenge,
+            AttemptNumber attemptNumber, SourceSubmission submission) {
+        Heat heat = round.heatFor(teamId);
+        requireSameChallenge(round.challengeId(), challenge, "round " + round.id().value());
+        challenge.requireAttemptWithinLimit(attemptNumber);
+        submission.validateAgainst(challenge, heat.judges());
+        ScoringContext received = submission.addTo(ScoringContext.of(MeasurementSet.empty()));
+        return new RunResult(id, round.id(), heat.id(), teamId, round.challengeId(), round.rulebookVersion(),
+                attemptNumber, submission.receipt().receivedAt(), received.measurements(), received.evaluations(),
+                received.incidents(), CorrectionHistory.empty(),
+                RunCompletion.awaitingSources().receive(submission.receipt()));
+    }
+
+    public RunResult receive(Round round, ChallengeSpec challenge, SourceSubmission submission) {
+        requireSameChallenge(challengeId, challenge, "run " + id.value());
+        Heat heat = round.heatFor(teamId);
+        if (!heat.id().equals(heatId)) {
+            throw new RuleViolationException("run " + id.value() + " was not played in heat " + heat.id().value());
+        }
+        RunCompletion received = completion.receive(submission.receipt());
+        submission.validateAgainst(challenge, heat.judges());
+        ScoringContext merged = submission.addTo(new ScoringContext(originalMeasurements, evaluations,
+                originalIncidents));
+        return new RunResult(id, roundId, heatId, teamId, challengeId, rulebookVersion, attemptNumber, capturedAt,
+                merged.measurements(), merged.evaluations(), merged.incidents(), corrections, received);
+    }
+
     public RunResult applyCorrection(ResultCorrection correction, ChallengeSpec challenge) {
         Objects.requireNonNull(correction, "correction is required");
         requireSameChallenge(challengeId, challenge, "run " + id.value());
-        if (correction.appliedAt().isBefore(capturedAt)) {
-            throw new RuleViolationException("a correction cannot predate the capture of run " + id.value());
+        if (correction.appliedAt().isBefore(requireCompletedAt())) {
+            throw new RuleViolationException("a correction cannot predate the completion of run " + id.value());
         }
         challenge.validate(correction.measurements());
         challenge.validateIncidents(correction.incidents());
         return new RunResult(id, roundId, heatId, teamId, challengeId, rulebookVersion, attemptNumber, capturedAt,
-                originalMeasurements, evaluations, originalIncidents, corrections.append(correction));
+                originalMeasurements, evaluations, originalIncidents, corrections.append(correction), completion);
+    }
+
+    public Instant requireCompletedAt() {
+        if (!completion.isComplete()) {
+            throw new RuleViolationException("run " + id.value() + " is pending: it still waits for the "
+                    + completion.missing() + " source and has no score yet");
+        }
+        return completion.lastReceivedAt().orElse(capturedAt);
     }
 
     private static void requireSameChallenge(ChallengeId expected, ChallengeSpec challenge, String owner) {
@@ -101,6 +139,7 @@ public final class RunResult {
     }
 
     public ScoringContext scoringContext() {
+        requireCompletedAt();
         return new ScoringContext(currentMeasurements(), evaluations, currentIncidents());
     }
 
@@ -154,5 +193,9 @@ public final class RunResult {
 
     public CorrectionHistory corrections() {
         return corrections;
+    }
+
+    public RunCompletion completion() {
+        return completion;
     }
 }

@@ -44,7 +44,7 @@ public abstract class StandingsRepositoryContractTest {
         Standings published = provisional().publish();
         repository.save(published);
 
-        repository.save(published.supersede(List.of(entry(1, "OMEGA")), NOW.plusSeconds(60)));
+        repository.save(published.supersede(List.of(entry(1, "OMEGA")), PendingRuns.none(), NOW.plusSeconds(60)));
 
         List<Standings> history = repository.findHistory(COMPETITION, CATEGORY);
         assertEquals(List.of(Revision.of(1), Revision.of(2)), history.stream().map(Standings::revision).toList());
@@ -56,7 +56,7 @@ public abstract class StandingsRepositoryContractTest {
     void findHistoryReturnsTheRevisionsFromTheOldestToTheNewest() {
         StandingsRepository repository = repository();
         Standings first = provisional();
-        Standings second = first.supersede(List.of(entry(1, "OMEGA")), NOW.plusSeconds(60));
+        Standings second = first.supersede(List.of(entry(1, "OMEGA")), PendingRuns.none(), NOW.plusSeconds(60));
         repository.save(second);
         repository.save(first);
 
@@ -79,9 +79,9 @@ public abstract class StandingsRepositoryContractTest {
         CompetitionId otherCompetition = CompetitionId.of("COMP-2");
         Standings firstCompetition = provisional().publish();
         Standings secondCompetition = Standings.provisional(otherCompetition, CATEGORY, RulebookVersion.first(),
-                NOW, List.of(entry(1, "OMEGA")));
+                NOW, List.of(entry(1, "OMEGA")), PendingRuns.none());
         Standings recalculatedSecond = secondCompetition.supersede(List.of(entry(1, "SIGMA")),
-                NOW.plusSeconds(60));
+                PendingRuns.none(), NOW.plusSeconds(60));
 
         repository.save(firstCompetition);
         repository.save(secondCompetition);
@@ -96,7 +96,7 @@ public abstract class StandingsRepositoryContractTest {
 
     private Standings provisional() {
         return Standings.provisional(COMPETITION, CATEGORY, RulebookVersion.first(), NOW,
-                List.of(entry(1, "DELTA")));
+                List.of(entry(1, "DELTA")), PendingRuns.none());
     }
 
     private StandingEntry entry(int position, String teamId) {
