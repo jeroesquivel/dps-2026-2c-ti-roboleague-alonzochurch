@@ -1,7 +1,7 @@
 package com.dps.roboleague.domain.scoring.rule;
 
 import com.dps.roboleague.domain.challenge.MetricKey;
-import com.dps.roboleague.domain.scoring.PointsAmount;
+import com.dps.roboleague.domain.scoring.PointsCap;
 import com.dps.roboleague.domain.scoring.PointsRate;
 import com.dps.roboleague.domain.scoring.ScoreContribution;
 import com.dps.roboleague.domain.scoring.ScoringContext;
@@ -16,7 +16,7 @@ import java.util.Objects;
 import java.util.Set;
 
 public record TimeScoringRule(MetricKey metric, Duration reference, PointsRate pointsPerSecondSaved,
-        PointsAmount maximumPoints) implements ScoringRule {
+        PointsCap maximumPoints) implements ScoringRule {
 
     public static final ScoringRuleCode CODE = ScoringRuleCode.of("TIME");
 
@@ -48,7 +48,7 @@ public record TimeScoringRule(MetricKey metric, Duration reference, PointsRate p
         BigDecimal saved = referenceSeconds.subtract(elapsed);
         Points earned = saved.signum() <= 0
                 ? Points.ZERO
-                : pointsPerSecondSaved.times(saved).cappedAt(maximumPoints.asPoints());
+                : maximumPoints.limit(pointsPerSecondSaved.times(saved));
         String explanation = "%s s against a reference of %s s".formatted(elapsed.toPlainString(),
                 referenceSeconds.toPlainString());
         return List.of(ScoreContribution.earned(CODE, explanation, earned));

@@ -37,21 +37,21 @@ class ScoringRulesTest {
 
     @Test
     void timeRuleRewardsEverySecondSavedAgainstTheReference() {
-        TimeScoringRule rule = new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsAmount.of(30));
+        TimeScoringRule rule = new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsCap.of(30));
 
         assertEquals(Points.of("12.25"), new ScoreBreakdown(rule.apply(measured(TIME, "95.5"))).total());
     }
 
     @Test
     void timeRuleGivesNoPointsWhenTheReferenceIsExceeded() {
-        TimeScoringRule rule = new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsAmount.of(30));
+        TimeScoringRule rule = new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsCap.of(30));
 
         assertEquals(Points.ZERO, new ScoreBreakdown(rule.apply(measured(TIME, "130"))).total());
     }
 
     @Test
     void timeRuleNeverExceedsItsMaximum() {
-        TimeScoringRule rule = new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsAmount.of(10));
+        TimeScoringRule rule = new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsCap.of(10));
 
         assertEquals(Points.of(10), new ScoreBreakdown(rule.apply(measured(TIME, "10"))).total());
     }
@@ -65,7 +65,7 @@ class ScoringRulesTest {
 
     @Test
     void precisionRuleScalesTheMaximumByTheAchievedRatio() {
-        PrecisionScoringRule rule = new PrecisionScoringRule(PRECISION, PointsAmount.of(20));
+        PrecisionScoringRule rule = new PrecisionScoringRule(PRECISION, PointsCap.of(20));
 
         assertEquals(Points.of("15.00"), new ScoreBreakdown(rule.apply(measured(PRECISION, "0.75"))).total());
     }
@@ -90,7 +90,7 @@ class ScoringRulesTest {
     @Test
     void penaltyRuleDeductsOnceForEachOccurrence() {
         PenaltyScoringRule rule = PenaltyScoringRule.of(
-                List.of(new PenaltyDefinition(RESTART, "manual restart", PointsAmount.of(3))));
+                List.of(new PenaltyDefinition(RESTART, "manual restart", PointsDeducted.of(3))));
         ScoringContext context = new ScoringContext(MeasurementSet.empty(), JudgeEvaluations.none(),
                 List.of(new IncidentReport(RESTART, 2)));
 
@@ -100,7 +100,7 @@ class ScoringRulesTest {
     @Test
     void bonusRuleIsGrantedOnlyWhenTheThresholdIsReached() {
         ThresholdBonusRule rule = new ThresholdBonusRule(OBJECTIVES, ThresholdBonusRule.Comparison.AT_LEAST,
-                MetricValue.of(5), PointsAmount.of(15));
+                MetricValue.of(5), BonusPoints.of(15));
 
         assertEquals(Points.of(15), new ScoreBreakdown(rule.apply(measured(OBJECTIVES, "5"))).total());
         assertEquals(Points.ZERO, new ScoreBreakdown(rule.apply(measured(OBJECTIVES, "4"))).total());
@@ -108,14 +108,14 @@ class ScoringRulesTest {
 
     static Stream<ScoringRule> everyRule() {
         return Stream.of(
-                new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsAmount.of(30)),
+                new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsCap.of(30)),
                 new ObjectiveScoringRule(OBJECTIVES, PointsRate.of(10), 5),
-                new PrecisionScoringRule(PRECISION, PointsAmount.of(20)),
+                new PrecisionScoringRule(PRECISION, PointsCap.of(20)),
                 new ResourceScoringRule(ENERGY, MetricValue.of(50), PointsRate.of(1)),
                 new JudgePanelScoringRule(DESIGN, PointsRate.of(1)),
                 new ThresholdBonusRule(OBJECTIVES, ThresholdBonusRule.Comparison.AT_LEAST, MetricValue.of(5),
-                        PointsAmount.of(15)),
-                PenaltyScoringRule.of(List.of(new PenaltyDefinition(RESTART, "manual restart", PointsAmount.of(3)))));
+                        BonusPoints.of(15)),
+                PenaltyScoringRule.of(List.of(new PenaltyDefinition(RESTART, "manual restart", PointsDeducted.of(3)))));
     }
 
     @ParameterizedTest
@@ -143,9 +143,9 @@ class ScoringRulesTest {
     @Test
     void timeRuleRequiresAPositiveReference() {
         assertThrows(InvalidValueException.class,
-                () -> new TimeScoringRule(TIME, Duration.ZERO, PointsRate.of("0.50"), PointsAmount.of(30)));
+                () -> new TimeScoringRule(TIME, Duration.ZERO, PointsRate.of("0.50"), PointsCap.of(30)));
         assertThrows(InvalidValueException.class,
-                () -> new TimeScoringRule(TIME, Duration.ofSeconds(-1), PointsRate.of("0.50"), PointsAmount.of(30)));
+                () -> new TimeScoringRule(TIME, Duration.ofSeconds(-1), PointsRate.of("0.50"), PointsCap.of(30)));
     }
 
     @Test
@@ -159,15 +159,15 @@ class ScoringRulesTest {
     @Test
     void weightsCapsAndBonusesCannotBeNegative() {
         assertThrows(InvalidValueException.class, () -> new JudgePanelScoringRule(DESIGN, PointsRate.of(-1)));
-        assertThrows(InvalidValueException.class, () -> new PrecisionScoringRule(PRECISION, PointsAmount.of(-20)));
+        assertThrows(InvalidValueException.class, () -> new PrecisionScoringRule(PRECISION, PointsCap.of(-20)));
         assertThrows(InvalidValueException.class, () -> new ThresholdBonusRule(OBJECTIVES,
-                ThresholdBonusRule.Comparison.AT_LEAST, MetricValue.of(5), PointsAmount.of(-15)));
+                ThresholdBonusRule.Comparison.AT_LEAST, MetricValue.of(5), BonusPoints.of(-15)));
     }
 
     @Test
     void penaltyCatalogRejectsTheSameCodeTwice() {
-        List<PenaltyDefinition> repeated = List.of(new PenaltyDefinition(RESTART, "manual restart", PointsAmount.of(3)),
-                new PenaltyDefinition(RESTART, "restart", PointsAmount.of(5)));
+        List<PenaltyDefinition> repeated = List.of(new PenaltyDefinition(RESTART, "manual restart", PointsDeducted.of(3)),
+                new PenaltyDefinition(RESTART, "restart", PointsDeducted.of(5)));
 
         assertThrows(InvalidValueException.class, () -> PenaltyScoringRule.of(repeated));
     }

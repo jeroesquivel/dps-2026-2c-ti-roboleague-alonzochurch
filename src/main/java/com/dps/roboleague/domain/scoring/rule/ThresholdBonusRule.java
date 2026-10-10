@@ -2,7 +2,7 @@ package com.dps.roboleague.domain.scoring.rule;
 
 import com.dps.roboleague.domain.challenge.MetricKey;
 import com.dps.roboleague.domain.challenge.MetricValue;
-import com.dps.roboleague.domain.scoring.PointsAmount;
+import com.dps.roboleague.domain.scoring.BonusPoints;
 import com.dps.roboleague.domain.scoring.ScoreContribution;
 import com.dps.roboleague.domain.scoring.ScoringContext;
 import com.dps.roboleague.domain.scoring.ScoringRule;
@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-public record ThresholdBonusRule(MetricKey metric, Comparison comparison, MetricValue threshold, PointsAmount bonus)
+public record ThresholdBonusRule(MetricKey metric, Comparison comparison, MetricValue threshold, BonusPoints bonus)
         implements ScoringRule {
 
     public static final ScoringRuleCode CODE = ScoringRuleCode.of("BONUS");

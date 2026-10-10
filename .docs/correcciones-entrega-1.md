@@ -42,12 +42,12 @@ public Points totalPoints() {   // TeamScoreSummary
 
 **Estado: Resuelta** — ver `DESIGN.md` 2.1, 2.1.1, 2.2 y 3.1.
 
-- `ResourceScoringRule` solo valida que no haya nulos, así que con `pointsPerUnitOver` negativo una "penalización" suma +50. Lo mismo pasa con pesos, topes y bonos negativos. — **Estado: Resuelta** (coeficientes como `PointsRate`, topes/bonos/deducciones como `PointsAmount` y umbrales como `MetricValue`, ninguno admite negativos; `TimeScoringRule` exige referencia positiva. `ScoringRulesTest`)
+- `ResourceScoringRule` solo valida que no haya nulos, así que con `pointsPerUnitOver` negativo una "penalización" suma +50. Lo mismo pasa con pesos, topes y bonos negativos. — **Estado: Resuelta** (coeficientes como `PointsRate`, topes como `PointsCap`, bonos como `BonusPoints`, deducciones como `PointsDeducted` y umbrales como `MetricValue`, ninguno admite negativos; `TimeScoringRule` exige referencia positiva. `ScoringRulesTest`)
 - `ChallengeSpec` acepta:
   - **Penalizaciones duplicadas**: revienta con `IllegalStateException` recién al puntuar, en `PenaltyScoringRule.of`. — **Estado: Resuelta** (el constructor de `ChallengeSpec` lanza `InvalidValueException`; `PenaltyScoringRule.of` también. `ChallengeSpecTest`, `ScoringRulesTest`)
   - **Métricas duplicadas sin ningún error**: `definitionOf` usa `findFirst`, y una misma clave declarada con dos `MetricKind` distintos se valida dos veces. — **Estado: Resuelta** (el constructor rechaza claves repetidas aunque cambie el `MetricKind`. `ChallengeSpecTest`)
   - **Reglas sobre métricas que no existen**: aportan 0 sin avisar. — **Estado: Resuelta** (`ScoringRule.referencedMetrics()` y el constructor de `ChallengeSpec` exige que estén definidas. `ChallengeSpecTest`)
-- `Rulebook.of` pisa en silencio los desafíos con id repetido. — **Estado: Resuelta** (lanza `InvalidValueException`. `DomainEdgeCasesTest`)
+- `Rulebook.of` pisa en silencio los desafíos con id repetido. — **Estado: Resuelta** (`RulebookDraft` lanza `InvalidValueException`. `DomainEdgeCasesTest`)
 
 #### El agregado deja saltear sus reglas
 
@@ -62,9 +62,9 @@ public Points totalPoints() {   // TeamScoreSummary
 
 #### Evaluaciones de jueces sin restricciones
 
-**Estado: Resuelta** — `JudgeEvaluations` rechaza que un juez evalúe dos veces el mismo criterio y `ChallengeSpec.validateEvaluations(evaluations, heat.judges())` verifica que el criterio sea una métrica `JUDGE_CRITERION` del desafío y que el juez esté en el heat; la invoca `RunResult.capture`, la fábrica de una corrida (antes `CaptureRunResultUseCase`). Ver `DESIGN.md` 4.10, `JudgeEvaluationsTest`, `ChallengeSpecTest` y `CaptureRunResultUseCaseTest`.
-
 No se modelan las restricciones de las evaluaciones de jueces: el mismo juez puede evaluar dos veces (pesa doble) y no se verifica que esté en `heat.judges()`.
+
+**Estado: Resuelta** — `JudgeEvaluations` rechaza que un juez evalúe dos veces el mismo criterio y `ChallengeSpec.validateEvaluations(evaluations, heat.judges())` verifica que el criterio sea una métrica `JUDGE_CRITERION` del desafío y que el juez esté en el heat; la invoca `RunResult.capture`, la fábrica de una corrida (antes `CaptureRunResultUseCase`). Ver `DESIGN.md` 4.10, `JudgeEvaluationsTest`, `ChallengeSpecTest` y `CaptureRunResultUseCaseTest`.
 
 #### Colecciones sueltas en lugar de conceptos propios
 
@@ -97,7 +97,7 @@ Además de aportar lenguaje ubicuo, permiten poner restricciones sobre esas cole
 
 #### `Points` representa conceptos distintos
 
-**Estado: Resuelta** — `Points` queda para contribuciones y totales; la nota de un juez es `JudgeScore` (escala 0-10), los coeficientes son `PointsRate` y los montos fijos configurados (topes, bono, deducción) son `PointsAmount`, ambos no negativos. Ver `DESIGN.md` 2.1 y 4.6.
+**Estado: Resuelta** — `Points` queda para contribuciones y totales; la nota de un juez es `JudgeScore` (escala 0-10), los coeficientes son `PointsRate` y cada monto fijo configurado tiene su propio tipo: `PointsCap` (tope), `BonusPoints` (bono) y `PointsDeducted` (deducción de una penalización). Ninguno admite negativos y no se pueden intercambiar al compilar. Ver `DESIGN.md` 2.1 y 4.6, `DomainEdgeCasesTest` y `ScoringRulesTest`.
 
 `Points` se usa para:
 
@@ -242,7 +242,7 @@ Además se movieron al dominio otras decisiones que quedaban en los casos de uso
 |---|---|---|---|
 | **OCP** | ✅ | Una fórmula, un desempate o una restricción nueva es una clase nueva. | — |
 | **OCP** | ⚠️ | `MetricKind.accepts` hace `switch (this)` con `default`. Lo polimórfico sería un método abstracto por constante. Lo mismo pasa con `ThresholdBonusRule.Comparison` (`switch (comparison)` sobre `AT_LEAST`/`AT_MOST`). | Resuelta (`accepts` e `isMetBy` son abstractos y cada constante los implementa; `DESIGN.md` 4.6, `DomainEdgeCasesTest.everyMetricKindDecidesPolymorphicallyAndRejectsNegativeAmounts`) |
-| **LSP** | ✅ / ⚠️ | El contrato común de las 7 `ScoringRule` (dato ausente → 0 explicado) se verifica con un test parametrizado. Pero el contrato no alcanza a la configuración: una regla con parámetros negativos cumple la firma y rompe la semántica de `ContributionKind`. | Resuelta (`PointsRate`/`PointsAmount`, `DESIGN.md` 2.1.1) |
+| **LSP** | ✅ / ⚠️ | El contrato común de las 7 `ScoringRule` (dato ausente → 0 explicado) se verifica con un test parametrizado. Pero el contrato no alcanza a la configuración: una regla con parámetros negativos cumple la firma y rompe la semántica de `ContributionKind`. | Resuelta (`PointsRate`, `PointsCap`, `BonusPoints` y `PointsDeducted`, `DESIGN.md` 2.1.1) |
 | **SRP** | ❌ | `ResolveAppealUseCase` concentra responsabilidades que responden a distintos actores, cada uno con necesidades de cambio independientes. | Resuelta (`AcceptAppeal` y `RejectAppeal`; las reglas en `Appeal` y `RunResult`, el recálculo en su propio puerto; `DESIGN.md` 4.5) |
 | **ISP** | ✅ / ⚠️ | Los puertos son chicos, con una operación cada uno. Pero `ScoringRule` tiene un método `default breakdownFor` que no usa ningún código de producción, solo los tests (ver nota abajo). | Resuelta (se eliminó `breakdownFor`; también `RulebookRepository.findLatest`, que quedó sin cliente; `DESIGN.md` 2.1.1 y 5.9) |
 | **DIP** | ✅ | `Clock`, `IdGenerator`, repositorios y `AuditLog` se inyectan por constructor desde la raíz de composición. | — |

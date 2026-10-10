@@ -191,7 +191,9 @@ que una implementación futura conserve esa inmutabilidad (ver sección 8).
 | Concepto | Tipo | Dónde |
 | --- | --- | --- |
 | Coeficiente "puntos por unidad" | `PointsRate` | `pointsPerSecondSaved`, `pointsPerObjective`, `pointsPerUnitOver`, `JudgePanelScoringRule.weight` |
-| Monto fijo configurado (tope, bono, deducción) | `PointsAmount` | `TimeScoringRule`/`PrecisionScoringRule.maximumPoints`, `ThresholdBonusRule.bonus`, `PenaltyDefinition.deduction` |
+| Tope de puntos de una regla | `PointsCap` | `TimeScoringRule`/`PrecisionScoringRule.maximumPoints` |
+| Bono que otorga una regla | `BonusPoints` | `ThresholdBonusRule.bonus` |
+| Puntos que descuenta una penalización | `PointsDeducted` | `PenaltyDefinition.deduction` |
 | Umbral o margen sobre una medición | `MetricValue` | `ResourceScoringRule.allowance`, `ThresholdBonusRule.threshold` |
 
 Así una "penalización" por consumo no puede configurarse con un coeficiente negativo que sume puntos,
@@ -233,7 +235,8 @@ aplicar la regla de penalización directamente devuelve cero con explicación.
 
 **El contrato alcanza a la configuración.** Una regla con parámetros negativos cumpliría la firma
 pero rompería la semántica de `ContributionKind` (una contribución `PENALTY` que suma). Por eso los
-parámetros son `PointsRate`/`PointsAmount`/`MetricValue`, que no pueden ser negativos (ver 2.1), y
+parámetros son `PointsRate`, `PointsCap`, `BonusPoints`, `PointsDeducted` y `MetricValue`, que no
+pueden ser negativos (ver 2.1), y
 `ScoringRulesTest.penaltyContributionsNeverAddPoints` verifica que ninguna regla de `everyRule()`
 emite una penalización positiva.
 
@@ -747,7 +750,8 @@ recálculo (ver 5.3).
 **Dónde:** `domain/shared` (`Points`, `DateRange`, `AgeRange`, `Actor`, e identificadores como
 `TeamId`, `RunId`, `MemberId`), `domain/challenge` (`MetricKey`, `MetricValue`, `MetricUnit`,
 `MeasurementSet`, `AttemptNumber`, `AttemptLimit`), `domain/scoring` (`JudgeScore`, `PointsRate`,
-`PointsAmount`), `domain/schedule/RoundOrdinal`, `domain/ranking/Revision`, `domain/team/Weight` y
+`PointsCap`, `BonusPoints`, `PointsDeducted`), `domain/schedule/RoundOrdinal`, `domain/ranking/Revision`,
+`domain/team/Weight` y
 `domain/eligibility/EligibilityRuleCode`.
 
 Los identificadores son records distintos que implementan `Identifier`, de modo que pasar un
@@ -785,9 +789,15 @@ campo ni como parámetro.
 
 **`Points` ya no representa conceptos distintos.** `Points` es el puntaje (con signo) de una
 contribución o un total. La nota de un juez es un `JudgeScore` con escala 0–10; un coeficiente de
-configuración es un `PointsRate` y un monto fijo configurado (tope, bono, deducción) es un
-`PointsAmount`; ninguno de estos dos admite negativos (ver 2.1). Comparten la aritmética porque
-`PointsRate.times` y `PointsAmount.times` producen `Points`, pero no las reglas.
+configuración es un `PointsRate`, y los montos fijos del reglamento tienen cada uno su tipo: el tope
+de una regla es un `PointsCap`, el bono un `BonusPoints` y lo que descuenta una penalización un
+`PointsDeducted` (ver 2.1). Ninguno admite negativos: el signo de la contribución lo decide la regla
+según su `ContributionKind`, no el valor configurado. Todos producen `Points`, pero cada uno expone
+sólo la operación que su concepto necesita: `PointsCap.limit` acota lo ganado y `PointsCap.times`
+toma una fracción del máximo, `BonusPoints.asPoints` otorga el bono entero y `PointsDeducted.times`
+multiplica la deducción por las ocurrencias. Hoy comparten la invariante, pero al ser tipos distintos
+el compilador impide pasar un bono donde se espera un tope, y cada uno puede endurecer su regla (por
+ejemplo, exigir una deducción positiva) sin afectar a los otros.
 
 **`Member` tiene identidad.** `Member` lleva un `MemberId`: dos integrantes homónimos nacidos el mismo
 día son integrantes distintos. `RegisterTeam.Command` recibe `MemberDraft` (nombre, nacimiento, rol)
@@ -1128,7 +1138,7 @@ sublista, sin cambiar la interfaz. El mismo criterio se aplicó a la elegibilida
 | Configuración del evento | `CreateSeasonUseCase`, `CreateCompetitionUseCase`, `Season`, `SeasonCalendar`, `Competition`, `Category`, `RulebookDraft` |
 | Registro de equipos | `RegisterTeamUseCase`, `TeamRegistration`, `TeamMembers`, `Member`, `Robot`, `Weight`, `TeamDocument` |
 | Elegibilidad | `EligibilityRequirements` y las reglas de `domain/eligibility/rule` |
-| Configuración de desafíos | `ChallengeSpec`, `MetricDefinition`, `domain/scoring/rule/*`, `PenaltyDefinition`, `PointsRate`, `PointsAmount` |
+| Configuración de desafíos | `ChallengeSpec`, `MetricDefinition`, `domain/scoring/rule/*`, `PenaltyDefinition`, `PointsRate`, `PointsCap`, `BonusPoints`, `PointsDeducted` |
 | Programación | `ScheduleRoundUseCase`, `Round`, `Heat`, `TimeSlot`, `CompetitionSchedule`, `ScheduleConflictDetector`, `Competition.requireSlotWithinPeriod`, `TeamRegistration.requireAcceptedIn` |
 | Captura de resultados | `CaptureRunResultUseCase`, `RunResult.capture`, `RoundResults`, `StandingsHistory.requireOpenForResults`, `MeasurementSet`, `JudgeEvaluations`, `JudgeScore`, `IncidentReport` |
 | Cálculo explicable | `CalculateRunScoreUseCase`, `ScoreBreakdown`, `ScoreContribution`, `ContributionKind` |

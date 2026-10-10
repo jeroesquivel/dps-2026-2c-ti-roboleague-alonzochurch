@@ -21,9 +21,11 @@ import com.dps.roboleague.domain.ranking.rule.FastestMetricTiebreak;
 import com.dps.roboleague.domain.ranking.rule.FewestPenaltiesTiebreak;
 import com.dps.roboleague.domain.ranking.rule.HighestSingleRunTiebreak;
 import com.dps.roboleague.domain.rulebook.RulebookDraft;
+import com.dps.roboleague.domain.scoring.BonusPoints;
 import com.dps.roboleague.domain.scoring.PenaltyCode;
 import com.dps.roboleague.domain.scoring.PenaltyDefinition;
-import com.dps.roboleague.domain.scoring.PointsAmount;
+import com.dps.roboleague.domain.scoring.PointsCap;
+import com.dps.roboleague.domain.scoring.PointsDeducted;
 import com.dps.roboleague.domain.scoring.PointsRate;
 import com.dps.roboleague.domain.scoring.ScoringRule;
 import com.dps.roboleague.domain.scoring.rule.JudgePanelScoringRule;
@@ -64,18 +66,18 @@ final class DemoRulebook {
 
     static List<ScoringRule> scoringRules() {
         return List.of(
-                new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsAmount.of(30)),
+                new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsCap.of(30)),
                 new ObjectiveScoringRule(OBJECTIVES, PointsRate.of(10), 5),
                 new JudgePanelScoringRule(DESIGN, PointsRate.of(1)),
                 new ResourceScoringRule(ENERGY, MetricValue.of(50), PointsRate.of(1)),
                 new ThresholdBonusRule(OBJECTIVES, ThresholdBonusRule.Comparison.AT_LEAST, MetricValue.of(5),
-                        PointsAmount.of(15)));
+                        BonusPoints.of(15)));
     }
 
     static List<PenaltyDefinition> penalties() {
         return List.of(
-                new PenaltyDefinition(RESTART, "manual restart", PointsAmount.of(3)),
-                new PenaltyDefinition(OUT_OF_BOUNDS, "robot out of bounds", PointsAmount.of(5)));
+                new PenaltyDefinition(RESTART, "manual restart", PointsDeducted.of(3)),
+                new PenaltyDefinition(OUT_OF_BOUNDS, "robot out of bounds", PointsDeducted.of(5)));
     }
 
     static RulebookDraft rulebook() {

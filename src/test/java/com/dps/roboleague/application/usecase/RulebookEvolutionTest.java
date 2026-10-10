@@ -24,7 +24,7 @@ import com.dps.roboleague.domain.rulebook.RulebookDraft;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.scoring.ContributionKind;
 import com.dps.roboleague.domain.scoring.IncidentReport;
-import com.dps.roboleague.domain.scoring.PointsAmount;
+import com.dps.roboleague.domain.scoring.PointsCap;
 import com.dps.roboleague.domain.scoring.PointsRate;
 import com.dps.roboleague.domain.scoring.ScoreContribution;
 import com.dps.roboleague.domain.scoring.ScoringContext;
@@ -130,7 +130,7 @@ class RulebookEvolutionTest {
         List<ScoringRule> extended = List.of(
                 new SquaredObjectivesRule(RescueEditionFixture.OBJECTIVES, PointsRate.of("2.50")),
                 new TimeScoringRule(RescueEditionFixture.TIME, Duration.ofSeconds(120), PointsRate.of("0.50"),
-                        PointsAmount.of(30)));
+                        PointsCap.of(30)));
         publish(edition.competitionId(), List.of(RescueEditionFixture.challengeScoredBy(extended)));
         RoundId secondRound = scheduleSecondRound();
 
@@ -186,7 +186,7 @@ class RulebookEvolutionTest {
         List<MetricDefinition> metrics = new ArrayList<>(RescueEditionFixture.metrics());
         metrics.add(MetricDefinition.required(PRECISION, MetricKind.PRECISION_RATIO, MetricUnit.of("ratio")));
         return new ChallengeSpec(RescueEditionFixture.CHALLENGE_ID, "Rescue with precision", metrics,
-                List.of(new PrecisionScoringRule(PRECISION, PointsAmount.of(20))), RescueEditionFixture.penalties(),
+                List.of(new PrecisionScoringRule(PRECISION, PointsCap.of(20))), RescueEditionFixture.penalties(),
                 AttemptLimit.of(2));
     }
 

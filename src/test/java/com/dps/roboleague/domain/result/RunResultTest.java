@@ -26,7 +26,7 @@ import com.dps.roboleague.domain.scoring.JudgeEvaluations;
 import com.dps.roboleague.domain.scoring.JudgeScore;
 import com.dps.roboleague.domain.scoring.PenaltyCode;
 import com.dps.roboleague.domain.scoring.PenaltyDefinition;
-import com.dps.roboleague.domain.scoring.PointsAmount;
+import com.dps.roboleague.domain.scoring.PointsDeducted;
 import com.dps.roboleague.domain.scoring.PointsRate;
 import com.dps.roboleague.domain.scoring.rule.JudgePanelScoringRule;
 import com.dps.roboleague.domain.scoring.rule.ObjectiveScoringRule;
@@ -198,7 +198,7 @@ class RunResultTest {
                         MetricDefinition.optional(DESIGN, MetricKind.JUDGE_CRITERION, MetricUnit.of("points"))),
                 List.of(new ObjectiveScoringRule(OBJECTIVES, PointsRate.of(10), 5),
                         new JudgePanelScoringRule(DESIGN, PointsRate.of(1))),
-                List.of(new PenaltyDefinition(RESTART, "manual restart", PointsAmount.of(3))), AttemptLimit.of(2));
+                List.of(new PenaltyDefinition(RESTART, "manual restart", PointsDeducted.of(3))), AttemptLimit.of(2));
     }
 
     private static JudgeEvaluation evaluation(String judge) {

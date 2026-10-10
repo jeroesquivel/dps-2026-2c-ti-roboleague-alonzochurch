@@ -45,13 +45,15 @@ import com.dps.roboleague.domain.schedule.ScheduleConflict;
 import com.dps.roboleague.domain.schedule.ScheduleConflictDetector;
 import com.dps.roboleague.domain.schedule.ScheduleConflictType;
 import com.dps.roboleague.domain.schedule.TimeSlot;
+import com.dps.roboleague.domain.scoring.BonusPoints;
 import com.dps.roboleague.domain.scoring.ContributionKind;
 import com.dps.roboleague.domain.scoring.IncidentReport;
 import com.dps.roboleague.domain.scoring.JudgeEvaluations;
 import com.dps.roboleague.domain.scoring.JudgeScore;
 import com.dps.roboleague.domain.scoring.PenaltyCode;
 import com.dps.roboleague.domain.scoring.PenaltyDefinition;
-import com.dps.roboleague.domain.scoring.PointsAmount;
+import com.dps.roboleague.domain.scoring.PointsCap;
+import com.dps.roboleague.domain.scoring.PointsDeducted;
 import com.dps.roboleague.domain.scoring.PointsRate;
 import com.dps.roboleague.domain.scoring.ScoreBreakdown;
 import com.dps.roboleague.domain.scoring.ScoreContribution;
@@ -189,13 +191,17 @@ class DomainEdgeCasesTest {
     @Test
     void scoringConfigurationRejectsNegativeAmountsAndJudgeScoresOutsideTheirScale() {
         assertThrows(InvalidValueException.class, () -> PointsRate.of("-0.5"));
-        assertThrows(InvalidValueException.class, () -> PointsAmount.of(-1));
+        assertThrows(InvalidValueException.class, () -> PointsCap.of(-1));
+        assertThrows(InvalidValueException.class, () -> BonusPoints.of(-1));
+        assertThrows(InvalidValueException.class, () -> PointsDeducted.of(-1));
         assertThrows(InvalidValueException.class, () -> JudgeScore.of(-1));
         assertThrows(InvalidValueException.class, () -> new JudgeScore(new BigDecimal("10.01")));
         assertEquals(new BigDecimal("10.00"), JudgeScore.of(10).value());
         assertEquals(Points.of("2.50"), PointsRate.of("0.5").times(new BigDecimal("5")));
         assertEquals("0.5", PointsRate.of("0.5").toString());
-        assertEquals("3.00", PointsAmount.of("3").toString());
+        assertEquals("3.00", PointsCap.of("3").toString());
+        assertEquals(Points.of(15), BonusPoints.of(15).asPoints());
+        assertEquals(Points.of(-6), PointsDeducted.of(3).times(new BigDecimal("2")).negated());
     }
 
     @Test
@@ -204,8 +210,8 @@ class DomainEdgeCasesTest {
         ScoringRuleCode scoringRule = ScoringRuleCode.of("RULE");
         MetricKey objectives = MetricKey.of("OBJECTIVES");
 
-        assertThrows(InvalidValueException.class, () -> new PenaltyDefinition(penalty, null, PointsAmount.of(1)));
-        assertThrows(InvalidValueException.class, () -> new PenaltyDefinition(penalty, " ", PointsAmount.of(1)));
+        assertThrows(InvalidValueException.class, () -> new PenaltyDefinition(penalty, null, PointsDeducted.of(1)));
+        assertThrows(InvalidValueException.class, () -> new PenaltyDefinition(penalty, " ", PointsDeducted.of(1)));
         assertThrows(InvalidValueException.class,
                 () -> new ScoreContribution(scoringRule, ContributionKind.EARNED, null, Points.ZERO));
         assertThrows(InvalidValueException.class,
@@ -215,7 +221,7 @@ class DomainEdgeCasesTest {
                 () -> new ObjectiveScoringRule(objectives, PointsRate.of(1), 0));
 
         ThresholdBonusRule atMost = new ThresholdBonusRule(objectives, ThresholdBonusRule.Comparison.AT_MOST,
-                MetricValue.of(5), PointsAmount.of(10));
+                MetricValue.of(5), BonusPoints.of(10));
         assertEquals(Points.of(10), new ScoreBreakdown(atMost.apply(measured(objectives, "4"))).total());
         assertEquals(Points.ZERO, new ScoreBreakdown(atMost.apply(measured(objectives, "6"))).total());
     }

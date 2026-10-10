@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.dps.roboleague.domain.scoring.BonusPoints;
 import com.dps.roboleague.domain.scoring.ContributionKind;
 import com.dps.roboleague.domain.scoring.IncidentReport;
 import com.dps.roboleague.domain.scoring.JudgeEvaluation;
@@ -12,7 +13,8 @@ import com.dps.roboleague.domain.scoring.JudgeEvaluations;
 import com.dps.roboleague.domain.scoring.JudgeScore;
 import com.dps.roboleague.domain.scoring.PenaltyCode;
 import com.dps.roboleague.domain.scoring.PenaltyDefinition;
-import com.dps.roboleague.domain.scoring.PointsAmount;
+import com.dps.roboleague.domain.scoring.PointsCap;
+import com.dps.roboleague.domain.scoring.PointsDeducted;
 import com.dps.roboleague.domain.scoring.PointsRate;
 import com.dps.roboleague.domain.scoring.ScoreBreakdown;
 import com.dps.roboleague.domain.scoring.ScoringContext;
@@ -45,7 +47,7 @@ class ChallengeSpecTest {
             MetricKind.JUDGE_CRITERION, MetricUnit.of("points"));
     private static final ScoringRule OBJECTIVES_RULE = new ObjectiveScoringRule(OBJECTIVES, PointsRate.of(10), 5);
     private static final PenaltyDefinition RESTART_PENALTY = new PenaltyDefinition(RESTART, "manual restart",
-            PointsAmount.of(3));
+            PointsDeducted.of(3));
     private static final Set<JudgeId> PANEL = Set.of(JudgeId.of("J1"), JudgeId.of("J2"));
 
     private final ChallengeSpec challenge = challengeWith(List.of(TIME_METRIC, OBJECTIVES_METRIC, DESIGN_METRIC),
@@ -124,7 +126,7 @@ class ChallengeSpecTest {
 
     @Test
     void rejectsAPenaltyDeclaredTwiceWhenTheChallengeIsConfiguredInsteadOfWhenItScores() {
-        PenaltyDefinition harsherRestart = new PenaltyDefinition(RESTART, "manual restart", PointsAmount.of(10));
+        PenaltyDefinition harsherRestart = new PenaltyDefinition(RESTART, "manual restart", PointsDeducted.of(10));
 
         InvalidValueException error = assertThrows(InvalidValueException.class,
                 () -> challengeWith(List.of(OBJECTIVES_METRIC), List.of(OBJECTIVES_RULE),
@@ -136,7 +138,7 @@ class ChallengeSpecTest {
     @Test
     void rejectsScoringRulesOverMetricsThatTheChallengeDoesNotDefine() {
         ScoringRule timeRule = new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"),
-                PointsAmount.of(30));
+                PointsCap.of(30));
 
         InvalidValueException error = assertThrows(InvalidValueException.class,
                 () -> challengeWith(List.of(OBJECTIVES_METRIC), List.of(OBJECTIVES_RULE, timeRule), List.of()));
@@ -173,7 +175,7 @@ class ChallengeSpecTest {
     @Test
     void scoreCombinesEveryScoringRuleWithTheChallengesOwnPenaltyCatalog() {
         ChallengeSpec multiRuleChallenge = challengeWith(List.of(TIME_METRIC, OBJECTIVES_METRIC),
-                List.of(new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsAmount.of(30)),
+                List.of(new TimeScoringRule(TIME, Duration.ofSeconds(120), PointsRate.of("0.50"), PointsCap.of(30)),
                         OBJECTIVES_RULE),
                 List.of(RESTART_PENALTY));
         ScoringContext context = new ScoringContext(
@@ -191,7 +193,7 @@ class ChallengeSpecTest {
     void scoreSeparatesWhatWasEarnedFromBonusesAndPenalties() {
         ChallengeSpec multiRuleChallenge = challengeWith(List.of(OBJECTIVES_METRIC),
                 List.of(OBJECTIVES_RULE, new ThresholdBonusRule(OBJECTIVES, ThresholdBonusRule.Comparison.AT_LEAST,
-                        MetricValue.of(5), PointsAmount.of(15))),
+                        MetricValue.of(5), BonusPoints.of(15))),
                 List.of(RESTART_PENALTY));
         ScoringContext context = new ScoringContext(MeasurementSet.empty().with(OBJECTIVES, MetricValue.of(5)),
                 JudgeEvaluations.none(), List.of(IncidentReport.once(RESTART)));

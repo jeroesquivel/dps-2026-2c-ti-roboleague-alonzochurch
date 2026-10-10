@@ -3,7 +3,7 @@ package com.dps.roboleague.domain.scoring;
 import com.dps.roboleague.domain.shared.InvalidValueException;
 import java.util.Objects;
 
-public record PenaltyDefinition(PenaltyCode code, String description, PointsAmount deduction) {
+public record PenaltyDefinition(PenaltyCode code, String description, PointsDeducted deduction) {
 
     public PenaltyDefinition {
         Objects.requireNonNull(code, "penalty code is required");
