@@ -22,6 +22,7 @@ import com.dps.roboleague.domain.ranking.rule.FastestMetricTiebreak;
 import com.dps.roboleague.domain.ranking.rule.FewestPenaltiesTiebreak;
 import com.dps.roboleague.domain.ranking.rule.HighestSingleRunTiebreak;
 import com.dps.roboleague.domain.rulebook.RulebookDraft;
+import com.dps.roboleague.domain.scoring.BonusCap;
 import com.dps.roboleague.domain.scoring.BonusPoints;
 import com.dps.roboleague.domain.scoring.PenaltyCode;
 import com.dps.roboleague.domain.scoring.PenaltyDefinition;
@@ -72,6 +73,23 @@ public final class RescueEditionFixture {
     public static ChallengeSpec challenge(ChallengeId id, String name, List<ScoringRule> scoringRules,
             Optional<BestRounds> bestRounds) {
         return new ChallengeSpec(id, name, metrics(), scoringRules, penalties(), AttemptLimit.of(2), bestRounds);
+    }
+
+    public static ChallengeSpec challengeCappingBonuses(List<ScoringRule> scoringRules,
+            Optional<BonusCap> bonusCap) {
+        return new ChallengeSpec(CHALLENGE_ID, "Rescue mission", metrics(), scoringRules, penalties(),
+                AttemptLimit.of(2), Optional.empty(), bonusCap);
+    }
+
+    public static List<ScoringRule> scoringRulesWithThreeBonuses() {
+        return List.of(
+                new ObjectiveScoringRule(OBJECTIVES, PointsRate.of(10), 5),
+                new ThresholdBonusRule(OBJECTIVES, ThresholdBonusRule.Comparison.AT_LEAST, MetricValue.of(5),
+                        BonusPoints.of(15)),
+                new ThresholdBonusRule(TIME, ThresholdBonusRule.Comparison.AT_MOST, MetricValue.of(60),
+                        BonusPoints.of(10)),
+                new ThresholdBonusRule(ENERGY, ThresholdBonusRule.Comparison.AT_MOST, MetricValue.of(40),
+                        BonusPoints.of(10)));
     }
 
     public static List<MetricDefinition> metrics() {

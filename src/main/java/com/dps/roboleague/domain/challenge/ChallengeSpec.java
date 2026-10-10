@@ -1,5 +1,6 @@
 package com.dps.roboleague.domain.challenge;
 
+import com.dps.roboleague.domain.scoring.BonusCap;
 import com.dps.roboleague.domain.scoring.IncidentReport;
 import com.dps.roboleague.domain.scoring.JudgeEvaluations;
 import com.dps.roboleague.domain.scoring.PenaltyCode;
@@ -25,12 +26,13 @@ import java.util.stream.Stream;
 
 public record ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> metrics,
         List<ScoringRule> scoringRules, List<PenaltyDefinition> penalties, AttemptLimit maximumAttempts,
-        Optional<BestRounds> bestRounds) {
+        Optional<BestRounds> bestRounds, Optional<BonusCap> bonusCap) {
 
     public ChallengeSpec {
         Objects.requireNonNull(id, "challenge id is required");
         Objects.requireNonNull(maximumAttempts, "maximum attempts are required");
         Objects.requireNonNull(bestRounds, "best rounds configuration is required, even if empty");
+        Objects.requireNonNull(bonusCap, "bonus cap configuration is required, even if empty");
         if (name == null || name.isBlank()) {
             throw new InvalidValueException("challenge requires a name");
         }
@@ -46,6 +48,11 @@ public record ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> 
         requireUnique(metrics, MetricDefinition::key, MetricKey::value, "metric", name);
         requireUnique(penalties, PenaltyDefinition::code, PenaltyCode::value, "penalty", name);
         requireDefinedMetrics(metrics, scoringRules, name);
+    }
+
+    public ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> metrics, List<ScoringRule> scoringRules,
+            List<PenaltyDefinition> penalties, AttemptLimit maximumAttempts, Optional<BestRounds> bestRounds) {
+        this(id, name, metrics, scoringRules, penalties, maximumAttempts, bestRounds, Optional.empty());
     }
 
     public ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> metrics, List<ScoringRule> scoringRules,
@@ -92,9 +99,15 @@ public record ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> 
     }
 
     public ScoreBreakdown score(ScoringContext context) {
-        return new ScoreBreakdown(Stream.concat(
-                scoringRules.stream().flatMap(rule -> rule.apply(context).stream()),
-                PenaltyScoringRule.of(penalties).apply(context).stream()).toList());
+        ScoreBreakdown byRules = new ScoreBreakdown(scoringRules.stream()
+                .flatMap(rule -> rule.apply(context).stream())
+                .toList());
+        return new ScoreBreakdown(Stream.of(
+                        byRules.contributions().stream(),
+                        bonusCap.map(cap -> cap.trim(byRules)).stream(),
+                        PenaltyScoringRule.of(penalties).apply(context).stream())
+                .flatMap(Function.identity())
+                .toList());
     }
 
     public void requireAttemptWithinLimit(AttemptNumber attempt) {

@@ -195,6 +195,7 @@ que una implementación futura conserve esa inmutabilidad (ver sección 8).
 | --- | --- | --- |
 | Coeficiente "puntos por unidad" | `PointsRate` | `pointsPerSecondSaved`, `pointsPerObjective`, `pointsPerUnitOver`, `JudgePanelScoringRule.weight` |
 | Tope de puntos de una regla | `PointsCap` | `TimeScoringRule`/`PrecisionScoringRule.maximumPoints` |
+| Tope de la suma de bonificaciones de un desafío | `BonusCap` (envuelve un `PointsCap`) | `ChallengeSpec.bonusCap` (ver 2.5) |
 | Bono que otorga una regla | `BonusPoints` | `ThresholdBonusRule.bonus` |
 | Puntos que descuenta una penalización | `PointsDeducted` | `PenaltyDefinition.deduction` |
 | Umbral o margen sobre una medición | `MetricValue` | `ResourceScoringRule.allowance`, `ThresholdBonusRule.threshold` |
@@ -255,8 +256,10 @@ siete lugares.
 **Dónde:** `ChallengeSpec.scoringRules` y `ChallengeSpec.score`.
 
 `ChallengeSpec` guarda directamente una `List<ScoringRule>`. Al puntuar, `score` aplica cada
-regla de la lista, le suma las contribuciones de `PenaltyScoringRule.of(penalties)` (armada
-desde el catálogo del propio desafío, ver 2.4) y devuelve un único `ScoreBreakdown` con todo.
+regla de la lista; si el desafío tiene `BonusCap`, agrega la contribución `BONUS_CAP` calculada sobre
+el desglose de esas reglas (ver 2.5); después suma las contribuciones de
+`PenaltyScoringRule.of(penalties)` (armada desde el catálogo del propio desafío, ver 2.4) y devuelve
+un único `ScoreBreakdown` con todo. El orden es siempre reglas → tope → penalizaciones.
 
 **El desafío valida su propia configuración al construirse**, no al puntuar:
 
@@ -312,6 +315,9 @@ Además de los incidentes de `PenaltyScoringRule`, `ResourceScoringRule` etiquet
 
 **Consecuencia adicional:** la publicación puede separar lo ganado de las bonificaciones y de las
 penalizaciones sin conocer ninguna regla concreta, que es lo que el requisito de explicabilidad pide.
+El tope global de bonificaciones (2.5) aprovecha la misma clasificación: reconoce las bonificaciones
+sólo por `ContributionKind.BONUS` y emite su recorte también como `BONUS`, así `totalOf(BONUS)` es lo
+que las bonificaciones aportan de verdad y el recorte no cuenta como penalización en el desempate.
 
 **Alternativas descartadas:** dejar el código de regla como `String` y seguir comparando textos
 (un contrato basado en texto permitiría errores como `totalFor("PENALTIE")`); reconocer todas las
@@ -340,6 +346,90 @@ ajustes sin pasos posteriores.
 
 **Alternativas descartadas:** aplicar las penalizaciones después del cálculo, como un descuento sobre
 el total, lo que las dejaría fuera de la explicación y obligaría a un orden implícito de aplicación.
+Por el mismo motivo, el tope global de bonificaciones (2.5) no se descuenta del total: su recorte es
+una contribución más del desglose, en una posición fija.
+
+### 2.5 Tope global a la suma de bonificaciones de un desafío (F2)
+
+**Patrón / principio:** Value Object de configuración, Open/Closed sobre las reglas de puntaje,
+explicación como valor (2.3), clasificación semántica (2.3.1).
+
+**Dónde:** `domain/scoring/BonusCap` y `ChallengeSpec.bonusCap` / `score`.
+
+**Configuración.** `BonusCap(maximum)` envuelve un `PointsCap`, que ya protege la única invariante
+(no negativo, `InvalidValueException`); un tope de cero es válido y anula toda bonificación. Es un
+componente opcional de `ChallengeSpec` (`Optional<BonusCap>`), igual que `BestRounds` (3.6): los
+constructores anteriores de seis y siete argumentos siguen existiendo y equivalen a "sin tope". Se
+configura por desafío porque cada desafío tiene bonificaciones de distinta escala. Como vive en el
+`ChallengeSpec`, viaja en la versión del reglamento: cada corrida se puntúa, y se vuelve a puntuar al
+recalcular, con el tope de la versión de su ronda (3.2).
+
+**Cálculo.** `ChallengeSpec.score` arma primero el desglose de sus reglas y, si hay tope, le pide a
+`BonusCap.trim` la contribución del recorte, que va entre las reglas y las penalizaciones:
+
+```
+obtenidas = breakdown.totalOf(BONUS)
+aplicadas = PointsCap.limit(obtenidas)          // min(obtenidas, tope)
+BONUS_CAP = aplicadas − obtenidas               // −recorte, 0 si no se supera el tope
+```
+
+Las bonificaciones individuales conservan su valor y su explicación. `BONUS_CAP` es una contribución
+`BONUS`, de modo que `total()` y `totalOf(BONUS)` ya reflejan las bonificaciones aplicadas y
+`totalOf(EARNED)` y `totalOf(PENALTY)` no cambian. Su explicación indica las tres cifras ("bonuses
+obtained 35.00 exceed the cap of 25.00: 10.00 trimmed") y se emite también cuando el recorte es cero,
+como las demás contribuciones de cero (2.3). El tope actúa sobre cada corrida: la agregación de
+intentos, la selección de mejores rondas (3.6), la tabla y los desempates reciben el puntaje ya
+recortado sin cambios propios.
+
+**Por qué:**
+
+- **OCP sobre las reglas.** Ninguna `ScoringRule`, ni su interfaz, ni `ThresholdBonusRule`,
+  `BonusPoints`, `ScoreContribution` o `ScoreBreakdown` cambió. El tope no conoce ninguna regla
+  concreta: una `ScoringRule` nueva que emita `BONUS` queda alcanzada sin tocar el tope.
+- **SRP.** `BonusCap` sólo sabe recortar un conjunto de bonificaciones y explicar el recorte;
+  `ChallengeSpec.score` sigue siendo el único punto que combina contribuciones (2.2).
+- **LSP / ISP.** No se agregó a `ScoringRule` un `isBonus()` ni un `code()` para filtrar reglas
+  (5.9): el tope trabaja sobre el `ContributionKind` del desglose, que ya es el contrato común.
+- **Explicabilidad.** El recorte vive en el mismo `ScoreBreakdown` que las bonificaciones, con un
+  código estable (`BONUS_CAP`) y en una posición determinista.
+
+**Alternativas descartadas:**
+
+- **Una `ScoringRule` "tope" dentro de la lista.** `apply` recibe un `ScoringContext`, no las
+  contribuciones de las demás reglas: tendría que volver a ejecutarlas (envolverlas como un
+  Composite, 5.10) o depender del orden de la lista.
+- **Decorar cada `ThresholdBonusRule` con un tope.** Limitaría cada bonificación, no la suma, y no
+  alcanzaría bonificaciones de otras reglas.
+- **Recortar las bonificaciones individuales** (repartir o elegir cuál absorbe el recorte). Cambia
+  la explicación de cada regla y obliga a una política de reparto que el reglamento no define.
+- **Descontar el recorte del total o etiquetarlo `PENALTY`.** Lo primero lo deja fuera de la
+  explicación (2.4); lo segundo lo haría contar en `FewestPenaltiesTiebreak`.
+- **Un único tope en `RulebookDraft` o un tope acumulado por equipo.** Se eligió el tope por desafío
+  y por corrida: un tope acumulado tendría que vivir en el ranking, `CalculateRunScore` dejaría de
+  mostrar el recorte y obligaría a cambiar `AttemptAggregation`.
+- **Un Null Object "sin tope".** Agregaría siempre una contribución `BONUS_CAP` de cero y cambiaría
+  los desgloses actuales; `Optional.map(...).stream()` deja el desglose sin tope idéntico al anterior.
+
+**Clases agregadas:** `BonusCap`; tests `BonusCapTest`, `ChallengeSpecBonusCapTest`,
+`BonusCapTiebreakTest` y `BonusCapScoringTest`.
+
+**Clases modificadas:** `ChallengeSpec` (componente `bonusCap`, constructor de siete argumentos que lo
+deja vacío y `score`); en tests, `RescueEditionFixture` (`challengeCappingBonuses` y
+`scoringRulesWithThreeBonuses`).
+
+**Refactorizaciones:** `ChallengeSpec.score` pasó de concatenar dos flujos a armar primero el desglose
+de las reglas y combinar tres partes en orden fijo.
+
+**Deuda técnica no resuelta:**
+
+- La explicación del recorte es texto en inglés generado por el dominio; las tres cifras no son
+  campos tipados de la contribución, como en el resto de `ScoreContribution`.
+- El constructor de `ChallengeSpec` acumula componentes opcionales (`bestRounds`, `bonusCap`) y
+  constructores telescópicos para mantener la compatibilidad. Si aparece una tercera configuración
+  opcional convendría agruparlas en un value object o un builder.
+- No se valida que el tope sea alcanzable ni que el desafío tenga reglas que bonifiquen: el desafío no
+  puede saberlo sin agregar métodos a `ScoringRule`.
+- El demo todavía no configura un tope (ver 7.1).
 
 ## 3. Reglamento, versionado y recálculo
 
@@ -1269,11 +1359,12 @@ sublista, sin cambiar la interfaz. El mismo criterio se aplicó a la elegibilida
 | Configuración del evento | `CreateSeasonUseCase`, `CreateCompetitionUseCase`, `Season`, `SeasonCalendar`, `Competition`, `Category`, `RulebookDraft` |
 | Registro de equipos | `RegisterTeamUseCase`, `TeamRegistration`, `TeamMembers`, `Member`, `Robot`, `Weight`, `TeamDocument` |
 | Elegibilidad | `EligibilityRequirements` y las reglas de `domain/eligibility/rule` |
-| Configuración de desafíos | `ChallengeSpec`, `MetricDefinition`, `domain/scoring/rule/*`, `PenaltyDefinition`, `PointsRate`, `PointsCap`, `BonusPoints`, `PointsDeducted` |
+| Configuración de desafíos | `ChallengeSpec`, `MetricDefinition`, `domain/scoring/rule/*`, `PenaltyDefinition`, `PointsRate`, `PointsCap`, `BonusPoints`, `BonusCap`, `PointsDeducted` |
 | Programación | `ScheduleRoundUseCase`, `Round`, `Heat`, `TimeSlot`, `CompetitionSchedule`, `ScheduleConflictDetector`, `Competition.requireSlotWithinPeriod`, `TeamRegistration.requireAcceptedIn` |
 | Captura de resultados | `CaptureRunResultUseCase`, `RunResult.capture`, `RoundResults`, `StandingsHistory.requireOpenForResults`, `MeasurementSet`, `JudgeEvaluations`, `JudgeScore`, `IncidentReport` |
 | Cálculo explicable | `CalculateRunScoreUseCase`, `ScoreBreakdown`, `ScoreContribution`, `ContributionKind` |
 | Ranking | `CategoryScoringService`, `RankingService`, `TeamRuns`, `TeamRounds`, `AttemptAggregation`, `domain/ranking/aggregation/*`, `TiebreakRule`, `domain/ranking/rule/*` y `AppliedTiebreak` |
+| Tope global de bonificaciones (F2) | `BonusCap`, `ChallengeSpec.bonusCap`, `ChallengeSpec.score` |
 | Mejores N de M rondas (F1) | `BestRounds`, `ChallengeSpec.bestRounds`, `CompetitionSchedule.requireRoomForRound`, `PlayedRound`, `RoundScores`, `ScoreExplanation`, `ScoreSubtotal`, `RoundOutcome`, `StandingEntry.explanation` |
 | Publicación | `Standings`, `StandingsHistory`, `PublicationStatus`, `GenerateStandingsUseCase`, `PublishStandingsUseCase`, `GetStandingsUseCase` |
 | Apelaciones | `Appeal`, `AppealWindow`, `Appeals`, `SubmitAppealUseCase`, `AcceptAppealUseCase`, `RejectAppealUseCase` |
@@ -1365,7 +1456,7 @@ Recorrido:
 | Diez tipos de reglas | **Parcial:** se usan los 7 tipos existentes |
 | Una regla compuesta | **Pendiente:** no existe (ver 5.10) |
 | Una penalización | Cubierto: `RESTART` y `OUT_OF_BOUNDS` en `RESCUE` |
-| Bonificaciones con tope global (F2) | **Pendiente:** F2 no está implementada; hay una bonificación sin tope |
+| Bonificaciones con tope global (F2) | **Pendiente:** F2 está implementada (2.5) pero el demo todavía no configura un tope; hay una bonificación sin tope |
 | Un desafío con mejores N de M rondas | Cubierto: `PRECISION` |
 | Tres criterios encadenados de desempate | Cubierto: cada uno decide un par de la tabla publicada |
 | Una apelación que provoque el recálculo del ranking | Cubierto: reordena la tabla y cambia las rondas consideradas |
@@ -1401,6 +1492,7 @@ requisito concreto, no componentes HTTP ya implementados.
 | Aparece una restricción o desempate | Nueva `EligibilityRule` o `TiebreakRule` | Verificar composición, prioridad y contratos |
 | Cambia cómo cuentan los intentos (mejor intento, suma, promedio) | Nueva versión del reglamento con otra `AttemptAggregation` | Probar escenarios donde las políticas producen ganadores distintos y la conservación de la tabla anterior |
 | Un desafío pasa a contar sólo sus mejores N de M rondas, o cambian N o M | Nueva versión del reglamento con `BestRounds` en el `ChallengeSpec` (3.6); ninguna regla de puntaje cambia | Probar selección, empate por ordinal, rondas no jugadas, límite de M al programar y recálculo con la N de la versión de la tabla |
+| Un desafío limita la suma de sus bonificaciones, o cambia ese tope | Nueva versión del reglamento con `BonusCap` en el `ChallengeSpec` (2.5); ninguna regla de puntaje cambia | Probar recorte sobre la suma y no sobre cada bonificación, tope cero, explicación con obtenidas/tope/recorte, desempate por penalizaciones intacto y recálculo con el tope de la versión de la ronda |
 | Aparece otra política sobre rondas (promedio, descartar la peor, ponderar) | `TeamRounds` y una configuración nueva junto a `BestRounds` (3.6, consecuencia) | Conservar `BEST_ROUNDS` y los totales sin configuración; probar la explicación de la política nueva |
 | Cambia el plazo de apelación | Nueva versión del reglamento con otra `AppealWindow` | Probar el límite exacto y que una corrida conserva el plazo de su versión |
 | Cambian permisos o etapas de apelación | `Appeal`, `Appeals` y, si corresponde, estados de dominio y casos de uso | Probar transiciones permitidas y prohibidas; el DTO HTTP no decide estas políticas |
@@ -1461,6 +1553,7 @@ estado y motivos; no todo camino alternativo debe lanzar una excepción.
 | Puntuar | Fórmulas, bonos, deducciones, combinación y suma explicada | Datos ausentes con cero explicado; topes y bono no otorgado; configuración negativa, métricas o penalizaciones duplicadas, reglas sobre métricas inexistentes | `ScoringRulesTest`, `ChallengeSpecTest`, `CalculateRunScoreUseCaseTest` |
 | Ordenar | Totales y desempates, incluido tiempo | Empate completo; métrica ausente en uno o ambos equipos | `RankingServiceTest` |
 | Agregar intentos | Mejor intento y suma de intentos; la política viaja en el reglamento y se conserva al recalcular | Equipo sin corridas; suma y mejor intento con ganadores distintos; corrida contada dos veces | `AttemptAggregationTest`, `RankingServiceTest`, `StandingsLifecycleTest` |
+| Tope de bonificaciones | Recorte sobre la suma, explicado en el desglose de `CalculateRunScore`; tope según la versión de la ronda; recálculo tras una corrección | Suma igual al tope, tope cero, ninguna bonificación obtenida, una sola bonificación mayor que el tope, bonificación de una regla nueva, tope negativo, desafío sin tope, desempate por penalizaciones | `BonusCapTest`, `ChallengeSpecBonusCapTest`, `BonusCapTiebreakTest`, `BonusCapScoringTest` |
 | Mejores N de M rondas | Selección de las N mejores con explicación por ronda; desafíos con y sin configuración en la misma categoría; recálculo tras apelación y con la N de la versión de la tabla; puntaje de corrida y desempates intactos | N o M inválidos; ronda M+1 rechazada sin guardarse; empate en el corte; menos rondas que N; puntajes negativos; subtotal o total incoherentes | `BestRoundsTest`, `BestRoundsSelectionTest`, `CompetitionScheduleTest`, `BestRoundsStandingsTest` |
 | Publicar posiciones | Provisional a definitiva | Generación y publicación repetidas; apelaciones pendientes en la categoría | `StandingsLifecycleTest`, `StandingsTest`, `StandingsHistoryTest`, `AppealRecalculationTest` |
 | Apelar | Aceptación con corrección que recalcula la tabla; aceptación antes de que existan posiciones; rechazo; presentación en el límite del plazo | Equipo ajeno, fuera de plazo, corrida ya apelada, corrección inválida o incidente desconocido sin cambiar apelación/corrida/posiciones, corrección fuera de orden, decisión repetida/fecha inválida | `AppealRecalculationTest`, `AppealTest`, `RunResultTest` |
@@ -1472,13 +1565,13 @@ verifican conservación del estado: corregir un incidente desconocido permite ca
 intento después de quitar el incidente inválido; un conflicto dentro del comando no deja reservados
 los primeros turnos. Eso no implica atomicidad frente a todos los fallos posteriores.
 
-Verificación del código actual el 10 de octubre de 2026: Maven recompiló los 198
-archivos Java de producción y los 35 de pruebas, y ejecutó **235 tests, 0 fallos, 0 errores y 0
+Verificación del código actual el 10 de octubre de 2026: Maven recompiló los 199
+archivos Java de producción y los 39 de pruebas, y ejecutó **263 tests, 0 fallos, 0 errores y 0
 omitidos**. Es una comprobación fechada, no un total garantizado para futuras versiones.
 No se establece una proporción obligatoria de tests exitosos/negativos ni se equipara cantidad con
 porcentaje de cobertura.
 JaCoCo 0.8.15 midió **100 % de instrucciones, ramas, líneas, complejidad, métodos y clases**. Son
-11.575 instrucciones, 478 ramas, 2.078 líneas, 1.028 puntos de complejidad, 789 métodos y 199 clases
+11.714 instrucciones, 482 ramas, 2.096 líneas, 1.037 puntos de complejidad, 796 métodos y 200 clases
 cubiertos. `mvn verify` genera el informe y falla si cualquiera de esos porcentajes baja del 100 %.
 La suite no prueba HTTP, proveedores, SQL, transacciones o concurrencia porque esas integraciones aún
 no existen; tendrán pruebas propias cuando se incorporen.

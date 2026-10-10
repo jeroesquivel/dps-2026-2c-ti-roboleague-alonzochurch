@@ -59,7 +59,7 @@ Glosario:
 **FR-1: Configuración por desafío.** Un desafío del reglamento puede configurarse con un tope de
 bonificaciones, expresado como `PointsCap`. El tope es opcional. No admite valores negativos: se
 rechazan con `InvalidValueException`. Un tope de cero es válido y significa que ninguna bonificación
-suma. *(Pendiente de OQ-2.)*
+suma.
 
 **FR-2: Configuración versionada.** El tope forma parte de la versión del reglamento. Dos versiones
 pueden tener topes distintos para el mismo desafío, o una tenerlo y la otra no. Una corrida se
@@ -79,7 +79,6 @@ recorte   = obtenidas − aplicadas        (0 si obtenidas ≤ tope)
 
 Ninguna bonificación individual se compara contra el tope. Una sola bonificación mayor que el tope
 también se recorta, y varias bonificaciones menores que el tope se recortan si su suma lo supera.
-*(Pendiente de OQ-1.)*
 
 **FR-5: Recorte en el desglose.** Las contribuciones de cada bonificación conservan su valor y su
 explicación originales. El desglose agrega una contribución propia del tope:
