@@ -6,19 +6,22 @@ aplicar junto con sus consecuencias.
 
 ## 1. Arquitectura general
 
-### 1.1 Clean Architecture en tres capas con dependencias hacia adentro
+### 1.1 Arquitectura hexagonal con dependencias hacia el núcleo
 
-**Patrón / principio:** Clean Architecture, Regla de Dependencia, Inversión de Dependencias (DIP).
+**Patrón / principio:** Arquitectura hexagonal (Ports & Adapters), Inversión de Dependencias (DIP).
 
 **Dónde:** organización de paquetes bajo `com.dps.roboleague`.
 
-| Capa | Paquete | Contenido | Depende de |
+| Lado | Paquete | Contenido | Depende de |
 | --- | --- | --- | --- |
-| Dominio | `domain.*` | Entidades, value objects, reglas, servicios de dominio y **todos los puertos**: las interfaces de los casos de uso (`domain.port.in`) y las de repositorios, `AuditLog` e `IdGenerator` (en el paquete de cada agregado) | Nada fuera del dominio y del JDK |
-| Aplicación | `application.usecase` | Interactors (`*UseCase`) que implementan los puertos de entrada y coordinan | Dominio |
-| Detalles | `infrastructure.*`, `demo`, `Main` | Adaptadores en memoria, composition root y ejecución de ejemplo | Aplicación, dominio y otros componentes de detalles |
+| Núcleo: dominio | `domain.*` | Entidades, value objects, reglas, servicios de dominio y **todos los puertos**: los de entrada (`domain.port.in`) y los de salida (repositorios, `AuditLog` e `IdGenerator`, en el paquete de cada agregado) | Nada fuera del dominio y del JDK |
+| Núcleo: aplicación | `application.usecase` | Interactors (`*UseCase`) que implementan los puertos de entrada y coordinan | Dominio |
+| Adaptadores de salida | `infrastructure.memory`, `infrastructure.id` | Repositorios y bitácora en memoria, generador de ids secuencial | Núcleo |
+| Adaptadores de entrada | `demo`, `Main` y los tests | Invocan los puertos de entrada | Núcleo |
+| Ensamblado | `infrastructure.config` | Composition root: elige los adaptadores y expone los puertos de entrada | Todo lo anterior |
 
-El dominio no importa ninguna clase de `application` ni de `infrastructure`: la dirección de las
+El núcleo es dueño de todos sus puertos y no importa ninguna clase de `infrastructure`, `demo` ni
+`Main`; dentro del núcleo, `domain` tampoco importa `application`. La dirección de las
 dependencias es siempre hacia el centro. Las reglas de negocio (puntaje, elegibilidad, desempates,
 conflictos de agenda, unicidad de intentos y de rondas, plazos de apelación, cierre de posiciones)
 quedan expresadas en clases que no conocen persistencia, frameworks ni una interfaz externa de
@@ -74,8 +77,8 @@ de su apelación; el organizador consulta la agenda de una ronda. Si al diseñar
 tiene un consumidor externo, deja de ser un caso de uso y se elimina.
 
 **Por qué los de consulta también:** el ejecutable de ejemplo y los tests son adaptadores de
-entrada. Mantener sus consultas detrás de esos contratos ofrece un camino explícito por la capa de
-aplicación. Es una convención arquitectónica, no una barrera de seguridad que impida instanciar un
+entrada. Mantener sus consultas detrás de esos contratos ofrece un camino explícito a través de
+los puertos del núcleo. Es una convención arquitectónica, no una barrera de seguridad que impida instanciar un
 repositorio público por fuera del composition root.
 
 Los puertos de consulta contienen las operaciones y sus datos de salida. La transformación de

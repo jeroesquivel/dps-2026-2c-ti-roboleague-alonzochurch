@@ -60,16 +60,19 @@ mvn test -Dtest=CalculateRunScoreUseCaseTest
 
 ## Estructura
 
+Arquitectura hexagonal (Ports & Adapters): `domain` y `application` forman el núcleo, dueño de
+todos los puertos, e `infrastructure` y `demo` son adaptadores a su alrededor.
+
 ```
 src/main/java/com/dps/roboleague
-├── domain           reglas y modelos de negocio, y sus puertos: interfaces de los casos de uso
-│                    (domain.port.in) y de repositorios, auditoría e ids (junto a cada agregado)
-├── application      interactors que implementan los casos de uso y sólo coordinan
-├── infrastructure   adaptadores en memoria y composition root
-└── demo             recorrido de ejemplo sobre los casos de uso
+├── domain           núcleo: reglas y modelos de negocio, y sus puertos: de entrada (domain.port.in)
+│                    y de salida (repositorios, auditoría e ids, junto a cada agregado)
+├── application      núcleo: interactors que implementan los puertos de entrada y sólo coordinan
+├── infrastructure   adaptadores de salida en memoria y composition root
+└── demo             adaptador de entrada: recorrido de ejemplo sobre los puertos de entrada
 ```
 
-Las dependencias apuntan siempre hacia adentro: `domain` no importa nada de `application` ni de
+Las dependencias apuntan siempre hacia el núcleo: `domain` no importa nada de `application` ni de
 `infrastructure`, y el composition root expone únicamente puertos de entrada, así que ningún
 adaptador puede alcanzar un repositorio por su cuenta.
 
