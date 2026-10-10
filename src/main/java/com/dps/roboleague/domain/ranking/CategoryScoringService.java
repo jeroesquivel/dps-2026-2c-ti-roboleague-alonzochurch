@@ -31,18 +31,23 @@ public final class CategoryScoringService {
     }
 
     public List<StandingEntry> rank(CompetitionId competitionId, CategoryId categoryId, Rulebook rulebook) {
-        return rankingService.rank(collect(competitionId, categoryId, rulebook.attemptAggregation()),
-                rulebook.tiebreakRules());
+        return rankingService.rank(collect(competitionId, categoryId, rulebook), rulebook.tiebreakRules());
     }
 
-    public List<TeamScoreSummary> collect(CompetitionId competitionId, CategoryId categoryId,
-            AttemptAggregation aggregation) {
-        Map<TeamId, List<ScoredRun>> runsByTeam = new LinkedHashMap<>();
-        for (RunResult run : runsOf(competitionId, categoryId)) {
-            runsByTeam.computeIfAbsent(run.teamId(), team -> new ArrayList<>()).add(scoreRun(run, competitionId));
+    public List<TeamScoreSummary> collect(CompetitionId competitionId, CategoryId categoryId, Rulebook rulebook) {
+        Map<TeamId, List<PlayedRound>> roundsByTeam = new LinkedHashMap<>();
+        for (Round round : rounds.findByCategory(competitionId, categoryId)) {
+            Map<TeamId, List<ScoredRun>> attemptsByTeam = new LinkedHashMap<>();
+            for (RunResult run : runResults.findByRound(round.id())) {
+                attemptsByTeam.computeIfAbsent(run.teamId(), team -> new ArrayList<>())
+                        .add(scoreRun(run, competitionId));
+            }
+            attemptsByTeam.forEach((team, attempts) -> roundsByTeam.computeIfAbsent(team, key -> new ArrayList<>())
+                    .add(new PlayedRound(round.ordinal(), round.challengeId(), attempts)));
         }
-        return runsByTeam.entrySet().stream()
-                .map(entry -> new TeamScoreSummary(entry.getKey(), new TeamRuns(entry.getValue(), aggregation)))
+        AttemptAggregation aggregation = rulebook.attemptAggregation();
+        return roundsByTeam.entrySet().stream()
+                .map(entry -> summaryOf(entry.getKey(), new TeamRounds(entry.getValue()), aggregation, rulebook))
                 .toList();
     }
 
@@ -59,5 +64,11 @@ public final class CategoryScoringService {
                 .orElseThrow(() -> NotFoundException.of("Rulebook", run.rulebookVersion().toString()));
         return new ScoredRun(run.id(), run.challengeId(), run.currentMeasurements(),
                 rulebook.challenge(run.challengeId()).score(run.scoringContext()));
+    }
+
+    private static TeamScoreSummary summaryOf(TeamId teamId, TeamRounds teamRounds, AttemptAggregation aggregation,
+            Rulebook rulebook) {
+        return new TeamScoreSummary(teamId, teamRounds.runs(aggregation),
+                teamRounds.explain(aggregation, rulebook::bestRoundsOf));
     }
 }

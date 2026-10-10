@@ -7,15 +7,16 @@ import com.dps.roboleague.domain.shared.TeamId;
 import java.util.Objects;
 import java.util.Optional;
 
-public record TeamScoreSummary(TeamId teamId, TeamRuns runs) {
+public record TeamScoreSummary(TeamId teamId, TeamRuns runs, ScoreExplanation explanation) {
 
     public TeamScoreSummary {
         Objects.requireNonNull(teamId, "team id is required");
         Objects.requireNonNull(runs, "team runs are required");
+        Objects.requireNonNull(explanation, "score explanation is required");
     }
 
     public Points totalPoints() {
-        return runs.aggregatedPoints();
+        return explanation.total();
     }
 
     public Optional<Points> bestRunPoints() {

@@ -60,12 +60,12 @@ reglamento activo y se recalcula con los de la versión con la que fue generada.
 **FR-3 — Límite de rondas al programar.** Si un desafío está configurado con "mejores N de M", no se
 puede programar en una categoría una ronda más de ese desafío cuando ya hay M. La programación se
 rechaza con `ConflictException`, con un mensaje que indica el desafío, la categoría y M, y la ronda no
-se guarda. Para los desafíos sin esa configuración no hay límite. *(Pendiente de OQ-3.)*
+se guarda. Para los desafíos sin esa configuración no hay límite. 
 
 **FR-4 — Puntaje de ronda.** El puntaje de un equipo en una ronda es el resultado de aplicar la
 política de intentos del reglamento (`AttemptAggregation`) a los intentos de esa ronda: con
 `BestAttempt`, el mejor intento de la ronda; con `SumOfAttempts`, la suma de sus intentos.
-*(Pendiente de OQ-1.)*
+
 
 **FR-5 — Selección de las N mejores.** Para cada equipo y cada desafío configurado:
 
@@ -123,8 +123,7 @@ otras rondas, y la revisión anterior conserva su explicación original.
 
 **FR-12 — Desempates sin cambios.** Los desempates existentes (`HighestSingleRunTiebreak`,
 `FewestPenaltiesTiebreak`, `FastestMetricTiebreak`) siguen evaluando **todas** las corridas del
-equipo, incluidas las de rondas descartadas, como ya documenta `DESIGN.md` 3.5. *(Pendiente de
-OQ-2.)*
+equipo, incluidas las de rondas descartadas, como ya documenta `DESIGN.md` 3.5. 
 
 ## 3. Constraints (non-functional)
 

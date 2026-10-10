@@ -498,8 +498,8 @@ que `Comparator.thenComparing` ya ofrece).
 **Patrón / principio:** Strategy, regla de negocio configurable por versión.
 
 **Dónde:** `domain/ranking/AttemptAggregation`, sus implementaciones en `domain/ranking/aggregation`
-(`BestAttempt`, `SumOfAttempts`), `Rulebook.attemptAggregation` y `TeamRuns.aggregatedPoints`
-(consultado por `TeamScoreSummary.totalPoints`).
+(`BestAttempt`, `SumOfAttempts`), `Rulebook.attemptAggregation`, `TeamRuns.aggregatedPoints` /
+`TeamRuns.subtotal` y `PlayedRound.score`.
 
 Cuántos de los intentos de un equipo cuentan para su posición es una decisión del reglamento, no del
 código: con dos intentos de 30 y uno de 50, la suma pone primero al equipo constante y el mejor
@@ -509,15 +509,21 @@ suma. Ambas devuelven cero si el equipo no tiene corridas.
 
 El reglamento exige una política (el constructor rechaza `null`), el `RulebookDraft` la recibe junto
 con los desafíos y desempates, y `GenerateStandingsUseCase` / `RecalculateStandingsUseCase` le pasan
-el reglamento a `CategoryScoringService.rank`, que llama a `collect` con su `attemptAggregation()` y
-arma el `TeamRuns` de cada equipo: la colección de corridas puntuadas es el lugar donde vive la
-política (ver 4.10). Como el reglamento está versionado, una tabla se genera y se recalcula con la
-política de su versión (ver 3.3), aunque después se publique otra. El demo y los fixtures de test
-publican `BestAttempt`.
+el reglamento a `CategoryScoringService.rank`, que llama a `collect` con ese reglamento. Desde F1
+(ver 3.6) la política se aplica en dos lugares, sin cambiar su contrato: sobre las corridas de los
+desafíos **sin** "mejores N de M", que se agrupan en un `TeamRuns` y aportan el subtotal
+`TeamRuns.subtotal()` (código y descripción de la política); y sobre los intentos de **cada ronda**
+de un desafío configurado (`PlayedRound.score`), para obtener su puntaje de ronda. Si ningún desafío
+de la categoría está configurado, el total es exactamente el de antes: la política sobre todas las
+corridas del equipo. Como el reglamento está versionado, una tabla se genera y se recalcula con la
+política de su versión (ver 3.3), aunque después se publique otra. Los fixtures de test publican
+`BestAttempt`; el demo publica `SumOfAttempts`, porque combina varios desafíos y cada uno debe aportar
+al total (ver 7.1).
 
 Los desempates no cambian: `HighestSingleRunTiebreak` y `FewestPenaltiesTiebreak` siguen mirando
-todas las corridas del equipo, también las que la agregación no cuenta; un reglamento que quiera
-otra cosa agrega su propia `TiebreakRule`.
+todas las corridas del equipo, también las que la agregación no cuenta y las de rondas descartadas
+por "mejores N de M" (el `TeamRuns` de `TeamScoreSummary` reúne siempre todas); un reglamento que
+quiera otra cosa agrega su propia `TiebreakRule`.
 
 **Por qué:** documentar la suma como decisión (versión anterior de 4.8) no la hacía correcta para un
 reglamento que exige el mejor intento. Al ser una política versionada, ambas reglas conviven y se
@@ -528,6 +534,119 @@ política, como promedio o los dos mejores); aplicar la política en `RankingSer
 tendría que recibir el reglamento completo, cuando sólo necesita el total del equipo); elegir el mejor
 intento en `CategoryScoringService` descartando corridas (el resumen perdería los intentos que los
 desempates sí consultan).
+
+### 3.6 Mejores N de M rondas por desafío (F1)
+
+**Patrón / principio:** Value Object de configuración, First-Class Collection, Open/Closed sobre las
+reglas de puntaje, explicación como valor (extiende 2.3 al total de la tabla).
+
+**Dónde:** `domain/challenge/BestRounds`, `ChallengeSpec.bestRounds` /
+`requireRoomForAnotherRound`, `Rulebook.bestRoundsOf`, `CompetitionSchedule.requireRoomForRound`,
+`domain/ranking/{PlayedRound, TeamRounds, RoundScore, RoundScores, RoundOutcome, RoundStatus,
+ScoreSubtotal, ScoreExplanation}`, `TeamScoreSummary.explanation` y `StandingEntry.explanation`.
+
+**Configuración.** `BestRounds(counted, outOf)` es N y M; su única invariante es `1 ≤ N ≤ M`
+(`InvalidValueException`). Es un componente opcional de `ChallengeSpec`
+(`Optional<BestRounds>`): el constructor anterior de seis argumentos sigue existiendo y equivale a
+"sin configuración". Vive en `challenge`, no en `ranking`, porque `ranking` ya depende de
+`challenge`; por eso `BestRounds` sólo sabe cuántas rondas cuentan (`countedOutOf`) y cuántas se
+admiten (`admitsAnotherRound`), sin conocer corridas ni puntajes. Como es parte del `ChallengeSpec`,
+viaja en la versión del reglamento: una tabla se genera con N y M del reglamento activo y se
+recalcula con los de su versión (3.3). `Rulebook.bestRoundsOf` devuelve vacío también para un
+desafío que esa versión no define, así una ronda de un desafío retirado sigue contando como "sin
+configuración" en lugar de romper la tabla.
+
+**Programación.** `CompetitionSchedule.requireRoomForRound(categoría, desafío)` cuenta las rondas de
+ese desafío ya programadas en la categoría (de cualquier versión) y le pide a
+`ChallengeSpec.requireRoomForAnotherRound` que decida; con M alcanzado lanza `ConflictException`
+nombrando desafío, categoría y M. `ScheduleRoundUseCase` sólo invoca la regla antes de crear la
+ronda, por lo que un rechazo no guarda ni audita nada.
+
+**Cálculo.** `CategoryScoringService.collect` ya no aplana las corridas: agrupa los intentos de cada
+equipo por ronda en `PlayedRound(ordinal, desafío, intentos)` (al menos un intento, todos del mismo
+desafío) y los reúne en `TeamRounds`, ordenados por ordinal. `TeamRounds` produce dos cosas:
+
+- `runs(política)`: el `TeamRuns` con **todas** las corridas, para los desempates (FR-12).
+- `explain(política, bestRoundsOf)`: separa los desafíos sin configuración, cuyas corridas suman en
+  un único `TeamRuns` (subtotal de la `AttemptAggregation`, siempre presente aunque valga 0), de los
+  configurados. Para cada uno de éstos, `RoundScores` (puntajes de ronda con ordinal único) ordena por
+  puntaje descendente y, ante empate, por menor ordinal; cuenta las primeras `min(N, jugadas)` y
+  descarta el resto. Una ronda no jugada no existe en la colección: no cuenta como cero ni ocupa
+  lugar.
+
+El resultado es un `ScoreExplanation`: una lista no vacía de `ScoreSubtotal(código, descripción,
+rondas, puntos)` cuya suma es el total. El subtotal `BEST_ROUNDS` detalla cada ronda jugada con un
+`RoundOutcome(ordinal, puntos, estado, motivo)`; `RoundStatus` (`COUNTED`, `DISCARDED`) define por
+constante cuánto aporta la ronda (`contributionOf`), sin `switch`. Los motivos son "among the best
+N", "outside the best N" y "tied with round K, the lower ordinal wins". `ScoreSubtotal` rechaza un
+detalle de rondas que no sume sus puntos. `TeamScoreSummary.totalPoints()` es el total de la
+explicación, y `RankingService` la copia en la `StandingEntry`, que exige que ambos coincidan. Como
+la explicación queda dentro de cada revisión de `Standings`, una revisión anterior conserva la suya
+aunque un recálculo considere otras rondas (FR-10).
+
+`StandingEntry` conserva su constructor de cuatro argumentos: usa `ScoreExplanation.stated(total)`,
+un único subtotal `STATED_TOTAL` igual al total, para que la invariante "Σ subtotales = total" valga
+siempre.
+
+**Por qué:**
+
+- **OCP sobre el puntaje.** Ninguna `ScoringRule`, `ScoreBreakdown`, `ScoreContribution`,
+  `ScoringContext` ni `AttemptAggregation` cambió: la selección trabaja sobre puntajes ya calculados.
+  `CalculateRunScore` devuelve el mismo desglose cuente o no la ronda de la corrida.
+- **SRP.** Cada pieza tiene un único motivo de cambio: `BestRounds`, la forma de la configuración;
+  `CompetitionSchedule`, la regla de programación; `RoundScores`, el criterio de selección;
+  `TeamRounds`, cómo se reparte un equipo entre las políticas; los valores de la explicación, su
+  contenido.
+- **Explicación como dato.** `ScoreSubtotal` es un único tipo para todas las partes, como
+  `ScoreContribution` lo es para todas las reglas: un adaptador futuro recorre subtotales y rondas sin
+  preguntar por el tipo concreto (`instanceof`).
+- **Determinismo (C-3).** El orden de las rondas y el desempate por ordinal no dependen del orden de
+  iteración del repositorio ni de identificadores técnicos.
+
+**Alternativas descartadas:**
+
+- **Una `AttemptAggregation` "mejores rondas".** El contrato recibe una lista de `ScoredRun` sin
+  ronda, y agregarle el ordinal cambiaría la interfaz y sus implementaciones.
+- **Agregar el ordinal a `ScoredRun`.** Obligaba a inventar un ordinal para los usos actuales.
+  `PlayedRound` agrupa por ronda sin tocar la corrida puntuada.
+- **Un Strategy de "política de rondas" con un Null Object "todas las rondas".** Los desafíos sin
+  configuración no se puntúan por ronda: sus corridas se agregan **juntas** con la
+  `AttemptAggregation` (con `BestAttempt` cuenta un único intento de toda la categoría). Una política
+  por desafío que aplicara "todas las rondas" cambiaría los totales actuales (FR-8). Por eso la
+  ausencia de configuración se modela con `Optional<BestRounds>` y `TeamRounds` separa los dos grupos
+  con `ifPresentOrElse`, no con un `if` sobre tipos.
+- **Tipos distintos de subtotal detrás de una interfaz.** Mostrar las rondas habría exigido
+  `instanceof` en cada consumidor, o un método `rounds()` vacío en las partes que no tienen rondas.
+- **Validar la cantidad de rondas al generar la tabla.** El límite es una regla de programación: se
+  rechaza al programar, cuando todavía no se guardó nada.
+
+**Consecuencia:** una política de rondas nueva (promedio, descartar sólo la peor, ponderar) exigirá
+modificar `TeamRounds` y convertir `BestRounds` en una de varias configuraciones. Hoy no hay un
+segundo caso que justifique esa abstracción (5.9).
+
+**Clases agregadas:** `BestRounds`, `PlayedRound`, `TeamRounds`, `RoundScore`, `RoundScores`,
+`RoundOutcome`, `RoundStatus`, `ScoreSubtotal`, `ScoreExplanation`; tests `BestRoundsTest`,
+`BestRoundsSelectionTest`, `CompetitionScheduleTest` y `BestRoundsStandingsTest`.
+
+**Clases modificadas:** `ChallengeSpec` (componente `bestRounds` y `requireRoomForAnotherRound`),
+`Rulebook` (`bestRoundsOf`), `CompetitionSchedule` (`requireRoomForRound`), `ScheduleRoundUseCase`,
+`CategoryScoringService.collect` (recibe el `Rulebook` y agrupa por ronda), `TeamRuns` (`subtotal`),
+`TeamScoreSummary` (componente `explanation`), `StandingEntry` (componente `explanation`),
+`RankingService`; en tests, `RescueEditionFixture`, `TestEdition` y el helper de
+`RankingServiceTest`.
+
+**Refactorizaciones:** `collect` dejó de aplanar las corridas de la categoría (perdía la ronda) y
+arma `PlayedRound` por equipo y ronda. Se eliminó el constructor `TeamScoreSummary(TeamId, TeamRuns)`:
+su único cliente era un test (5.9), cuyo helper ahora arma la explicación con `TeamRuns.subtotal()`.
+
+**Deuda técnica no resuelta:**
+
+- Los motivos de la explicación son texto en inglés generado por el dominio, como las explicaciones de
+  `ScoreContribution`. Traducirlos o darles otro formato queda para el adaptador de presentación.
+- El límite de M cuenta rondas de cualquier versión del reglamento y usa la M de la versión activa:
+  si una versión nueva reduce M por debajo de las rondas ya programadas, no se programan más, pero las
+  existentes no se invalidan.
+- El demo incluye el desafío `PRECISION` con "mejores 2 de 3" (ver 7.1).
 
 ## 4. Elegibilidad, agenda y resultados
 
@@ -862,10 +981,12 @@ Recorre las rondas de una categoría (`runsOf`), puntúa cada corrida con su reg
 agregación y los desempates de un reglamento (`rank`). `GenerateStandingsUseCase` y
 `RecalculateStandingsUseCase` usan `rank`; `CalculateRunScoreUseCase` reutiliza `scoreRun` para una
 corrida individual y `PublishStandingsUseCase` usa `runsOf` para reunir las apelaciones de la
-categoría. `collect` recibe la `AttemptAggregation` del reglamento y arma con ella el
-`TeamRuns` de cada `TeamScoreSummary`, que reúne todos los intentos capturados de todas las rondas de
-la categoría; `TeamRuns.aggregatedPoints` delega en la política para decidir cuáles cuentan (ver 3.5). Un equipo sin corridas
-capturadas no aparece en la colección ni en el ranking generado.
+categoría. `collect` recibe el reglamento de la tabla y agrupa los intentos de cada equipo por
+ronda (`PlayedRound`) en un `TeamRounds`. De ahí salen el `TeamRuns` del `TeamScoreSummary`, con
+todos los intentos de todas las rondas para los desempates, y su `ScoreExplanation`: el subtotal de
+la `AttemptAggregation` sobre los desafíos sin configuración y uno por cada desafío con "mejores N de
+M" (ver 3.5 y 3.6). Un equipo sin corridas capturadas no aparece en la colección ni en el ranking
+generado.
 
 **Por qué:** si cada caso de uso armara la tabla por su cuenta, generar y recalcular podrían divergir,
 que es exactamente el error que el requisito de recálculo busca evitar.
@@ -907,7 +1028,8 @@ decidir el tratamiento).
 
 **Patrón / principio:** First-Class Collection, lenguaje ubicuo.
 
-**Dónde:** `domain/scoring/JudgeEvaluations`, `domain/ranking/TeamRuns`, `domain/result/CorrectionHistory`,
+**Dónde:** `domain/scoring/JudgeEvaluations`, `domain/ranking/TeamRuns`, `domain/ranking/TeamRounds`,
+`domain/ranking/RoundScores`, `domain/result/CorrectionHistory`,
 `domain/schedule/Heats`, `domain/team/TeamMembers` y las colecciones que concentran reglas que antes
 decidían los casos de uso: `domain/competition/SeasonCalendar`, `domain/schedule/CompetitionSchedule`,
 `domain/result/RoundResults`, `domain/ranking/StandingsHistory` y `domain/appeal/Appeals`.
@@ -915,12 +1037,14 @@ decidían los casos de uso: `domain/competition/SeasonCalendar`, `domain/schedul
 | Colección | Reemplaza a | Invariante que concentra |
 | --- | --- | --- |
 | `JudgeEvaluations` | `List<JudgeEvaluation>` | un juez evalúa una vez cada criterio; `requireEvaluatorsWithin(panel)` |
-| `TeamRuns` | `List<ScoredRun>` + agregación en `TeamScoreSummary` | una corrida cuenta una sola vez; es donde se aplica la `AttemptAggregation` |
+| `TeamRuns` | `List<ScoredRun>` + agregación en `TeamScoreSummary` | una corrida cuenta una sola vez; es donde se aplica la `AttemptAggregation` y nace su subtotal |
+| `TeamRounds` | corridas aplanadas en `CategoryScoringService.collect` | rondas del equipo ordenadas por ordinal; reparte desafíos entre la `AttemptAggregation` y "mejores N de M" |
+| `RoundScores` | ningún equivalente | una ronda se puntúa una vez por equipo; selecciona las N mejores con desempate por menor ordinal |
 | `CorrectionHistory` | `List<ResultCorrection>` | orden cronológico; la última corrección es la vigente |
 | `Heats` | `List<Heat>` en `Round` | un equipo tiene un único turno por ronda |
 | `TeamMembers` | `List<Member>` | al menos un integrante, sin integrantes repetidos; `competitors()`, `hasCoach()` |
 | `SeasonCalendar` | consulta suelta en `CreateSeasonUseCase` | dos temporadas no se superponen; `requireAvailable(period)` |
-| `CompetitionSchedule` | recorrido de rondas en `ScheduleRoundUseCase` | ordinal único por categoría; `bookedHeats()` para detectar conflictos |
+| `CompetitionSchedule` | recorrido de rondas en `ScheduleRoundUseCase` | ordinal único por categoría; a lo sumo M rondas de un desafío "mejores N de M" por categoría; `bookedHeats()` para detectar conflictos |
 | `RoundResults` | `CaptureRunResultUseCase.requireUnusedAttempt` | un intento de un equipo se captura una sola vez |
 | `StandingsHistory` | `findLatest(...).isPresent()` en `GenerateStandingsUseCase` | se genera una sola vez; tras una revisión `FINAL` no se capturan corridas |
 | `Appeals` | ningún control | una corrida se apela una sola vez; no se publica con apelaciones pendientes |
@@ -952,6 +1076,9 @@ una nueva, construida con un constructor privado que recibe el estado completo.
 | `Round` | `schedule(heat, team)` | ronda con un turno más |
 | `RunResult` | `applyCorrection(correction, challenge)` | corrida con la corrección en su historial |
 | `Appeal` | `accept(decision)` / `reject(decision)` | apelación resuelta |
+
+La configuración `BestRounds` y los valores de la explicación (`ScoreExplanation`, `ScoreSubtotal`,
+`RoundOutcome`) también son inmutables: `record` con listas copiadas.
 
 El constructor público de cada uno crea sólo el estado inicial (inscripción `SUBMITTED`, ronda sin
 turnos, corrida sin correcciones, apelación `SUBMITTED`); para llegar a otro estado hay que pasar por
@@ -1113,7 +1240,8 @@ No se agregan operaciones anticipando clientes inexistentes. `ScoringRule` decla
 `breakdownFor` se eliminó porque sólo lo usaban los tests, que ahora arman `new
 ScoreBreakdown(rule.apply(context))`. `EligibilityRule` sólo declara `evaluate`. Por el mismo criterio
 desaparecieron `RulebookRepository.findLatest`, `Competition.requireActiveRulebookVersion` y
-`ResultCorrection.fromAppeal`, que quedaron sin cliente. Ninguna de las dos interfaces
+`ResultCorrection.fromAppeal`, que quedaron sin cliente, y `RulebookVersion` dejó de implementar
+`Comparable`: nadie ordenaba ni comparaba versiones con `compareTo`. Ninguna de las dos interfaces
 tiene un método polimórfico `code()`: las implementaciones etiquetan sus contribuciones o violaciones
 con constantes propias. En cambio, `TiebreakRule` conserva `code()` y `description()`, utilizados
 por `AppliedTiebreak.of` para registrar el criterio discriminante.
@@ -1145,7 +1273,8 @@ sublista, sin cambiar la interfaz. El mismo criterio se aplicó a la elegibilida
 | Programación | `ScheduleRoundUseCase`, `Round`, `Heat`, `TimeSlot`, `CompetitionSchedule`, `ScheduleConflictDetector`, `Competition.requireSlotWithinPeriod`, `TeamRegistration.requireAcceptedIn` |
 | Captura de resultados | `CaptureRunResultUseCase`, `RunResult.capture`, `RoundResults`, `StandingsHistory.requireOpenForResults`, `MeasurementSet`, `JudgeEvaluations`, `JudgeScore`, `IncidentReport` |
 | Cálculo explicable | `CalculateRunScoreUseCase`, `ScoreBreakdown`, `ScoreContribution`, `ContributionKind` |
-| Ranking | `CategoryScoringService`, `RankingService`, `TeamRuns`, `AttemptAggregation`, `domain/ranking/aggregation/*`, `TiebreakRule`, `domain/ranking/rule/*` y `AppliedTiebreak` |
+| Ranking | `CategoryScoringService`, `RankingService`, `TeamRuns`, `TeamRounds`, `AttemptAggregation`, `domain/ranking/aggregation/*`, `TiebreakRule`, `domain/ranking/rule/*` y `AppliedTiebreak` |
+| Mejores N de M rondas (F1) | `BestRounds`, `ChallengeSpec.bestRounds`, `CompetitionSchedule.requireRoomForRound`, `PlayedRound`, `RoundScores`, `ScoreExplanation`, `ScoreSubtotal`, `RoundOutcome`, `StandingEntry.explanation` |
 | Publicación | `Standings`, `StandingsHistory`, `PublicationStatus`, `GenerateStandingsUseCase`, `PublishStandingsUseCase`, `GetStandingsUseCase` |
 | Apelaciones | `Appeal`, `AppealWindow`, `Appeals`, `SubmitAppealUseCase`, `AcceptAppealUseCase`, `RejectAppealUseCase` |
 | Recálculo | `RecalculateStandingsUseCase` (también disparado por `AcceptAppealUseCase`), `CategoryScoringService` |
@@ -1188,8 +1317,65 @@ automáticamente esa herencia.
 propio de `src/test`; las pruebas de dominio también construyen configuraciones aisladas para sus
 escenarios. La demo usa por separado `DemoRulebook`, de visibilidad de paquete. Las pruebas del
 dominio y de casos de uso no dependen de esa configuración. `DemoScenarioTest` sí verifica
-intencionalmente el demo: que se ejecute sin excepción y registre generación, publicación y recálculo.
-No reemplaza las aserciones de resultados de negocio de los tests específicos.
+intencionalmente el demo: que se ejecute sin excepción, que registre generación, publicación y
+recálculo, y que produzca los resultados que se describen en 7.1 (orden, desempates aplicados, rondas
+consideradas y descartadas, reordenamiento tras la apelación). Así, la demostración es repetible y se
+prueba en la integración continua. No reemplaza las aserciones de resultados de negocio de los tests
+específicos.
+
+### 7.1 Datos de demostración
+
+**Dónde:** `demo/DemoRulebook` (reglamento) y `demo/DemoScenario` (recorrido), que se ejecutan con
+`mvn exec:java` y se verifican en `DemoScenarioTest`. El demo es un adaptador de entrada: sólo invoca
+puertos de entrada, con identificadores secuenciales y un reglamento armado en memoria, así que cada
+ejecución reproduce los mismos resultados.
+
+Una categoría, cuatro equipos (Kappa Labs, Delta Bots, Omega Crew, Sigma Works), cinco rondas y un
+reglamento `v1` con `SumOfAttempts` y la cadena de desempates `HighestSingleRun → FewestPenalties →
+FastestMetric(TIME)`:
+
+| Desafío | Rondas | Reglas | Configuración |
+| --- | --- | --- | --- |
+| `RESCUE` | 1 | `Time`, `Objective`, `JudgePanel`, `Resource`, `ThresholdBonus` y las penalizaciones `RESTART` y `OUT_OF_BOUNDS` | todas las corridas suman |
+| `SPRINT` | 2 | `Time`, `Objective` | todas las corridas suman |
+| `PRECISION` | 3, 4, 5 | `Precision` | mejores 2 de 3 rondas |
+
+Recorrido:
+
+1. Inscripción y programación de los cuatro equipos en cada ronda, con turnos consecutivos que
+   comparten pista y jueces.
+2. Captura y desglose explicado de una corrida de `RESCUE`, con sus seis contribuciones.
+3. Generación y publicación de la tabla. Los cuatro equipos empatan en 177,50 y la explicación de cada
+   uno detalla el subtotal de la política de intentos y el de `BEST_ROUNDS`, ronda por ronda. Cada
+   criterio de la cadena separa un par distinto: Kappa supera a Delta por la mejor corrida individual
+   (83,50 contra 71,50); Delta supera a Omega por penalizaciones (0 contra −8); Omega supera a Sigma
+   por el menor tiempo (44 s contra 46 s). Kappa empata 26 contra 26 en las rondas 4 y 5 de
+   `PRECISION` y se descarta la 5 por mayor ordinal.
+4. Sigma apela su ronda 5 de `PRECISION`, descartada con 24 puntos. Al aceptarse la apelación
+   (precisión 0,98, 39,20 puntos), la tabla se recalcula: la ronda 5 pasa a `COUNTED`, la 4 a
+   `DISCARDED` y Sigma queda primera con 182,70. La revisión publicada conserva su explicación
+   original.
+
+**Cobertura de la demostración sugerida por el enunciado:**
+
+| Elemento sugerido | Estado |
+| --- | --- |
+| Al menos tres desafíos | Cubierto: `RESCUE`, `SPRINT`, `PRECISION` |
+| Un desafío mixto (F3) | **Pendiente:** F3 no está implementada |
+| Diez tipos de reglas | **Parcial:** se usan los 7 tipos existentes |
+| Una regla compuesta | **Pendiente:** no existe (ver 5.10) |
+| Una penalización | Cubierto: `RESTART` y `OUT_OF_BOUNDS` en `RESCUE` |
+| Bonificaciones con tope global (F2) | **Pendiente:** F2 no está implementada; hay una bonificación sin tope |
+| Un desafío con mejores N de M rondas | Cubierto: `PRECISION` |
+| Tres criterios encadenados de desempate | Cubierto: cada uno decide un par de la tabla publicada |
+| Una apelación que provoque el recálculo del ranking | Cubierto: reordena la tabla y cambia las rondas consideradas |
+
+Cuando se implementen F2, F3, la regla compuesta y los tipos de regla faltantes, se agregan a
+`DemoRulebook` y `DemoScenario`, junto con sus aserciones en `DemoScenarioTest`.
+
+**Alternativas descartadas:** un script o un fixture externo (JSON o SQL). No hay persistencia real
+(ver 5.8), y el demo recorre los mismos puertos de entrada que usará la API, así que sirve también
+como prueba de integración del composition root.
 
 ## 8. Evolución: qué cambia cuando cambia una dependencia o una regla
 
@@ -1214,6 +1400,8 @@ requisito concreto, no componentes HTTP ya implementados.
 | Aparece una fórmula nueva | Nueva `ScoringRule`, configuración y pruebas | Conservar contribuciones explicadas, tipos y comportamiento con datos ausentes |
 | Aparece una restricción o desempate | Nueva `EligibilityRule` o `TiebreakRule` | Verificar composición, prioridad y contratos |
 | Cambia cómo cuentan los intentos (mejor intento, suma, promedio) | Nueva versión del reglamento con otra `AttemptAggregation` | Probar escenarios donde las políticas producen ganadores distintos y la conservación de la tabla anterior |
+| Un desafío pasa a contar sólo sus mejores N de M rondas, o cambian N o M | Nueva versión del reglamento con `BestRounds` en el `ChallengeSpec` (3.6); ninguna regla de puntaje cambia | Probar selección, empate por ordinal, rondas no jugadas, límite de M al programar y recálculo con la N de la versión de la tabla |
+| Aparece otra política sobre rondas (promedio, descartar la peor, ponderar) | `TeamRounds` y una configuración nueva junto a `BestRounds` (3.6, consecuencia) | Conservar `BEST_ROUNDS` y los totales sin configuración; probar la explicación de la política nueva |
 | Cambia el plazo de apelación | Nueva versión del reglamento con otra `AppealWindow` | Probar el límite exacto y que una corrida conserva el plazo de su versión |
 | Cambian permisos o etapas de apelación | `Appeal`, `Appeals` y, si corresponde, estados de dominio y casos de uso | Probar transiciones permitidas y prohibidas; el DTO HTTP no decide estas políticas |
 
@@ -1273,6 +1461,7 @@ estado y motivos; no todo camino alternativo debe lanzar una excepción.
 | Puntuar | Fórmulas, bonos, deducciones, combinación y suma explicada | Datos ausentes con cero explicado; topes y bono no otorgado; configuración negativa, métricas o penalizaciones duplicadas, reglas sobre métricas inexistentes | `ScoringRulesTest`, `ChallengeSpecTest`, `CalculateRunScoreUseCaseTest` |
 | Ordenar | Totales y desempates, incluido tiempo | Empate completo; métrica ausente en uno o ambos equipos | `RankingServiceTest` |
 | Agregar intentos | Mejor intento y suma de intentos; la política viaja en el reglamento y se conserva al recalcular | Equipo sin corridas; suma y mejor intento con ganadores distintos; corrida contada dos veces | `AttemptAggregationTest`, `RankingServiceTest`, `StandingsLifecycleTest` |
+| Mejores N de M rondas | Selección de las N mejores con explicación por ronda; desafíos con y sin configuración en la misma categoría; recálculo tras apelación y con la N de la versión de la tabla; puntaje de corrida y desempates intactos | N o M inválidos; ronda M+1 rechazada sin guardarse; empate en el corte; menos rondas que N; puntajes negativos; subtotal o total incoherentes | `BestRoundsTest`, `BestRoundsSelectionTest`, `CompetitionScheduleTest`, `BestRoundsStandingsTest` |
 | Publicar posiciones | Provisional a definitiva | Generación y publicación repetidas; apelaciones pendientes en la categoría | `StandingsLifecycleTest`, `StandingsTest`, `StandingsHistoryTest`, `AppealRecalculationTest` |
 | Apelar | Aceptación con corrección que recalcula la tabla; aceptación antes de que existan posiciones; rechazo; presentación en el límite del plazo | Equipo ajeno, fuera de plazo, corrida ya apelada, corrección inválida o incidente desconocido sin cambiar apelación/corrida/posiciones, corrección fuera de orden, decisión repetida/fecha inválida | `AppealRecalculationTest`, `AppealTest`, `RunResultTest` |
 | Recalcular | Nueva revisión (también tras una tabla `FINAL`) y reglas históricas | Revisiones anteriores conservadas aun publicando otro reglamento | `AppealRecalculationTest`, `StandingsRepositoryContractTest` |
@@ -1283,13 +1472,13 @@ verifican conservación del estado: corregir un incidente desconocido permite ca
 intento después de quitar el incidente inválido; un conflicto dentro del comando no deja reservados
 los primeros turnos. Eso no implica atomicidad frente a todos los fallos posteriores.
 
-Verificación del código actual el 9 de octubre de 2026: Maven recompiló los 187
-archivos Java de producción y los 31 de pruebas, y ejecutó **193 tests, 0 fallos, 0 errores y 0
+Verificación del código actual el 10 de octubre de 2026: Maven recompiló los 198
+archivos Java de producción y los 35 de pruebas, y ejecutó **235 tests, 0 fallos, 0 errores y 0
 omitidos**. Es una comprobación fechada, no un total garantizado para futuras versiones.
 No se establece una proporción obligatoria de tests exitosos/negativos ni se equipara cantidad con
 porcentaje de cobertura.
 JaCoCo 0.8.15 midió **100 % de instrucciones, ramas, líneas, complejidad, métodos y clases**. Son
-10.331 instrucciones, 428 ramas, 1.873 líneas, 931 puntos de complejidad, 717 métodos y 186 clases
+11.575 instrucciones, 478 ramas, 2.078 líneas, 1.028 puntos de complejidad, 789 métodos y 199 clases
 cubiertos. `mvn verify` genera el informe y falla si cualquiera de esos porcentajes baja del 100 %.
 La suite no prueba HTTP, proveedores, SQL, transacciones o concurrencia porque esas integraciones aún
 no existen; tendrán pruebas propias cuando se incorporen.

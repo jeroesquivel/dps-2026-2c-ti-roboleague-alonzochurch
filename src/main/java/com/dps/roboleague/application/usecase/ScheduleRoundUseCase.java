@@ -4,6 +4,7 @@ import com.dps.roboleague.domain.audit.AuditAction;
 import com.dps.roboleague.domain.audit.AuditDetail;
 import com.dps.roboleague.domain.audit.AuditEvent;
 import com.dps.roboleague.domain.audit.AuditLog;
+import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.competition.Competition;
 import com.dps.roboleague.domain.competition.CompetitionRepository;
 import com.dps.roboleague.domain.port.in.ScheduleRound;
@@ -54,11 +55,12 @@ public final class ScheduleRoundUseCase implements ScheduleRound {
                 .orElseThrow(() -> NotFoundException.of("Competition", command.competitionId().value()));
         competition.category(command.categoryId());
         RulebookVersion version = competition.activeRulebookVersion();
-        rulebooks.find(competition.id(), version)
+        ChallengeSpec challenge = rulebooks.find(competition.id(), version)
                 .orElseThrow(() -> NotFoundException.of("Rulebook", version.toString()))
                 .challenge(command.challengeId());
         CompetitionSchedule schedule = new CompetitionSchedule(rounds.findByCompetition(competition.id()));
         schedule.requireAvailableOrdinal(command.categoryId(), command.ordinal());
+        schedule.requireRoomForRound(command.categoryId(), challenge);
 
         RoundId roundId = idGenerator.nextRoundId();
         Round round = new Round(roundId, competition.id(), command.categoryId(), command.challengeId(),

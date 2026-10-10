@@ -32,6 +32,10 @@ public record TeamRuns(List<ScoredRun> runs, AttemptAggregation aggregation) {
         return aggregation.aggregate(runs);
     }
 
+    public ScoreSubtotal subtotal() {
+        return ScoreSubtotal.of(aggregation.code(), aggregation.description(), aggregatedPoints());
+    }
+
     public Optional<Points> bestRunPoints() {
         return runs.stream().map(ScoredRun::total).max(Comparator.naturalOrder());
     }

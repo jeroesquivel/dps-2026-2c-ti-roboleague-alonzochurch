@@ -29,6 +29,7 @@ import com.dps.roboleague.domain.shared.AgeRange;
 import com.dps.roboleague.domain.shared.AppealId;
 import com.dps.roboleague.domain.shared.ArenaId;
 import com.dps.roboleague.domain.shared.CategoryId;
+import com.dps.roboleague.domain.shared.ChallengeId;
 import com.dps.roboleague.domain.shared.CompetitionId;
 import com.dps.roboleague.domain.shared.DateRange;
 import com.dps.roboleague.domain.shared.JudgeId;
@@ -46,7 +47,9 @@ import com.dps.roboleague.infrastructure.config.RoboLeagueCompositionRoot;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -57,8 +60,10 @@ public final class DemoScenario {
     private static final Actor SCOREKEEPER = Actor.of("scorekeeper");
     private static final Actor HEAD_JUDGE = Actor.of("head-judge");
     private static final RobotClass RESCUE_BOT = RobotClass.of("RESCUE_BOT");
+    private static final LocalDateTime FIRST_HEAT = LocalDateTime.of(2026, 3, 2, 9, 0);
 
     private final RoboLeagueCompositionRoot module;
+    private final Map<TeamId, String> teamNames = new HashMap<>();
 
     public DemoScenario(RoboLeagueCompositionRoot module) {
         this.module = module;
@@ -75,23 +80,36 @@ public final class DemoScenario {
         CompetitionId competitionId = competition.competitionId();
         CategoryId categoryId = competition.firstCategory();
 
+        TeamId kappa = register(competitionId, categoryId, "Kappa Labs");
         TeamId delta = register(competitionId, categoryId, "Delta Bots");
         TeamId omega = register(competitionId, categoryId, "Omega Crew");
-        RoundId roundId = module.scheduleRoundUseCase().execute(new ScheduleRound.Command(competitionId, categoryId,
-                DemoRulebook.CHALLENGE_ID, RoundOrdinal.of(1),
-                List.of(heat(delta, "A1", LocalDateTime.of(2026, 3, 2, 10, 0)),
-                        heat(omega, "A1", LocalDateTime.of(2026, 3, 2, 10, 20))),
-                ORGANISER));
+        TeamId sigma = register(competitionId, categoryId, "Sigma Works");
+        List<TeamId> teams = List.of(kappa, delta, omega, sigma);
 
-        RunId deltaRun = capture(roundId, delta, "95.5", 4, "42", List.of(8, 9), List.of());
-        capture(roundId, omega, "105", 5, "55", List.of(7, 7), List.of(IncidentReport.once(DemoRulebook.RESTART)));
+        RoundId rescue = scheduleRound(competitionId, categoryId, DemoRulebook.CHALLENGE_ID, 1, teams);
+        captureRescue(rescue, kappa, "99", 5, "48", List.of(8, 8), List.of());
+        RunId deltaRescue = captureRescue(rescue, delta, "117", 5, "48", List.of(5, 5), List.of());
+        captureRescue(rescue, omega, "105", 5, "55", List.of(7, 7), List.of(IncidentReport.once(DemoRulebook.RESTART)));
+        captureRescue(rescue, sigma, "107", 5, "50", List.of(8, 8), List.of(IncidentReport.once(DemoRulebook.RESTART),
+                IncidentReport.once(DemoRulebook.OUT_OF_BOUNDS)));
 
-        printScore(module.calculateRunScoreUseCase().execute(new CalculateRunScore.Command(deltaRun)));
+        RoundId sprint = scheduleRound(competitionId, categoryId, DemoRulebook.SPRINT_ID, 2, teams);
+        captureSprint(sprint, kappa, "44", 4);
+        captureSprint(sprint, delta, "44", 4);
+        captureSprint(sprint, omega, "44", 4);
+        captureSprint(sprint, sigma, "46", 4);
+
+        capturePrecisionRound(competitionId, categoryId, 3, teams, List.of("0.80", "0.90", "0.95", "0.95"));
+        capturePrecisionRound(competitionId, categoryId, 4, teams, List.of("0.65", "0.85", "0.80", "0.85"));
+        RunId sigmaWorstPrecision = capturePrecisionRound(competitionId, categoryId, 5, teams,
+                List.of("0.65", "0.50", "0.40", "0.60")).get(3);
+
+        printScore(module.calculateRunScoreUseCase().execute(new CalculateRunScore.Command(deltaRescue)));
         module.generateStandingsUseCase().execute(new GenerateStandings.Command(competitionId, categoryId, ORGANISER));
         printStandings("Published standings",
                 module.publishStandingsUseCase().execute(new PublishStandings.Command(competitionId, categoryId, ORGANISER)));
 
-        acceptAppeal(deltaRun, delta);
+        acceptAppeal(sigmaWorstPrecision, sigma);
         printStandings("Standings recalculated by the accepted appeal",
                 module.getStandingsUseCase().execute(new GetStandings.Command(competitionId, categoryId)).latest());
     }
@@ -109,7 +127,18 @@ public final class DemoScenario {
         RegisterTeam.Outcome outcome = module.registerTeamUseCase().execute(new RegisterTeam.Command(competitionId,
                 categoryId, teamName, members, robot, documents, ORGANISER));
         System.out.println("Registered " + teamName + " as " + outcome.status());
+        teamNames.put(outcome.teamId(), teamName);
         return outcome.teamId();
+    }
+
+    private RoundId scheduleRound(CompetitionId competitionId, CategoryId categoryId, ChallengeId challengeId,
+            int ordinal, List<TeamId> teams) {
+        LocalDateTime start = FIRST_HEAT.plusMinutes(90L * (ordinal - 1));
+        List<ScheduleRound.HeatDraft> heats = IntStream.range(0, teams.size())
+                .mapToObj(index -> heat(teams.get(index), "A1", start.plusMinutes(20L * index)))
+                .toList();
+        return module.scheduleRoundUseCase().execute(new ScheduleRound.Command(competitionId, categoryId,
+                challengeId, RoundOrdinal.of(ordinal), heats, ORGANISER));
     }
 
     private ScheduleRound.HeatDraft heat(TeamId teamId, String arena, LocalDateTime start) {
@@ -117,15 +146,39 @@ public final class DemoScenario {
                 Set.of(JudgeId.of("J1"), JudgeId.of("J2")));
     }
 
-    private RunId capture(RoundId roundId, TeamId teamId, String seconds, int objectives, String energy,
+    private RunId captureRescue(RoundId roundId, TeamId teamId, String seconds, int objectives, String energy,
             List<Integer> judgeScores, List<IncidentReport> incidents) {
         JudgeEvaluations evaluations = new JudgeEvaluations(IntStream.range(0, judgeScores.size())
                 .mapToObj(index -> new JudgeEvaluation(JudgeId.of("J" + (index + 1)), DemoRulebook.DESIGN,
                         JudgeScore.of(judgeScores.get(index).longValue())))
                 .toList());
+        return capture(roundId, teamId, measurements(seconds, objectives, energy), evaluations, incidents);
+    }
+
+    private RunId captureSprint(RoundId roundId, TeamId teamId, String seconds, int checkpoints) {
+        return capture(roundId, teamId, MeasurementSet.empty()
+                .with(DemoRulebook.TIME, MetricValue.of(seconds))
+                .with(DemoRulebook.CHECKPOINTS, MetricValue.of(checkpoints)), new JudgeEvaluations(List.of()),
+                List.of());
+    }
+
+    private List<RunId> capturePrecisionRound(CompetitionId competitionId, CategoryId categoryId, int ordinal,
+            List<TeamId> teams, List<String> accuracies) {
+        RoundId roundId = scheduleRound(competitionId, categoryId, DemoRulebook.PRECISION_ID, ordinal, teams);
+        return IntStream.range(0, teams.size())
+                .mapToObj(index -> capture(roundId, teams.get(index), accuracy(accuracies.get(index)),
+                        new JudgeEvaluations(List.of()), List.of()))
+                .toList();
+    }
+
+    private RunId capture(RoundId roundId, TeamId teamId, MeasurementSet measurements, JudgeEvaluations evaluations,
+            List<IncidentReport> incidents) {
         return module.captureRunResultUseCase().execute(new CaptureRunResult.Command(roundId, teamId,
-                AttemptNumber.first(), measurements(seconds, objectives, energy), evaluations, incidents,
-                SCOREKEEPER));
+                AttemptNumber.first(), measurements, evaluations, incidents, SCOREKEEPER));
+    }
+
+    private MeasurementSet accuracy(String ratio) {
+        return MeasurementSet.empty().with(DemoRulebook.ACCURACY, MetricValue.of(ratio));
     }
 
     private MeasurementSet measurements(String seconds, int objectives, String energy) {
@@ -137,9 +190,9 @@ public final class DemoScenario {
 
     private void acceptAppeal(RunId runId, TeamId teamId) {
         AppealId appealId = module.submitAppealUseCase().execute(new SubmitAppeal.Command(runId, teamId,
-                "the fourth objective was completed before the buzzer", Actor.of("delta-captain")));
+                "the target sensor misread two hits", Actor.of("sigma-captain")));
         module.acceptAppealUseCase().execute(new AcceptAppeal.Command(appealId,
-                "the video review confirms the objective", measurements("95.5", 5, "42"), List.of(), HEAD_JUDGE));
+                "the video review confirms the hits", accuracy("0.98"), List.of(), HEAD_JUDGE));
     }
 
     private void printScore(CalculateRunScore.RunScore score) {
@@ -153,8 +206,17 @@ public final class DemoScenario {
     private void printStandings(String title, Standings standings) {
         System.out.println();
         System.out.println(title + " (revision " + standings.revision() + ", " + standings.status() + ")");
-        standings.entries().forEach(entry -> System.out.printf("  %d. %-12s %8s %s%n", entry.position(),
-                entry.teamId().value(), entry.totalPoints(), tiebreaksOf(entry)));
+        standings.entries().forEach(this::printEntry);
+    }
+
+    private void printEntry(StandingEntry entry) {
+        System.out.printf("  %d. %-12s %8s %s%n", entry.position(), teamNames.get(entry.teamId()),
+                entry.totalPoints(), tiebreaksOf(entry));
+        entry.explanation().subtotals().forEach(subtotal -> {
+            System.out.printf("       %-16s %8s  %s%n", subtotal.code(), subtotal.points(), subtotal.description());
+            subtotal.rounds().forEach(round -> System.out.printf("         round %d %8s  %-9s %s%n",
+                    round.ordinal().value(), round.points(), round.status(), round.reason()));
+        });
     }
 
     private String tiebreaksOf(StandingEntry entry) {

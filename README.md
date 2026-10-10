@@ -26,7 +26,14 @@ mvn clean package
 ## Ejecutar
 
 El ejecutable recorre una edición completa —inscripción, programación, captura, cálculo, publicación,
-apelación y recálculo— e imprime el desglose de puntaje y las posiciones en cada etapa.
+apelación y recálculo— e imprime el desglose de puntaje y las posiciones en cada etapa, con la
+explicación de cada total.
+
+La demostración usa tres desafíos (`RESCUE`, `SPRINT` y `PRECISION`, este último con "mejores 2 de 3
+rondas"), los siete tipos de regla de puntaje, penalizaciones, cuatro equipos empatados que se separan
+con tres desempates encadenados y una apelación que reordena la tabla. Siempre produce el mismo
+resultado, y `DemoScenarioTest` lo verifica. El detalle, y lo que falta de la demostración sugerida
+por el enunciado, está en [DESIGN.md](DESIGN.md) 7.1.
 
 ```bash
 mvn exec:java -Dexec.mainClass=com.dps.roboleague.Main

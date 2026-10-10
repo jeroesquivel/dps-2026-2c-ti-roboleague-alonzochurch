@@ -19,7 +19,7 @@ public final class RankingService {
             boolean sharesPosition = previous != null && ranking.compare(previous, current) == 0;
             int position = sharesPosition ? entries.get(index - 1).position() : index + 1;
             entries.add(new StandingEntry(position, current.teamId(), current.totalPoints(),
-                    appliedTiebreaks(previous, current, tiebreakRules)));
+                    appliedTiebreaks(previous, current, tiebreakRules), current.explanation()));
         }
         return List.copyOf(entries);
     }

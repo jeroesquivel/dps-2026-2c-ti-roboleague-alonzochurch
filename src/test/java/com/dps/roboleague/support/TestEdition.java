@@ -32,6 +32,7 @@ import com.dps.roboleague.domain.shared.AgeRange;
 import com.dps.roboleague.domain.shared.AppealId;
 import com.dps.roboleague.domain.shared.ArenaId;
 import com.dps.roboleague.domain.shared.CategoryId;
+import com.dps.roboleague.domain.shared.ChallengeId;
 import com.dps.roboleague.domain.shared.CompetitionId;
 import com.dps.roboleague.domain.shared.DateRange;
 import com.dps.roboleague.domain.shared.Identifier;
@@ -134,6 +135,15 @@ public final class TestEdition {
                         LocalDateTime.of(2026, 3, 2, 10, 0).plusMinutes(20L * index)))
                 .toList();
         return scheduleRound(ordinal, heats);
+    }
+
+    public RoundId scheduleRoundFor(ChallengeId challengeId, int ordinal, List<TeamId> teams) {
+        LocalDateTime start = LocalDateTime.of(2026, 3, 3, 8, 0).plusHours(ordinal);
+        List<ScheduleRound.HeatDraft> heats = IntStream.range(0, teams.size())
+                .mapToObj(index -> heat(teams.get(index), "A1", start.plusMinutes(20L * index)))
+                .toList();
+        return module.scheduleRoundUseCase().execute(new ScheduleRound.Command(competitionId, categoryId,
+                challengeId, RoundOrdinal.of(ordinal), heats, ACTOR));
     }
 
     public ScheduleRound.HeatDraft heat(TeamId teamId, String arena, LocalDateTime start) {

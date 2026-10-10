@@ -2,6 +2,7 @@ package com.dps.roboleague.support;
 
 import com.dps.roboleague.domain.appeal.AppealWindow;
 import com.dps.roboleague.domain.challenge.AttemptLimit;
+import com.dps.roboleague.domain.challenge.BestRounds;
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.challenge.MetricDefinition;
 import com.dps.roboleague.domain.challenge.MetricKey;
@@ -39,6 +40,7 @@ import com.dps.roboleague.domain.team.DocumentType;
 import com.dps.roboleague.domain.team.Weight;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 public final class RescueEditionFixture {
@@ -61,6 +63,15 @@ public final class RescueEditionFixture {
     public static ChallengeSpec challengeScoredBy(List<ScoringRule> scoringRules) {
         return new ChallengeSpec(CHALLENGE_ID, "Rescue mission", metrics(), scoringRules, penalties(),
                 AttemptLimit.of(2));
+    }
+
+    public static ChallengeSpec rescueChallengeCountingBestRounds(BestRounds bestRounds) {
+        return challenge(CHALLENGE_ID, "Rescue mission", scoringRules(), Optional.of(bestRounds));
+    }
+
+    public static ChallengeSpec challenge(ChallengeId id, String name, List<ScoringRule> scoringRules,
+            Optional<BestRounds> bestRounds) {
+        return new ChallengeSpec(id, name, metrics(), scoringRules, penalties(), AttemptLimit.of(2), bestRounds);
     }
 
     public static List<MetricDefinition> metrics() {
@@ -109,8 +120,11 @@ public final class RescueEditionFixture {
     }
 
     public static RulebookDraft rulebook(ChallengeSpec challenge, AttemptAggregation aggregation) {
-        return new RulebookDraft(List.of(challenge), eligibilityRequirements(), aggregation, tiebreaks(),
-                appealWindow());
+        return rulebook(List.of(challenge), aggregation);
+    }
+
+    public static RulebookDraft rulebook(List<ChallengeSpec> challenges, AttemptAggregation aggregation) {
+        return new RulebookDraft(challenges, eligibilityRequirements(), aggregation, tiebreaks(), appealWindow());
     }
 
     public static AttemptAggregation attemptAggregation() {

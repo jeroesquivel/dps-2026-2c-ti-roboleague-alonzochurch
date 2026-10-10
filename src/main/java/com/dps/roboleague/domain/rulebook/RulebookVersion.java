@@ -2,7 +2,7 @@ package com.dps.roboleague.domain.rulebook;
 
 import com.dps.roboleague.domain.shared.InvalidValueException;
 
-public record RulebookVersion(int number) implements Comparable<RulebookVersion> {
+public record RulebookVersion(int number) {
 
     public RulebookVersion {
         if (number < 1) {
@@ -24,11 +24,6 @@ public record RulebookVersion(int number) implements Comparable<RulebookVersion>
 
     public boolean isNewerThan(RulebookVersion other) {
         return number > other.number;
-    }
-
-    @Override
-    public int compareTo(RulebookVersion other) {
-        return Integer.compare(number, other.number);
     }
 
     @Override

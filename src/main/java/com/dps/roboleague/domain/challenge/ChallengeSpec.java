@@ -8,7 +8,9 @@ import com.dps.roboleague.domain.scoring.ScoreBreakdown;
 import com.dps.roboleague.domain.scoring.ScoringContext;
 import com.dps.roboleague.domain.scoring.ScoringRule;
 import com.dps.roboleague.domain.scoring.rule.PenaltyScoringRule;
+import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.ChallengeId;
+import com.dps.roboleague.domain.shared.ConflictException;
 import com.dps.roboleague.domain.shared.InvalidValueException;
 import com.dps.roboleague.domain.shared.JudgeId;
 import com.dps.roboleague.domain.shared.RuleViolationException;
@@ -22,11 +24,13 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public record ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> metrics,
-        List<ScoringRule> scoringRules, List<PenaltyDefinition> penalties, AttemptLimit maximumAttempts) {
+        List<ScoringRule> scoringRules, List<PenaltyDefinition> penalties, AttemptLimit maximumAttempts,
+        Optional<BestRounds> bestRounds) {
 
     public ChallengeSpec {
         Objects.requireNonNull(id, "challenge id is required");
         Objects.requireNonNull(maximumAttempts, "maximum attempts are required");
+        Objects.requireNonNull(bestRounds, "best rounds configuration is required, even if empty");
         if (name == null || name.isBlank()) {
             throw new InvalidValueException("challenge requires a name");
         }
@@ -42,6 +46,11 @@ public record ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> 
         requireUnique(metrics, MetricDefinition::key, MetricKey::value, "metric", name);
         requireUnique(penalties, PenaltyDefinition::code, PenaltyCode::value, "penalty", name);
         requireDefinedMetrics(metrics, scoringRules, name);
+    }
+
+    public ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> metrics, List<ScoringRule> scoringRules,
+            List<PenaltyDefinition> penalties, AttemptLimit maximumAttempts) {
+        this(id, name, metrics, scoringRules, penalties, maximumAttempts, Optional.empty());
     }
 
     public void validate(MeasurementSet measurements) {
@@ -93,6 +102,13 @@ public record ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> 
             throw new RuleViolationException("challenge " + name + " allows " + maximumAttempts
                     + " attempts and attempt " + attempt + " is out of range");
         }
+    }
+
+    public void requireRoomForAnotherRound(int scheduledRounds, CategoryId categoryId) {
+        bestRounds.filter(rule -> !rule.admitsAnotherRound(scheduledRounds)).ifPresent(rule -> {
+            throw new ConflictException("challenge " + name + " counts " + rule.description() + " and category "
+                    + categoryId.value() + " already has " + rule.outOf() + " rounds of it scheduled");
+        });
     }
 
     private void validateAgainst(MetricDefinition definition, MeasurementSet measurements) {

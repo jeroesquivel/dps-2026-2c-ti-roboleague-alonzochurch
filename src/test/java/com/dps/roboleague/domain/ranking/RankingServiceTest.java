@@ -135,7 +135,8 @@ class RankingServiceTest {
     }
 
     private TeamScoreSummary summary(AttemptAggregation aggregation, String teamId, ScoredRun... runs) {
-        return new TeamScoreSummary(TeamId.of(teamId), new TeamRuns(List.of(runs), aggregation));
+        TeamRuns teamRuns = new TeamRuns(List.of(runs), aggregation);
+        return new TeamScoreSummary(TeamId.of(teamId), teamRuns, new ScoreExplanation(List.of(teamRuns.subtotal())));
     }
 
     private ScoredRun run(String runId, String basePoints, String penaltyPoints, String seconds) {

@@ -2,6 +2,7 @@ package com.dps.roboleague.demo;
 
 import com.dps.roboleague.domain.appeal.AppealWindow;
 import com.dps.roboleague.domain.challenge.AttemptLimit;
+import com.dps.roboleague.domain.challenge.BestRounds;
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.challenge.MetricDefinition;
 import com.dps.roboleague.domain.challenge.MetricKey;
@@ -16,7 +17,7 @@ import com.dps.roboleague.domain.eligibility.rule.RobotSpecificationRule;
 import com.dps.roboleague.domain.eligibility.rule.TeamCompositionRule;
 import com.dps.roboleague.domain.ranking.AttemptAggregation;
 import com.dps.roboleague.domain.ranking.TiebreakRule;
-import com.dps.roboleague.domain.ranking.aggregation.BestAttempt;
+import com.dps.roboleague.domain.ranking.aggregation.SumOfAttempts;
 import com.dps.roboleague.domain.ranking.rule.FastestMetricTiebreak;
 import com.dps.roboleague.domain.ranking.rule.FewestPenaltiesTiebreak;
 import com.dps.roboleague.domain.ranking.rule.HighestSingleRunTiebreak;
@@ -30,6 +31,7 @@ import com.dps.roboleague.domain.scoring.PointsRate;
 import com.dps.roboleague.domain.scoring.ScoringRule;
 import com.dps.roboleague.domain.scoring.rule.JudgePanelScoringRule;
 import com.dps.roboleague.domain.scoring.rule.ObjectiveScoringRule;
+import com.dps.roboleague.domain.scoring.rule.PrecisionScoringRule;
 import com.dps.roboleague.domain.scoring.rule.ResourceScoringRule;
 import com.dps.roboleague.domain.scoring.rule.ThresholdBonusRule;
 import com.dps.roboleague.domain.scoring.rule.TimeScoringRule;
@@ -39,15 +41,20 @@ import com.dps.roboleague.domain.team.DocumentType;
 import com.dps.roboleague.domain.team.Weight;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 final class DemoRulebook {
 
     static final ChallengeId CHALLENGE_ID = ChallengeId.of("RESCUE");
+    static final ChallengeId SPRINT_ID = ChallengeId.of("SPRINT");
+    static final ChallengeId PRECISION_ID = ChallengeId.of("PRECISION");
     static final MetricKey TIME = MetricKey.of("TIME");
     static final MetricKey OBJECTIVES = MetricKey.of("OBJECTIVES");
     static final MetricKey ENERGY = MetricKey.of("ENERGY");
     static final MetricKey DESIGN = MetricKey.of("DESIGN");
+    static final MetricKey CHECKPOINTS = MetricKey.of("CHECKPOINTS");
+    static final MetricKey ACCURACY = MetricKey.of("ACCURACY");
     static final PenaltyCode RESTART = PenaltyCode.of("RESTART");
     static final PenaltyCode OUT_OF_BOUNDS = PenaltyCode.of("OUT_OF_BOUNDS");
 
@@ -74,6 +81,24 @@ final class DemoRulebook {
                         BonusPoints.of(15)));
     }
 
+    static ChallengeSpec sprintChallenge() {
+        List<MetricDefinition> metrics = List.of(
+                MetricDefinition.required(TIME, MetricKind.TIME_SECONDS, MetricUnit.of("s")),
+                MetricDefinition.required(CHECKPOINTS, MetricKind.OBJECTIVE_COUNT, MetricUnit.of("checkpoints")));
+        List<ScoringRule> scoringRules = List.of(
+                new TimeScoringRule(TIME, Duration.ofSeconds(60), PointsRate.of(1), PointsCap.of(20)),
+                new ObjectiveScoringRule(CHECKPOINTS, PointsRate.of(5), 4));
+        return new ChallengeSpec(SPRINT_ID, "Line sprint", metrics, scoringRules, List.of(), AttemptLimit.of(1));
+    }
+
+    static ChallengeSpec precisionChallenge() {
+        List<MetricDefinition> metrics = List.of(
+                MetricDefinition.required(ACCURACY, MetricKind.PRECISION_RATIO, MetricUnit.of("ratio")));
+        return new ChallengeSpec(PRECISION_ID, "Precision shooting", metrics,
+                List.of(new PrecisionScoringRule(ACCURACY, PointsCap.of(40))), List.of(), AttemptLimit.of(1),
+                Optional.of(BestRounds.of(2, 3)));
+    }
+
     static List<PenaltyDefinition> penalties() {
         return List.of(
                 new PenaltyDefinition(RESTART, "manual restart", PointsDeducted.of(3)),
@@ -81,8 +106,8 @@ final class DemoRulebook {
     }
 
     static RulebookDraft rulebook() {
-        return new RulebookDraft(List.of(rescueChallenge()), eligibilityRequirements(), attemptAggregation(),
-                tiebreaks(), AppealWindow.of(Duration.ofHours(1)));
+        return new RulebookDraft(List.of(rescueChallenge(), sprintChallenge(), precisionChallenge()),
+                eligibilityRequirements(), attemptAggregation(), tiebreaks(), AppealWindow.of(Duration.ofHours(1)));
     }
 
     private static EligibilityRequirements eligibilityRequirements() {
@@ -95,7 +120,7 @@ final class DemoRulebook {
     }
 
     private static AttemptAggregation attemptAggregation() {
-        return new BestAttempt();
+        return new SumOfAttempts();
     }
 
     private static List<TiebreakRule> tiebreaks() {
