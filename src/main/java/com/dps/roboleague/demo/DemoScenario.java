@@ -2,6 +2,7 @@ package com.dps.roboleague.demo;
 
 import com.dps.roboleague.domain.challenge.AttemptNumber;
 import com.dps.roboleague.domain.challenge.MeasurementSet;
+import com.dps.roboleague.domain.challenge.MetricKey;
 import com.dps.roboleague.domain.challenge.MetricValue;
 import com.dps.roboleague.domain.competition.RobotClass;
 import com.dps.roboleague.domain.port.in.AcceptAppeal;
@@ -12,18 +13,24 @@ import com.dps.roboleague.domain.port.in.CreateSeason;
 import com.dps.roboleague.domain.port.in.GenerateStandings;
 import com.dps.roboleague.domain.port.in.GetStandings;
 import com.dps.roboleague.domain.port.in.PublishStandings;
+import com.dps.roboleague.domain.port.in.RecalculateStandings;
+import com.dps.roboleague.domain.port.in.RegisterAutomaticMeasurements;
+import com.dps.roboleague.domain.port.in.RegisterPanelEvaluations;
 import com.dps.roboleague.domain.port.in.RegisterTeam;
 import com.dps.roboleague.domain.port.in.ScheduleRound;
 import com.dps.roboleague.domain.port.in.SubmitAppeal;
 import com.dps.roboleague.domain.ranking.AppliedTiebreak;
 import com.dps.roboleague.domain.ranking.StandingEntry;
 import com.dps.roboleague.domain.ranking.Standings;
+import com.dps.roboleague.domain.result.RunCompletion;
+import com.dps.roboleague.domain.result.SourceReceipt;
 import com.dps.roboleague.domain.schedule.RoundOrdinal;
 import com.dps.roboleague.domain.schedule.TimeSlot;
 import com.dps.roboleague.domain.scoring.IncidentReport;
 import com.dps.roboleague.domain.scoring.JudgeEvaluation;
 import com.dps.roboleague.domain.scoring.JudgeEvaluations;
 import com.dps.roboleague.domain.scoring.JudgeScore;
+import com.dps.roboleague.domain.scoring.ScoreBreakdown;
 import com.dps.roboleague.domain.shared.Actor;
 import com.dps.roboleague.domain.shared.AgeRange;
 import com.dps.roboleague.domain.shared.AppealId;
@@ -31,6 +38,7 @@ import com.dps.roboleague.domain.shared.ArenaId;
 import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.ChallengeId;
 import com.dps.roboleague.domain.shared.CompetitionId;
+import com.dps.roboleague.domain.shared.ConflictException;
 import com.dps.roboleague.domain.shared.DateRange;
 import com.dps.roboleague.domain.shared.JudgeId;
 import com.dps.roboleague.domain.shared.RoundId;
@@ -50,6 +58,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -59,6 +68,7 @@ public final class DemoScenario {
     private static final Actor ORGANISER = Actor.of("organiser");
     private static final Actor SCOREKEEPER = Actor.of("scorekeeper");
     private static final Actor HEAD_JUDGE = Actor.of("head-judge");
+    private static final Actor TRACK_SYSTEM = Actor.of("track-system");
     private static final RobotClass RESCUE_BOT = RobotClass.of("RESCUE_BOT");
     private static final LocalDateTime FIRST_HEAT = LocalDateTime.of(2026, 3, 2, 9, 0);
 
@@ -104,10 +114,28 @@ public final class DemoScenario {
         RunId sigmaWorstPrecision = capturePrecisionRound(competitionId, categoryId, 5, teams,
                 List.of("0.65", "0.50", "0.40", "0.60")).get(3);
 
+        RoundId showcase = scheduleRound(competitionId, categoryId, DemoRulebook.SHOWCASE_ID, 6, teams);
+        RunId kappaShowcase = registerMeasurements(showcase, kappa, "64", "0.80");
+        registerMeasurements(showcase, delta, "80", "0.80");
+        RunId omegaShowcase = registerMeasurements(showcase, omega, "70", "0.80");
+        registerPanel(showcase, sigma, List.of(7, 6, 7, 6), List.of());
+        registerPanel(showcase, kappa, List.of(8, 9, 6, 7), List.of(IncidentReport.once(DemoRulebook.RESTART)));
+        registerPanel(showcase, delta, List.of(8, 10, 8, 10), List.of());
+        registerMeasurements(showcase, sigma, "70", "0.90");
+
         printScore(module.calculateRunScoreUseCase().execute(new CalculateRunScore.Command(kappaRescue)));
-        module.generateStandingsUseCase().execute(new GenerateStandings.Command(competitionId, categoryId, ORGANISER));
-        printStandings("Published standings",
-                module.publishStandingsUseCase().execute(new PublishStandings.Command(competitionId, categoryId, ORGANISER)));
+        printScore(module.calculateRunScoreUseCase().execute(new CalculateRunScore.Command(kappaShowcase)));
+        printCompletion(omegaShowcase, omega);
+
+        printStandings("Provisional standings while a panel is pending", module.generateStandingsUseCase()
+                .execute(new GenerateStandings.Command(competitionId, categoryId, ORGANISER)));
+        publish(competitionId, categoryId);
+
+        registerPanel(showcase, omega, List.of(8, 9, 6, 7), List.of());
+        printCompletion(omegaShowcase, omega);
+        module.recalculateStandingsUseCase().execute(new RecalculateStandings.Command(competitionId, categoryId,
+                "the panel of the showcase completed the last run", ORGANISER));
+        printStandings("Published standings", publish(competitionId, categoryId).orElseThrow());
 
         acceptAppeal(sigmaWorstPrecision, sigma);
         printStandings("Standings recalculated by the accepted appeal",
@@ -177,6 +205,38 @@ public final class DemoScenario {
                 AttemptNumber.first(), measurements, evaluations, incidents, SCOREKEEPER));
     }
 
+    private RunId registerMeasurements(RoundId roundId, TeamId teamId, String seconds, String accuracy) {
+        return module.registerAutomaticMeasurementsUseCase().execute(new RegisterAutomaticMeasurements.Command(
+                roundId, teamId, AttemptNumber.first(), MeasurementSet.empty()
+                        .with(DemoRulebook.TIME, MetricValue.of(seconds))
+                        .with(DemoRulebook.ACCURACY, MetricValue.of(accuracy)), TRACK_SYSTEM));
+    }
+
+    private RunId registerPanel(RoundId roundId, TeamId teamId, List<Integer> scores,
+            List<IncidentReport> incidents) {
+        JudgeEvaluations evaluations = JudgeEvaluations.of(
+                showcaseEvaluation("J1", DemoRulebook.CREATIVITY, scores.get(0)),
+                showcaseEvaluation("J1", DemoRulebook.EXECUTION, scores.get(1)),
+                showcaseEvaluation("J2", DemoRulebook.CREATIVITY, scores.get(2)),
+                showcaseEvaluation("J2", DemoRulebook.EXECUTION, scores.get(3)));
+        return module.registerPanelEvaluationsUseCase().execute(new RegisterPanelEvaluations.Command(roundId,
+                teamId, AttemptNumber.first(), evaluations, incidents, HEAD_JUDGE));
+    }
+
+    private JudgeEvaluation showcaseEvaluation(String judge, MetricKey criterion, int score) {
+        return new JudgeEvaluation(JudgeId.of(judge), criterion, JudgeScore.of(score));
+    }
+
+    private Optional<Standings> publish(CompetitionId competitionId, CategoryId categoryId) {
+        try {
+            return Optional.of(module.publishStandingsUseCase().execute(new PublishStandings.Command(competitionId,
+                    categoryId, ORGANISER)));
+        } catch (ConflictException rejected) {
+            System.out.println("  publication rejected: " + rejected.getMessage());
+            return Optional.empty();
+        }
+    }
+
     private MeasurementSet accuracy(String ratio) {
         return MeasurementSet.empty().with(DemoRulebook.ACCURACY, MetricValue.of(ratio));
     }
@@ -198,15 +258,39 @@ public final class DemoScenario {
     private void printScore(CalculateRunScore.RunScore score) {
         System.out.println();
         System.out.println("Score of run " + score.runId().value() + " under rulebook " + score.rulebookVersion());
-        score.breakdown().contributions().forEach(contribution -> System.out.printf("  %-10s %8s  %s%n",
-                contribution.ruleCode(), contribution.points(), contribution.explanation()));
+        score.bySource().ifPresentOrElse(bySource -> {
+            bySource.sources().forEach(group -> {
+                SourceReceipt receipt = score.completion().receiptOf(group.source()).orElseThrow();
+                System.out.printf("  %-10s %8s  registered by %s at %s%n", group.source(), group.subtotal(),
+                        receipt.actor(), receipt.receivedAt());
+                printContributions("    ", group.breakdown());
+            });
+            System.out.printf("  %-10s %8s  contributions across both sources%n", "CHALLENGE",
+                    bySource.acrossSources().total());
+        }, () -> printContributions("  ", score.breakdown()));
         System.out.println("  total " + score.total());
+    }
+
+    private void printContributions(String indent, ScoreBreakdown breakdown) {
+        breakdown.contributions().forEach(contribution -> System.out.printf(indent + "%-10s %8s  %s%n",
+                contribution.ruleCode(), contribution.points(), contribution.explanation()));
+    }
+
+    private void printCompletion(RunId runId, TeamId teamId) {
+        RunCompletion completion = module.findRunResultUseCase().execute(runId).completion();
+        System.out.println();
+        System.out.println("Run " + runId.value() + " of " + teamNames.get(teamId) + " is " + completion.status()
+                + ", missing " + completion.missing());
     }
 
     private void printStandings(String title, Standings standings) {
         System.out.println();
         System.out.println(title + " (revision " + standings.revision() + ", " + standings.status() + ")");
         standings.entries().forEach(this::printEntry);
+        standings.pendingRuns().runs().forEach(pending -> System.out.printf(
+                "  pending: run %s of %s, round %s, attempt %s, waiting for %s%n", pending.runId().value(),
+                teamNames.get(pending.teamId()), pending.roundId().value(), pending.attemptNumber(),
+                pending.missingSources()));
     }
 
     private void printEntry(StandingEntry entry) {

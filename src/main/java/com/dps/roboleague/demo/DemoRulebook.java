@@ -9,6 +9,7 @@ import com.dps.roboleague.domain.challenge.MetricKey;
 import com.dps.roboleague.domain.challenge.MetricKind;
 import com.dps.roboleague.domain.challenge.MetricUnit;
 import com.dps.roboleague.domain.challenge.MetricValue;
+import com.dps.roboleague.domain.challenge.MixedSources;
 import com.dps.roboleague.domain.eligibility.EligibilityRequirements;
 import com.dps.roboleague.domain.eligibility.rule.AgeRangeRule;
 import com.dps.roboleague.domain.eligibility.rule.RequiredDocumentsRule;
@@ -50,12 +51,15 @@ final class DemoRulebook {
     static final ChallengeId CHALLENGE_ID = ChallengeId.of("RESCUE");
     static final ChallengeId SPRINT_ID = ChallengeId.of("SPRINT");
     static final ChallengeId PRECISION_ID = ChallengeId.of("PRECISION");
+    static final ChallengeId SHOWCASE_ID = ChallengeId.of("SHOWCASE");
     static final MetricKey TIME = MetricKey.of("TIME");
     static final MetricKey OBJECTIVES = MetricKey.of("OBJECTIVES");
     static final MetricKey ENERGY = MetricKey.of("ENERGY");
     static final MetricKey DESIGN = MetricKey.of("DESIGN");
     static final MetricKey CHECKPOINTS = MetricKey.of("CHECKPOINTS");
     static final MetricKey ACCURACY = MetricKey.of("ACCURACY");
+    static final MetricKey CREATIVITY = MetricKey.of("CREATIVITY");
+    static final MetricKey EXECUTION = MetricKey.of("EXECUTION");
     static final PenaltyCode RESTART = PenaltyCode.of("RESTART");
     static final PenaltyCode OUT_OF_BOUNDS = PenaltyCode.of("OUT_OF_BOUNDS");
 
@@ -104,6 +108,21 @@ final class DemoRulebook {
                 Optional.of(BestRounds.of(2, 3)));
     }
 
+    static ChallengeSpec showcaseChallenge() {
+        List<MetricDefinition> metrics = List.of(
+                MetricDefinition.required(TIME, MetricKind.TIME_SECONDS, MetricUnit.of("s")),
+                MetricDefinition.required(ACCURACY, MetricKind.PRECISION_RATIO, MetricUnit.of("ratio")),
+                MetricDefinition.required(CREATIVITY, MetricKind.JUDGE_CRITERION, MetricUnit.of("points")),
+                MetricDefinition.required(EXECUTION, MetricKind.JUDGE_CRITERION, MetricUnit.of("points")));
+        List<ScoringRule> scoringRules = List.of(
+                new TimeScoringRule(TIME, Duration.ofSeconds(90), PointsRate.of("0.50"), PointsCap.of(20)),
+                new PrecisionScoringRule(ACCURACY, PointsCap.of(30)),
+                new JudgePanelScoringRule(CREATIVITY, PointsRate.of(2)),
+                new JudgePanelScoringRule(EXECUTION, PointsRate.of("1.50")));
+        return new ChallengeSpec(SHOWCASE_ID, "Robot showcase", metrics, scoringRules, penalties(),
+                AttemptLimit.of(1), Optional.empty(), Optional.empty(), Optional.of(new MixedSources()));
+    }
+
     static List<PenaltyDefinition> penalties() {
         return List.of(
                 new PenaltyDefinition(RESTART, "manual restart", PointsDeducted.of(3)),
@@ -111,7 +130,8 @@ final class DemoRulebook {
     }
 
     static RulebookDraft rulebook() {
-        return new RulebookDraft(List.of(rescueChallenge(), sprintChallenge(), precisionChallenge()),
+        return new RulebookDraft(List.of(rescueChallenge(), sprintChallenge(), precisionChallenge(),
+                showcaseChallenge()),
                 eligibilityRequirements(), attemptAggregation(), tiebreaks(), AppealWindow.of(Duration.ofHours(1)));
     }
 

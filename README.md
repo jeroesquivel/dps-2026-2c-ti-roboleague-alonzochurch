@@ -29,9 +29,11 @@ El ejecutable recorre una edición completa —inscripción, programación, capt
 apelación y recálculo— e imprime el desglose de puntaje y las posiciones en cada etapa, con la
 explicación de cada total.
 
-La demostración usa tres desafíos (`RESCUE`, `SPRINT` y `PRECISION`, este último con "mejores 2 de 3
-rondas"), los siete tipos de regla de puntaje, penalizaciones, bonificaciones con tope global, cuatro
-equipos empatados que se separan con tres desempates encadenados y una apelación que reordena la tabla. Siempre produce el mismo
+La demostración usa cuatro desafíos (`RESCUE`, `SPRINT`, `PRECISION` con "mejores 2 de 3 rondas" y
+`SHOWCASE`, un desafío mixto cuyas mediciones automáticas y notas del panel de jueces llegan por
+separado), los siete tipos de regla de puntaje, penalizaciones, bonificaciones con tope global, una
+corrida pendiente que bloquea la publicación hasta completarse, cuatro equipos empatados que se separan
+con tres desempates encadenados y una apelación que reordena la tabla. Siempre produce el mismo
 resultado, y `DemoScenarioTest` lo verifica. El detalle, y lo que falta de la demostración sugerida
 por el enunciado, está en [DESIGN.md](DESIGN.md) 7.1.
 

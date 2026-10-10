@@ -1446,7 +1446,9 @@ tests `MixedChallengeSpecTest`, `RunCompletionTest`, `MixedRunResultTest`, `Roun
 `CalculateRunScore.RunScore` (`completion`, `bySource`), `CalculateRunScoreUseCase`,
 `GenerateStandingsUseCase`, `RecalculateStandingsUseCase`, `PublishStandingsUseCase`, `AuditAction`
 (`RESULT_SOURCE_RECEIVED`), `AuditDetail` (`SOURCE`, `EVALUATIONS`, `INCIDENTS`),
-`InMemoryRunResultRepository` (conservar recibos) y `RoboLeagueCompositionRoot`; en tests,
+`InMemoryRunResultRepository` (conservar recibos), `RoboLeagueCompositionRoot`, `DemoRulebook`
+(desafío `SHOWCASE`) y `DemoScenario` (registro por fuente, corrida pendiente y publicación rechazada);
+en tests, `DemoScenarioTest`,
 `RunResultRepositoryContractTest`, `JudgeEvaluationsTest`, `ApplicationFailurePathsTest` y las
 llamadas a `Standings.provisional`, `supersede` y `generate`, que reciben `PendingRuns.none()` sin
 cambiar sus expectativas.
@@ -1459,8 +1461,10 @@ corridas de la categoría para apelaciones y pendientes.
 
 **Deuda técnica no resuelta:**
 
-- El demo no incluye un desafío mixto: la spec pide que el demo y los fixtures existentes no cambien
-  (AC-21). El desafío `SHOWCASE` vive en `support/ShowcaseFixture` y lo recorre `MixedChallengeTest`.
+- El demo incorpora el desafío mixto `SHOWCASE` (7.1) aunque AC-21 de la spec pedía no cambiarlo: el
+  enunciado sugiere un desafío mixto en la demostración. Los totales de la tabla del demo pasaron de
+  187,50 a 247,50 y `DemoScenarioTest` se actualizó; la cadena de desempates y el efecto de la
+  apelación se conservan.
 - `CalculateRunScore` informa el pendiente con una excepción cuyo mensaje nombra la fuente faltante;
   el dato tipado está en `FindRunResult`. Un adaptador REST tendrá que combinar ambos.
 - Un grupo de `SourcedScore` no lleva su `SourceReceipt`: el cliente lo busca en
@@ -1662,7 +1666,7 @@ específicos.
 puertos de entrada, con identificadores secuenciales y un reglamento armado en memoria, así que cada
 ejecución reproduce los mismos resultados.
 
-Una categoría, cuatro equipos (Kappa Labs, Delta Bots, Omega Crew, Sigma Works), cinco rondas y un
+Una categoría, cuatro equipos (Kappa Labs, Delta Bots, Omega Crew, Sigma Works), seis rondas y un
 reglamento `v1` con `SumOfAttempts` y la cadena de desempates `HighestSingleRun → FewestPenalties →
 FastestMetric(TIME)`:
 
@@ -1671,6 +1675,7 @@ FastestMetric(TIME)`:
 | `RESCUE` | 1 | `Time`, `Objective`, `JudgePanel`, `Resource`, tres `ThresholdBonus` (OBJECTIVES ≥ 5 → 15, TIME ≤ 110 → 10, ENERGY ≤ 48 → 10) y las penalizaciones `RESTART` y `OUT_OF_BOUNDS` | todas las corridas suman; tope global de bonificaciones de 25 |
 | `SPRINT` | 2 | `Time`, `Objective` | todas las corridas suman |
 | `PRECISION` | 3, 4, 5 | `Precision` | mejores 2 de 3 rondas |
+| `SHOWCASE` | 6 | `Time` y `Precision` (fuente automática), dos `JudgePanel` (`CREATIVITY` × 2, `EXECUTION` × 1,50) y las penalizaciones del desafío | mixto: mediciones de la pista y notas del panel por separado |
 
 Recorrido:
 
@@ -1679,24 +1684,34 @@ Recorrido:
 2. Captura y desglose explicado de la corrida de Kappa en `RESCUE`: obtiene las tres bonificaciones
    (15 + 10 + 10 = 35) y la contribución `BONUS_CAP` recorta 10 hasta el tope de 25. Los otros tres
    equipos obtienen exactamente 25 en bonificaciones, así que su recorte es 0.
-3. Generación y publicación de la tabla. Los cuatro equipos empatan en 187,50 y la explicación de cada
+3. Registro por fuente en `SHOWCASE`: la pista (`track-system`) envía las mediciones de Kappa, Delta y
+   Omega; el panel (`head-judge`) envía las notas de Sigma antes que sus mediciones, y luego las de
+   Kappa (con un reinicio) y Delta. Cada equipo suma 60 por un camino distinto, menos que su mejor
+   corrida y sin cambiar sus penalizaciones ni su menor tiempo, así que no altera la cadena de
+   desempates. El desglose de la corrida de Kappa se muestra por fuente: `AUTOMATIC` 37 (tiempo 13,
+   precisión 24) y `JUDGES` 23 (14 + 12 − 3 del reinicio), cada grupo con quién lo registró y cuándo.
+4. La corrida de Omega queda `PENDING` esperando `JUDGES`. La tabla se genera igual (revisión 1,
+   provisional): Omega figura con 187,50, sin `SHOWCASE`, y la revisión lista su corrida pendiente. La
+   publicación se rechaza ("1 runs are still pending: 1 waiting for JUDGES"). Llega el panel de Omega,
+   la corrida pasa a `COMPLETE` y la tabla se recalcula (revisión 2).
+5. Publicación de la revisión 2. Los cuatro equipos empatan en 247,50 y la explicación de cada
    uno detalla el subtotal de la política de intentos y el de `BEST_ROUNDS`, ronda por ronda. Cada
    criterio de la cadena separa un par distinto: Kappa supera a Delta por la mejor corrida individual
    (93,50 contra 81,50); Delta supera a Omega por penalizaciones (0 contra −8; el recorte de Kappa no
    cuenta como penalización); Omega supera a Sigma
    por el menor tiempo (44 s contra 46 s). Kappa empata 26 contra 26 en las rondas 4 y 5 de
    `PRECISION` y se descarta la 5 por mayor ordinal.
-4. Sigma apela su ronda 5 de `PRECISION`, descartada con 24 puntos. Al aceptarse la apelación
-   (precisión 0,98, 39,20 puntos), la tabla se recalcula: la ronda 5 pasa a `COUNTED`, la 4 a
-   `DISCARDED` y Sigma queda primera con 192,70. La revisión publicada conserva su explicación
+6. Sigma apela su ronda 5 de `PRECISION`, descartada con 24 puntos. Al aceptarse la apelación
+   (precisión 0,98, 39,20 puntos), la tabla se recalcula (revisión 3): la ronda 5 pasa a `COUNTED`, la 4
+   a `DISCARDED` y Sigma queda primera con 252,70. La revisión publicada conserva su explicación
    original.
 
 **Cobertura de la demostración sugerida por el enunciado:**
 
 | Elemento sugerido | Estado |
 | --- | --- |
-| Al menos tres desafíos | Cubierto: `RESCUE`, `SPRINT`, `PRECISION` |
-| Un desafío mixto (F3) | **Parcial:** F3 está implementada y `MixedChallengeTest` recorre el desafío `SHOWCASE`; el demo no lo incluye porque la spec exige no cambiar el demo existente (4.13) |
+| Al menos tres desafíos | Cubierto: `RESCUE`, `SPRINT`, `PRECISION`, `SHOWCASE` |
+| Un desafío mixto (F3) | Cubierto: `SHOWCASE`, con fuentes en ambos órdenes, desglose por fuente, una corrida pendiente fuera de la tabla y la publicación bloqueada hasta completarla |
 | Diez tipos de reglas | **Parcial:** se usan los 7 tipos existentes |
 | Una regla compuesta | **Pendiente:** no existe (ver 5.10) |
 | Una penalización | Cubierto: `RESTART` y `OUT_OF_BOUNDS` en `RESCUE` |
@@ -1705,8 +1720,8 @@ Recorrido:
 | Tres criterios encadenados de desempate | Cubierto: cada uno decide un par de la tabla publicada |
 | Una apelación que provoque el recálculo del ranking | Cubierto: reordena la tabla y cambia las rondas consideradas |
 
-Cuando se incorporen el desafío mixto, la regla compuesta y los tipos de regla faltantes, se agregan
-a `DemoRulebook` y `DemoScenario`, junto con sus aserciones en `DemoScenarioTest`.
+Cuando se incorporen la regla compuesta y los tipos de regla faltantes, se agregan a `DemoRulebook` y
+`DemoScenario`, junto con sus aserciones en `DemoScenarioTest`.
 
 **Alternativas descartadas:** un script o un fixture externo (JSON o SQL). No hay persistencia real
 (ver 5.8), y el demo recorre los mismos puertos de entrada que usará la API, así que sirve también
@@ -1813,12 +1828,12 @@ intento después de quitar el incidente inválido; un conflicto dentro del coman
 los primeros turnos. Eso no implica atomicidad frente a todos los fallos posteriores.
 
 Verificación del código actual el 10 de octubre de 2026: Maven recompiló los 215
-archivos Java de producción y los 46 de pruebas, y ejecutó **320 tests, 0 fallos, 0 errores y 0
+archivos Java de producción y los 46 de pruebas, y ejecutó **322 tests, 0 fallos, 0 errores y 0
 omitidos**. Es una comprobación fechada, no un total garantizado para futuras versiones.
 No se establece una proporción obligatoria de tests exitosos/negativos ni se equipara cantidad con
 porcentaje de cobertura.
 JaCoCo 0.8.15 midió **100 % de instrucciones, ramas, líneas, complejidad, métodos y clases**. Son
-13.445 instrucciones, 514 ramas, 2.398 líneas, 1.171 puntos de complejidad, 914 métodos y 215 clases
+13.926 instrucciones, 514 ramas, 2.463 líneas, 1.182 puntos de complejidad, 925 métodos y 215 clases
 cubiertos. `mvn verify` genera el informe y falla si cualquiera de esos porcentajes baja del 100 %.
 La suite no prueba HTTP, proveedores, SQL, transacciones o concurrencia porque esas integraciones aún
 no existen; tendrán pruebas propias cuando se incorporen.
