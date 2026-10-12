@@ -1837,3 +1837,39 @@ JaCoCo 0.8.15 midió **100 % de instrucciones, ramas, líneas, complejidad, mét
 cubiertos. `mvn verify` genera el informe y falla si cualquiera de esos porcentajes baja del 100 %.
 La suite no prueba HTTP, proveedores, SQL, transacciones o concurrencia porque esas integraciones aún
 no existen; tendrán pruebas propias cuando se incorporen.
+
+## 10. Bootstrap de la aplicación web
+
+El build es un reactor Maven con dos módulos. `core` contiene `domain` y `application` y sólo
+depende del JDK en producción. `backend` depende de `core` y contiene Spring Boot, la demo, el
+composition root manual y los adaptadores de salida en memoria. `frontend` queda reservado sin
+elegir tecnología. Esta separación física hace comprobable la dirección `backend → core` y evita
+que Spring, HTTP, Jackson o Jakarta entren al núcleo.
+
+Spring es el composition root de la ejecución web. `RoboLeagueConfiguration` declara explícitamente
+los repositorios, `AuditLog`, `IdGenerator`, `Clock`, los servicios de dominio y los 22 puertos de
+entrada mediante métodos `@Bean`. Los interactors permanecen sin anotaciones de framework y
+`AcceptAppealUseCase` recibe `RecalculateStandings` por su interfaz. Los adaptadores en memoria son
+singletons del contexto y sus datos se pierden al reiniciar, una limitación deliberada de esta etapa.
+
+El composition root manual se conserva en el backend para la demo y para fixtures integrados. Los
+tests del core usan una copia de esos adaptadores únicamente como infraestructura de test, lo que
+permite verificar el núcleo y exigir su cobertura sin introducir una dependencia circular. Los
+contratos abstractos de repositorio se publican en el `test-jar` de `core` y los tests de los
+adaptadores productivos del backend los reutilizan sin duplicarlos.
+
+La única entrada HTTP incorporada es `GET /technical/health`. Es un controller técnico mínimo, no
+usa puertos ni repositorios y responde sólo `{"status":"UP"}`. Se prefirió frente a Actuator porque
+el bootstrap necesita una sola comprobación y no justifica agregar superficie de administración.
+Una prueba inicia un servidor embebido real, realiza la petición y también comprueba que cada puerto
+de entrada tenga exactamente un bean y que el repositorio in-memory sea compartido.
+
+Alternativas descartadas: anotar casos de uso con `@Service` (acopla el core a Spring), mover
+adaptadores al core (invierte la frontera), duplicar contract tests (permite divergencias), cargar la
+demo durante cada arranque (contamina estado normal y tests), agregar Actuator para un único estado
+técnico y crear un módulo Maven o stack de frontend antes de tomar esa decisión.
+
+Verificación del bootstrap el 12 de octubre de 2026: **324 tests, 0 fallos, 0 errores y 0 omitidos**
+(303 en `core` y 21 en `backend`). JaCoCo 0.8.15 mantiene **100 %** de instrucciones, ramas, líneas,
+complejidad, métodos y clases del código productivo de `core`. La prueba del backend cubre el
+arranque completo y la infraestructura HTTP real.

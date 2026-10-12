@@ -1,88 +1,72 @@
 # RoboLeague
 
-Módulo de dominio de una plataforma de competencias de robótica: configura temporadas, competencias y
-categorías, valida la elegibilidad de los equipos, programa rondas con pistas y jueces, captura los
-resultados de cada corrida y calcula puntajes explicables según el reglamento vigente al momento de
-correr. Sobre esos puntajes resuelve desempates, publica posiciones provisionales y definitivas,
-tramita apelaciones y recalcula la tabla conservando los valores originales y cada modificación.
+RoboLeague modela una plataforma de competencias de robótica con arquitectura hexagonal. El
+repositorio separa el núcleo Java puro de una aplicación web Spring Boot preparada para incorporar
+los flujos funcionales de `.docs/specs/` en entregas posteriores.
 
 ## Requisitos
 
 - JDK 21 o superior
 - Maven 3.9 o superior
 
-## Compilar
+## Estructura
+
+```text
+core/       dominio, puertos e interactors; no depende de Spring ni de HTTP
+backend/    Spring Boot, composición, adaptadores en memoria, demo y entrada HTTP técnica
+frontend/   directorio reservado; la tecnología aún no fue elegida
+```
+
+El `pom.xml` raíz es un agregador Maven. `backend` depende de `core`; el núcleo no conoce al
+backend. Los repositorios actuales son adaptadores en memoria y su contenido se pierde al reiniciar.
+
+## Compilar y verificar
+
+Desde la raíz:
 
 ```bash
 mvn clean compile
-```
-
-Para generar el `jar` ejecutable en `target/`:
-
-```bash
-mvn clean package
-```
-
-## Ejecutar
-
-El ejecutable recorre una edición completa —inscripción, programación, captura, cálculo, publicación,
-apelación y recálculo— e imprime el desglose de puntaje y las posiciones en cada etapa, con la
-explicación de cada total.
-
-La demostración usa cuatro desafíos (`RESCUE`, `SPRINT`, `PRECISION` con "mejores 2 de 3 rondas" y
-`SHOWCASE`, un desafío mixto cuyas mediciones automáticas y notas del panel de jueces llegan por
-separado), los siete tipos de regla de puntaje, penalizaciones, bonificaciones con tope global, una
-corrida pendiente que bloquea la publicación hasta completarse, cuatro equipos empatados que se separan
-con tres desempates encadenados y una apelación que reordena la tabla. Siempre produce el mismo
-resultado, y `DemoScenarioTest` lo verifica. El detalle, y lo que falta de la demostración sugerida
-por el enunciado, está en [DESIGN.md](DESIGN.md) 7.1.
-
-```bash
-mvn exec:java -Dexec.mainClass=com.dps.roboleague.Main
-```
-
-O, luego de empaquetar:
-
-```bash
-java -jar target/roboleague-1.0-SNAPSHOT.jar
-```
-
-## Testear
-
-```bash
 mvn test
-```
-
-Para generar el informe de cobertura y exigir el 100 % configurado:
-
-```bash
 mvn verify
 ```
 
-El informe HTML queda en `target/site/jacoco/index.html`.
+`mvn verify` verifica ambos módulos. El informe de cobertura del núcleo queda en
+`core/target/site/jacoco/index.html` y exige 100 % de instrucciones, ramas, líneas, complejidad,
+métodos y clases.
 
-Para correr una sola clase de test:
+Para ejecutar una prueba concreta:
 
 ```bash
-mvn test -Dtest=CalculateRunScoreUseCaseTest
+mvn -pl core -Dtest=ScoringRulesTest test
+mvn -pl backend -am -Dtest=RoboLeagueApplicationTest test
 ```
 
-## Estructura
+## Ejecutar el backend
 
-Arquitectura hexagonal (Ports & Adapters): `domain` y `application` forman el núcleo, dueño de
-todos los puertos, e `infrastructure` y `demo` son adaptadores a su alrededor.
-
-```
-src/main/java/com/dps/roboleague
-├── domain           núcleo: reglas y modelos de negocio, y sus puertos: de entrada (domain.port.in)
-│                    y de salida (repositorios, auditoría e ids, junto a cada agregado)
-├── application      núcleo: interactors que implementan los puertos de entrada y sólo coordinan
-├── infrastructure   adaptadores de salida en memoria y composition root
-└── demo             adaptador de entrada: recorrido de ejemplo sobre los puertos de entrada
+```bash
+mvn -pl backend -am package
+java -jar backend/target/roboleague-backend-1.0-SNAPSHOT.jar
 ```
 
-Las dependencias apuntan siempre hacia el núcleo: `domain` no importa nada de `application` ni de
-`infrastructure`, y el composition root expone únicamente puertos de entrada, así que ningún
-adaptador puede alcanzar un repositorio por su cuenta.
+La única operación HTTP del bootstrap es una comprobación técnica:
 
-Las decisiones de diseño están documentadas en [DESIGN.md](DESIGN.md).
+```text
+GET http://localhost:8080/technical/health
+200 {"status":"UP"}
+```
+
+No expone funcionalidad de negocio ni consulta repositorios.
+
+## Ejecutar la demo repetible
+
+La demo conserva el recorrido completo existente y no se carga al iniciar Spring Boot:
+
+```bash
+mvn -pl backend -am package exec:java -DskipTests
+```
+
+Usa datos fijos para inscripción, programación, resultados, puntajes, posiciones y apelaciones. Su
+comportamiento se verifica en `DemoScenarioTest`.
+
+Las decisiones vigentes están documentadas en [DESIGN.md](DESIGN.md) y la evolución prevista de la
+aplicación web en [architecture.md](architecture.md).
