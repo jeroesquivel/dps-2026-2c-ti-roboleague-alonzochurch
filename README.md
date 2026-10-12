@@ -48,14 +48,96 @@ mvn -pl backend -am package
 java -jar backend/target/roboleague-backend-1.0-SNAPSHOT.jar
 ```
 
-La única operación HTTP del bootstrap es una comprobación técnica:
+La comprobación técnica no consulta repositorios:
 
 ```text
 GET http://localhost:8080/technical/health
 200 {"status":"UP"}
 ```
 
-No expone funcionalidad de negocio ni consulta repositorios.
+## API: equipos
+
+Spec: [`.docs/specs/SPEC_registrar-equipo.md`](.docs/specs/SPEC_registrar-equipo.md). El controller
+sólo invoca los puertos `RegisterTeam` y `FindTeamRegistration`; la elegibilidad la decide el
+reglamento activo de la competencia.
+
+### `POST /teams` — registrar un equipo
+
+```json
+{
+  "competitionId": "competition-1",
+  "categoryId": "category-1",
+  "teamName": "Rescue Crew",
+  "members": [
+    {"fullName": "Ada", "birthDate": "2010-05-20", "role": "COMPETITOR"},
+    {"fullName": "Grace", "birthDate": "1988-02-10", "role": "COACH"}
+  ],
+  "robot": {
+    "name": "Rescuer", "robotClass": "RESCUE_BOT", "weightKg": 2.4,
+    "dimensions": {"lengthMm": 180, "widthMm": 180, "heightMm": 150}
+  },
+  "documents": [{"type": "PARENTAL_CONSENT", "reference": "PC-1"}],
+  "actor": "organizer"
+}
+```
+
+- `role`: `COMPETITOR` o `COACH`. `type`: `PARENTAL_CONSENT`, `INSURANCE`, `TECHNICAL_SHEET` o
+  `SAFETY_CHECK`. `birthDate` usa formato ISO (`yyyy-MM-dd`).
+- `documents` es opcional: si falta se toma como lista vacía y la inscripción queda rechazada por los
+  documentos requeridos que el reglamento exija.
+- `actor` es obligatorio y se registra en la auditoría; esta etapa no tiene autenticación.
+
+Respuesta `201 Created` con `Location: /teams/{teamId}`, tanto si el equipo queda aceptado como si
+queda rechazado (en ambos casos la inscripción existe y puede consultarse):
+
+```json
+{
+  "teamId": "team-1",
+  "status": "REJECTED",
+  "violations": [
+    {"code": "REQUIRED_DOCUMENTS", "reason": "missing document TECHNICAL_SHEET"}
+  ]
+}
+```
+
+`status` es `ACCEPTED` o `REJECTED`. `violations` enumera **todas** las violaciones detectadas. Cada
+una lleva el `code` estable de su regla (`AGE_RANGE`, `TEAM_COMPOSITION`, `ROBOT_CLASS`,
+`ROBOT_SPECIFICATION`, `REQUIRED_DOCUMENTS`) y una descripción en `reason`; el texto de `reason` no es
+estable y no debe interpretarse.
+
+### `GET /teams/{teamId}` — consultar una inscripción
+
+`200` con `teamId`, `competitionId`, `categoryId`, `name`, `status`, `members` (con `memberId`,
+`fullName`, `birthDate`, `role`), `robot`, `documentTypes` (sólo los tipos presentados, no sus
+referencias) y `violations` con el mismo formato que arriba.
+
+### Errores
+
+Todos los errores tienen la forma `{"code": "...", "message": "..."}`. El manejador compartido
+(`ApiExceptionHandler`) traduce la jerarquía del dominio:
+
+| Excepción del dominio | HTTP | `code` |
+| --- | --- | --- |
+| `InvalidValueException` (incluye campos ausentes o con formato inválido) | 400 | `INVALID_VALUE` |
+| Cuerpo que no es JSON válido | 400 | `MALFORMED_REQUEST` |
+| `NotFoundException` (competencia, categoría ajena o inscripción inexistente) | 404 | `NOT_FOUND` |
+| `ConflictException` | 409 | `CONFLICT` |
+| `RuleViolationException` | 422 | `RULE_VIOLATION` |
+| Otra `DomainException` | 422 | `DOMAIN_ERROR` |
+
+## Ejecutar el frontend
+
+El frontend (React + Vite) vive en [`frontend/`](frontend/README.md). Con el backend en
+`localhost:8080`:
+
+```bash
+cd frontend
+npm install
+npm run dev     # http://localhost:5173
+npm test
+```
+
+En desarrollo Vite reenvía `/teams` al backend mediante un proxy, así que no hace falta CORS.
 
 ## Ejecutar la demo repetible
 

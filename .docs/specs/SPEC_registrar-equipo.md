@@ -100,6 +100,6 @@ Then distingue aceptación de rechazo y presenta cada violación con informació
 
 ## 6. Open questions
 
-- Definir el formato público de cada `EligibilityViolation` y si se expondrá un código estable además
-  de su descripción.
-
+Resuelta: cada `EligibilityViolation` se expone como `{"code", "reason"}`. El `code` es el
+`EligibilityRuleCode` estable de la regla y `reason` es una descripción que no debe interpretarse
+(contrato en el `README.md`).
