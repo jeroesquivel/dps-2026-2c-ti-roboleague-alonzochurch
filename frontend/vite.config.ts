@@ -10,6 +10,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/teams': BACKEND,
+      '/rounds': BACKEND,
     },
   },
   test: {

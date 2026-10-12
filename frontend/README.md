@@ -20,7 +20,7 @@ npm run build    # comprobación de tipos y build de producción en dist/
 ## Comunicación con el backend
 
 En desarrollo el navegador sólo habla con el origen de Vite (`localhost:5173`). `vite.config.ts`
-define un proxy que reenvía `/teams` a `http://localhost:8080`, por lo que **no hace falta
+define un proxy que reenvía `/teams` y `/rounds` a `http://localhost:8080`, por lo que **no hace falta
 configurar CORS** en Spring. Para apuntar a otro backend:
 
 ```bash
@@ -33,12 +33,21 @@ proxy equivalente. Al agregar un endpoint nuevo hay que sumar su prefijo al prox
 ## Estructura
 
 ```text
+src/api/http.ts            cliente HTTP compartido: JSON, ApiRequestError {code, message, conflicts}
+src/App.tsx                navegación entre Equipos y Rondas
 src/features/teams/
-  api.ts                 cliente HTTP (POST /teams) y manejo de errores {code, message}
-  types.ts               contrato de la API según el README de la raíz
-  formModel.ts           estado del formulario, validación de presencia/formato y armado del request
-  RegisterTeamForm.tsx   formulario: integrantes, robot y documentación
-  RegistrationResult.tsx aceptación o rechazo con cada violación
+  api.ts                   POST /teams
+  types.ts                 contrato de la API según el README de la raíz
+  formModel.ts             estado del formulario, validación de presencia/formato y armado del request
+  RegisterTeamForm.tsx     formulario: integrantes, robot y documentación
+  RegistrationResult.tsx   aceptación o rechazo con cada violación
+src/features/rounds/
+  api.ts                   POST /rounds y GET /rounds/{id}
+  types.ts                 contrato de la API de rondas
+  formModel.ts             estado del formulario, validación y armado del request (jueces separados por coma)
+  ScheduleRoundForm.tsx    formulario: datos de la ronda y largadas agregables/quitables
+  RoundView.tsx            ronda programada con versión del reglamento y tabla de largadas
+  ScheduleConflicts.tsx    conflictos de agenda (equipo, pista o juez ocupado)
 ```
 
 ## Flujos implementados
@@ -46,3 +55,8 @@ src/features/teams/
 - **Registrar equipo** — spec [`SPEC_registrar-equipo`](../.docs/specs/SPEC_registrar-equipo.md)
   (FR-7, AC-6). El ID de la competencia y de la categoría se ingresan a mano: todavía no hay un
   endpoint para listarlos (queda para el spec de configurar evento).
+- **Programar ronda** — spec [`SPEC_programar-rondas`](../.docs/specs/SPEC_programar-rondas.md)
+  (FR-8). Se agregan o quitan largadas, y al enviar se muestra la ronda (consultada con
+  `GET /rounds/{id}`) o, ante un `409 SCHEDULE_CONFLICT`, cada conflicto con su tipo. El campo de
+  inicio es un `datetime-local`: se envía como hora local de la competencia, sin zona. Los IDs de
+  competencia, categoría, desafío, equipo y pista se ingresan a mano.

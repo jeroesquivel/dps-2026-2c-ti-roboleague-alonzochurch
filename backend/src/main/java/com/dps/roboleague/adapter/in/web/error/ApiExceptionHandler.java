@@ -1,5 +1,6 @@
 package com.dps.roboleague.adapter.in.web.error;
 
+import com.dps.roboleague.domain.schedule.ScheduleConflictException;
 import com.dps.roboleague.domain.shared.ConflictException;
 import com.dps.roboleague.domain.shared.DomainException;
 import com.dps.roboleague.domain.shared.InvalidValueException;
@@ -31,6 +32,16 @@ public class ApiExceptionHandler {
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ErrorResponse> notFound(NotFoundException exception) {
         return respond(HttpStatus.NOT_FOUND, "NOT_FOUND", exception.getMessage());
+    }
+
+    @ExceptionHandler(ScheduleConflictException.class)
+    public ResponseEntity<ScheduleConflictResponse> scheduleConflict(ScheduleConflictException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ScheduleConflictResponse("SCHEDULE_CONFLICT",
+                exception.getMessage(),
+                exception.conflicts().stream()
+                        .map(conflict -> new ScheduleConflictResponse.ConflictDetail(conflict.type().name(),
+                                conflict.detail()))
+                        .toList()));
     }
 
     @ExceptionHandler(ConflictException.class)

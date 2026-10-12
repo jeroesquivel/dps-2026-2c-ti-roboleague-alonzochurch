@@ -100,6 +100,16 @@ Then la API responde como recurso no encontrado.
 
 ## 6. Open questions
 
-- Definir el formato HTTP definitivo para `TimeSlot` y la zona horaria asumida por la competencia.
-- Definir cuánto detalle del conflicto se expone sin acoplar la API a la excepción concreta.
+Resueltas:
 
+- **Formato de tiempo.** Cada heat envía `start` como fecha y hora local ISO sin zona ni offset
+  (`2026-03-02T10:00:00`) y `durationMinutes` como entero positivo. `start` se interpreta como hora
+  local de la competencia y nunca en la zona del servidor; un valor con `Z` u offset se rechaza con
+  `400 INVALID_VALUE`. La respuesta devuelve `start` y `end` con el mismo formato.
+- **Detalle del conflicto.** La API responde `409` con `code: "SCHEDULE_CONFLICT"` y una lista
+  `conflicts` de `{type, detail}`, con `type` ∈ `TEAM_BUSY`, `ARENA_BUSY`, `JUDGE_BUSY`. El `type` es
+  estable y `detail` es texto descriptivo que no debe interpretarse; no se expone la excepción concreta.
+  El resto de los rechazos (ordinal repetido, límite de rondas, equipo no habilitado) usa los códigos
+  compartidos descritos en el `README.md`.
+- **Lista de heats vacía.** El adaptador web la rechaza con `400 INVALID_VALUE`: una ronda requiere al
+  menos un heat.

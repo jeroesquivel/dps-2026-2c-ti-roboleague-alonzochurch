@@ -12,9 +12,7 @@ import com.dps.roboleague.domain.shared.DateRange;
 import com.dps.roboleague.domain.shared.SeasonId;
 import com.dps.roboleague.support.RescueEditionFixture;
 import com.dps.roboleague.support.TeamFixtures;
-import java.time.LocalDate;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -43,8 +41,6 @@ class TeamApiTest {
     private static final String COMPLETE_DOCUMENTS = """
             [{"type":"PARENTAL_CONSENT","reference":"PC-1"},{"type":"TECHNICAL_SHEET","reference":"TS-1"}]""";
     private static final Actor ACTOR = Actor.of("test-actor");
-    private static final LocalDate FIRST_DAY = LocalDate.of(2026, 3, 1);
-    private static final AtomicInteger EDITIONS = new AtomicInteger();
     private static final Pattern TEAM_ID = Pattern.compile("\"teamId\":\"([^\"]+)\"");
 
     @Autowired CreateSeason createSeason;
@@ -241,15 +237,10 @@ class TeamApiTest {
         assertTrue(response.getBody().contains("\"code\":\"NOT_FOUND\""), response.getBody());
     }
 
-    /**
-     * El contexto de Spring es compartido y las temporadas no pueden superponerse, así que cada edición
-     * usa su propio período de dos días, separado del anterior. Las fechas quedan cerca de marzo de 2026,
-     * por lo que las edades de los integrantes no cambian de categoría.
-     */
     private CreateCompetition.Result newCompetition(String name) {
-        LocalDate start = FIRST_DAY.plusDays(3L * EDITIONS.getAndIncrement());
-        DateRange period = DateRange.of(start, start.plusDays(1));
-        SeasonId seasonId = createSeason.execute(new CreateSeason.Command("Season " + start, 2026, period, ACTOR));
+        DateRange period = Editions.nextPeriod();
+        SeasonId seasonId = createSeason.execute(
+                new CreateSeason.Command("Season " + period.start(), 2026, period, ACTOR));
         return createCompetition.execute(new CreateCompetition.Command(seasonId, name, period,
                 List.of(new CreateCompetition.CategoryDraft("Junior", AgeRange.between(12, 17),
                         TeamFixtures.RESCUE_BOT)),

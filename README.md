@@ -121,9 +121,101 @@ Todos los errores tienen la forma `{"code": "...", "message": "..."}`. El maneja
 | `InvalidValueException` (incluye campos ausentes o con formato inválido) | 400 | `INVALID_VALUE` |
 | Cuerpo que no es JSON válido | 400 | `MALFORMED_REQUEST` |
 | `NotFoundException` (competencia, categoría ajena o inscripción inexistente) | 404 | `NOT_FOUND` |
-| `ConflictException` | 409 | `CONFLICT` |
+| `ScheduleConflictException` (agenda de equipo, pista o juez) | 409 | `SCHEDULE_CONFLICT` (con `conflicts`) |
+| `ConflictException` (ordinal repetido, límite de rondas) | 409 | `CONFLICT` |
 | `RuleViolationException` | 422 | `RULE_VIOLATION` |
 | Otra `DomainException` | 422 | `DOMAIN_ERROR` |
+
+## API: rondas
+
+Spec: [`.docs/specs/SPEC_programar-rondas.md`](.docs/specs/SPEC_programar-rondas.md). El controller
+sólo invoca los puertos `ScheduleRound` y `FindRound`; ordinales, límites de rondas, elegibilidad de
+los equipos y conflictos de agenda los deciden `CompetitionSchedule`, `Round` y
+`ScheduleConflictDetector`.
+
+### `POST /rounds` — programar una ronda
+
+```json
+{
+  "competitionId": "competition-1",
+  "categoryId": "category-1",
+  "challengeId": "RESCUE",
+  "ordinal": 1,
+  "heats": [
+    {
+      "teamId": "team-1",
+      "arenaId": "A1",
+      "start": "2026-03-02T10:00:00",
+      "durationMinutes": 5,
+      "judges": ["judge-1", "judge-2"]
+    }
+  ],
+  "actor": "organizer"
+}
+```
+
+- `start` es una fecha y hora **local de la competencia**, en ISO sin zona ni offset
+  (`yyyy-MM-ddTHH:mm:ss`, los segundos son opcionales). Nunca se interpreta en la zona del servidor y
+  un valor con `Z` u offset se rechaza con `400`.
+- `durationMinutes` es un entero positivo de minutos. Un heat termina en `start + durationMinutes`;
+  dos heats consecutivos (uno termina cuando el otro empieza) no se superponen.
+- `heats` debe tener al menos un heat y cada heat al menos un juez. `actor` es obligatorio.
+- La operación es atómica: si algún heat falla no queda guardada ninguna parte de la ronda.
+
+Respuesta `201 Created` con `Location: /rounds/{roundId}`:
+
+```json
+{"roundId": "round-1"}
+```
+
+### `GET /rounds/{roundId}` — consultar una ronda
+
+```json
+{
+  "roundId": "round-1",
+  "competitionId": "competition-1",
+  "categoryId": "category-1",
+  "challengeId": "RESCUE",
+  "ordinal": 1,
+  "rulebookVersion": "v1",
+  "heats": [
+    {
+      "heatId": "heat-1",
+      "teamId": "team-1",
+      "arenaId": "A1",
+      "start": "2026-03-02T10:00:00",
+      "end": "2026-03-02T10:05:00",
+      "durationMinutes": 5,
+      "judges": ["judge-1", "judge-2"]
+    }
+  ]
+}
+```
+
+`rulebookVersion` es la versión del reglamento activa cuando se programó la ronda. `start` y `end`
+siempre incluyen segundos; `judges` se devuelve ordenado.
+
+### Conflictos de agenda
+
+Cuando uno o más heats se superponen con la agenda existente (de la misma ronda o de otras de la
+competencia), la API responde `409` con el código `SCHEDULE_CONFLICT` y la lista tipada de conflictos:
+
+```json
+{
+  "code": "SCHEDULE_CONFLICT",
+  "message": "the heat cannot be scheduled: ARENA_BUSY (arena A1 is taken by heat heat-1)",
+  "conflicts": [
+    {"type": "ARENA_BUSY", "detail": "arena A1 is taken by heat heat-1"}
+  ]
+}
+```
+
+`conflicts` reúne todos los conflictos del primer heat que choca (puede haber varios tipos a la vez).
+`type` es estable (`TEAM_BUSY`, `ARENA_BUSY` o `JUDGE_BUSY`); `detail` y `message` son descripciones que
+no deben interpretarse. Los demás rechazos usan la tabla de errores de abajo: ordinal repetido o límite de
+rondas «mejores N de M» alcanzado → `409 CONFLICT`; heat fuera del período de la competencia o equipo
+no aceptado/de otra competencia → `422 RULE_VIOLATION`; equipo, competencia, categoría o desafío
+inexistente → `404`.
 
 ## Ejecutar el frontend
 
@@ -137,7 +229,7 @@ npm run dev     # http://localhost:5173
 npm test
 ```
 
-En desarrollo Vite reenvía `/teams` al backend mediante un proxy, así que no hace falta CORS.
+En desarrollo Vite reenvía `/teams` y `/rounds` al backend mediante un proxy, así que no hace falta CORS.
 
 ## Ejecutar la demo repetible
 
