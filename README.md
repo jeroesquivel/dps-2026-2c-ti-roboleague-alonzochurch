@@ -13,7 +13,7 @@ los flujos funcionales de `.docs/specs/` en entregas posteriores.
 
 ```text
 core/       dominio, puertos e interactors; no depende de Spring ni de HTTP
-backend/    Spring Boot, composición, adaptadores en memoria, demo y entrada HTTP técnica
+backend/    Spring Boot, composición, adaptadores en memoria y API HTTP
 frontend/   directorio reservado; la tecnología aún no fue elegida
 ```
 
@@ -48,25 +48,43 @@ mvn -pl backend -am package
 java -jar backend/target/roboleague-backend-1.0-SNAPSHOT.jar
 ```
 
-La única operación HTTP del bootstrap es una comprobación técnica:
+La comprobación técnica está disponible en:
 
 ```text
 GET http://localhost:8080/technical/health
 200 {"status":"UP"}
 ```
 
-No expone funcionalidad de negocio ni consulta repositorios.
+La API de captura y consulta de resultados expone:
+
+```text
+POST /api/runs
+POST /api/runs/automatic-measurements
+POST /api/runs/panel-evaluations
+GET  /api/runs/{runId}
+```
+
+Las operaciones de captura reciben `roundId`, `teamId`, `attemptNumber`, `actor` y los datos
+correspondientes a su modalidad. Las métricas se representan como un objeto de claves y valores;
+las evaluaciones e incidentes como listas de DTOs. Cada respuesta devuelve la corrida observable,
+incluidos su estado de completitud, fuentes recibidas y faltantes, mediciones, evaluaciones,
+incidentes y estado de correcciones.
+
+Los errores usan un formato uniforme con `status`, `error` y `message`. Valores mal
+formados responden `400`, violaciones de negocio `422`, conflictos `409` y ausencias `404`.
 
 ## Ejecutar la demo repetible
 
-La demo conserva el recorrido completo existente y no se carga al iniciar Spring Boot:
+La demo conserva el recorrido completo existente y no se carga al iniciar normalmente el backend:
 
 ```bash
 mvn -pl backend -am package exec:java -DskipTests
 ```
 
 Usa datos fijos para inscripción, programación, resultados, puntajes, posiciones y apelaciones. Su
-comportamiento se verifica en `DemoScenarioTest`.
+comportamiento se verifica en `DemoScenarioTest`. `Main` inicia un contexto Spring sin servidor HTTP
+y activa `DemoConfig`; la demo recibe los mismos puertos y adaptadores singleton del backend, sin un
+composition root manual. La prueba usa el contexto Spring real y un reloj fijo.
 
 Las decisiones vigentes están documentadas en [DESIGN.md](DESIGN.md) y la evolución prevista de la
 aplicación web en [architecture.md](architecture.md).

@@ -12,6 +12,7 @@ import com.dps.roboleague.domain.port.in.CreateCompetition;
 import com.dps.roboleague.domain.port.in.CreateSeason;
 import com.dps.roboleague.domain.port.in.GenerateStandings;
 import com.dps.roboleague.domain.port.in.GetStandings;
+import com.dps.roboleague.domain.port.in.FindRunResult;
 import com.dps.roboleague.domain.port.in.PublishStandings;
 import com.dps.roboleague.domain.port.in.RecalculateStandings;
 import com.dps.roboleague.domain.port.in.RegisterAutomaticMeasurements;
@@ -51,7 +52,6 @@ import com.dps.roboleague.domain.team.MemberRole;
 import com.dps.roboleague.domain.team.Robot;
 import com.dps.roboleague.domain.team.TeamDocument;
 import com.dps.roboleague.domain.team.Weight;
-import com.dps.roboleague.infrastructure.config.RoboLeagueCompositionRoot;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -72,17 +72,51 @@ public final class DemoScenario {
     private static final RobotClass RESCUE_BOT = RobotClass.of("RESCUE_BOT");
     private static final LocalDateTime FIRST_HEAT = LocalDateTime.of(2026, 3, 2, 9, 0);
 
-    private final RoboLeagueCompositionRoot module;
+    private final CreateSeason createSeason;
+    private final CreateCompetition createCompetition;
+    private final RegisterTeam registerTeam;
+    private final ScheduleRound scheduleRound;
+    private final CaptureRunResult captureRunResult;
+    private final RegisterAutomaticMeasurements registerAutomaticMeasurements;
+    private final RegisterPanelEvaluations registerPanelEvaluations;
+    private final CalculateRunScore calculateRunScore;
+    private final FindRunResult findRunResult;
+    private final GenerateStandings generateStandings;
+    private final PublishStandings publishStandings;
+    private final RecalculateStandings recalculateStandings;
+    private final SubmitAppeal submitAppeal;
+    private final AcceptAppeal acceptAppeal;
+    private final GetStandings getStandings;
     private final Map<TeamId, String> teamNames = new HashMap<>();
 
-    public DemoScenario(RoboLeagueCompositionRoot module) {
-        this.module = module;
+    public DemoScenario(CreateSeason createSeason, CreateCompetition createCompetition, RegisterTeam registerTeam,
+            ScheduleRound scheduleRound, CaptureRunResult captureRunResult,
+            RegisterAutomaticMeasurements registerAutomaticMeasurements,
+            RegisterPanelEvaluations registerPanelEvaluations, CalculateRunScore calculateRunScore,
+            FindRunResult findRunResult, GenerateStandings generateStandings, PublishStandings publishStandings,
+            RecalculateStandings recalculateStandings, SubmitAppeal submitAppeal, AcceptAppeal acceptAppeal,
+            GetStandings getStandings) {
+        this.createSeason = createSeason;
+        this.createCompetition = createCompetition;
+        this.registerTeam = registerTeam;
+        this.scheduleRound = scheduleRound;
+        this.captureRunResult = captureRunResult;
+        this.registerAutomaticMeasurements = registerAutomaticMeasurements;
+        this.registerPanelEvaluations = registerPanelEvaluations;
+        this.calculateRunScore = calculateRunScore;
+        this.findRunResult = findRunResult;
+        this.generateStandings = generateStandings;
+        this.publishStandings = publishStandings;
+        this.recalculateStandings = recalculateStandings;
+        this.submitAppeal = submitAppeal;
+        this.acceptAppeal = acceptAppeal;
+        this.getStandings = getStandings;
     }
 
     public void run() {
-        SeasonId seasonId = module.createSeasonUseCase().execute(new CreateSeason.Command("Season 2026", 2026,
+        SeasonId seasonId = createSeason.execute(new CreateSeason.Command("Season 2026", 2026,
                 DateRange.of(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31)), ORGANISER));
-        CreateCompetition.Result competition = module.createCompetitionUseCase()
+        CreateCompetition.Result competition = createCompetition
                 .execute(new CreateCompetition.Command(seasonId, "National Open",
                         DateRange.of(LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 5)),
                         List.of(new CreateCompetition.CategoryDraft("Junior", AgeRange.between(12, 17), RESCUE_BOT)),
@@ -123,23 +157,23 @@ public final class DemoScenario {
         registerPanel(showcase, delta, List.of(8, 10, 8, 10), List.of());
         registerMeasurements(showcase, sigma, "70", "0.90");
 
-        printScore(module.calculateRunScoreUseCase().execute(new CalculateRunScore.Command(kappaRescue)));
-        printScore(module.calculateRunScoreUseCase().execute(new CalculateRunScore.Command(kappaShowcase)));
+        printScore(calculateRunScore.execute(new CalculateRunScore.Command(kappaRescue)));
+        printScore(calculateRunScore.execute(new CalculateRunScore.Command(kappaShowcase)));
         printCompletion(omegaShowcase, omega);
 
-        printStandings("Provisional standings while a panel is pending", module.generateStandingsUseCase()
+        printStandings("Provisional standings while a panel is pending", generateStandings
                 .execute(new GenerateStandings.Command(competitionId, categoryId, ORGANISER)));
         publish(competitionId, categoryId);
 
         registerPanel(showcase, omega, List.of(8, 9, 6, 7), List.of());
         printCompletion(omegaShowcase, omega);
-        module.recalculateStandingsUseCase().execute(new RecalculateStandings.Command(competitionId, categoryId,
+        recalculateStandings.execute(new RecalculateStandings.Command(competitionId, categoryId,
                 "the panel of the showcase completed the last run", ORGANISER));
         printStandings("Published standings", publish(competitionId, categoryId).orElseThrow());
 
         acceptAppeal(sigmaWorstPrecision, sigma);
         printStandings("Standings recalculated by the accepted appeal",
-                module.getStandingsUseCase().execute(new GetStandings.Command(competitionId, categoryId)).latest());
+                getStandings.execute(new GetStandings.Command(competitionId, categoryId)).latest());
     }
 
     private TeamId register(CompetitionId competitionId, CategoryId categoryId, String teamName) {
@@ -152,7 +186,7 @@ public final class DemoScenario {
         List<TeamDocument> documents = List.of(
                 new TeamDocument(DocumentType.PARENTAL_CONSENT, "PC-" + teamName),
                 new TeamDocument(DocumentType.TECHNICAL_SHEET, "TS-" + teamName));
-        RegisterTeam.Outcome outcome = module.registerTeamUseCase().execute(new RegisterTeam.Command(competitionId,
+        RegisterTeam.Outcome outcome = registerTeam.execute(new RegisterTeam.Command(competitionId,
                 categoryId, teamName, members, robot, documents, ORGANISER));
         System.out.println("Registered " + teamName + " as " + outcome.status());
         teamNames.put(outcome.teamId(), teamName);
@@ -165,7 +199,7 @@ public final class DemoScenario {
         List<ScheduleRound.HeatDraft> heats = IntStream.range(0, teams.size())
                 .mapToObj(index -> heat(teams.get(index), "A1", start.plusMinutes(20L * index)))
                 .toList();
-        return module.scheduleRoundUseCase().execute(new ScheduleRound.Command(competitionId, categoryId,
+        return scheduleRound.execute(new ScheduleRound.Command(competitionId, categoryId,
                 challengeId, RoundOrdinal.of(ordinal), heats, ORGANISER));
     }
 
@@ -201,12 +235,12 @@ public final class DemoScenario {
 
     private RunId capture(RoundId roundId, TeamId teamId, MeasurementSet measurements, JudgeEvaluations evaluations,
             List<IncidentReport> incidents) {
-        return module.captureRunResultUseCase().execute(new CaptureRunResult.Command(roundId, teamId,
+        return captureRunResult.execute(new CaptureRunResult.Command(roundId, teamId,
                 AttemptNumber.first(), measurements, evaluations, incidents, SCOREKEEPER));
     }
 
     private RunId registerMeasurements(RoundId roundId, TeamId teamId, String seconds, String accuracy) {
-        return module.registerAutomaticMeasurementsUseCase().execute(new RegisterAutomaticMeasurements.Command(
+        return registerAutomaticMeasurements.execute(new RegisterAutomaticMeasurements.Command(
                 roundId, teamId, AttemptNumber.first(), MeasurementSet.empty()
                         .with(DemoRulebook.TIME, MetricValue.of(seconds))
                         .with(DemoRulebook.ACCURACY, MetricValue.of(accuracy)), TRACK_SYSTEM));
@@ -219,7 +253,7 @@ public final class DemoScenario {
                 showcaseEvaluation("J1", DemoRulebook.EXECUTION, scores.get(1)),
                 showcaseEvaluation("J2", DemoRulebook.CREATIVITY, scores.get(2)),
                 showcaseEvaluation("J2", DemoRulebook.EXECUTION, scores.get(3)));
-        return module.registerPanelEvaluationsUseCase().execute(new RegisterPanelEvaluations.Command(roundId,
+        return registerPanelEvaluations.execute(new RegisterPanelEvaluations.Command(roundId,
                 teamId, AttemptNumber.first(), evaluations, incidents, HEAD_JUDGE));
     }
 
@@ -229,7 +263,7 @@ public final class DemoScenario {
 
     private Optional<Standings> publish(CompetitionId competitionId, CategoryId categoryId) {
         try {
-            return Optional.of(module.publishStandingsUseCase().execute(new PublishStandings.Command(competitionId,
+            return Optional.of(publishStandings.execute(new PublishStandings.Command(competitionId,
                     categoryId, ORGANISER)));
         } catch (ConflictException rejected) {
             System.out.println("  publication rejected: " + rejected.getMessage());
@@ -249,9 +283,9 @@ public final class DemoScenario {
     }
 
     private void acceptAppeal(RunId runId, TeamId teamId) {
-        AppealId appealId = module.submitAppealUseCase().execute(new SubmitAppeal.Command(runId, teamId,
+        AppealId appealId = submitAppeal.execute(new SubmitAppeal.Command(runId, teamId,
                 "the target sensor misread two hits", Actor.of("sigma-captain")));
-        module.acceptAppealUseCase().execute(new AcceptAppeal.Command(appealId,
+        acceptAppeal.execute(new AcceptAppeal.Command(appealId,
                 "the video review confirms the hits", accuracy("0.98"), List.of(), HEAD_JUDGE));
     }
 
@@ -277,7 +311,7 @@ public final class DemoScenario {
     }
 
     private void printCompletion(RunId runId, TeamId teamId) {
-        RunCompletion completion = module.findRunResultUseCase().execute(runId).completion();
+        RunCompletion completion = findRunResult.execute(runId).completion();
         System.out.println();
         System.out.println("Run " + runId.value() + " of " + teamNames.get(teamId) + " is " + completion.status()
                 + ", missing " + completion.missing());

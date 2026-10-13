@@ -1,12 +1,17 @@
 package com.dps.roboleague;
 
-import com.dps.roboleague.demo.DemoScenario;
-import com.dps.roboleague.infrastructure.config.RoboLeagueCompositionRoot;
-import java.time.Clock;
+import org.springframework.boot.WebApplicationType;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.context.ConfigurableApplicationContext;
 
 public final class Main {
 
     public static void main(String[] args) {
-        new DemoScenario(RoboLeagueCompositionRoot.inMemory(Clock.systemUTC())).run();
+        try (ConfigurableApplicationContext ignored = new SpringApplicationBuilder(RoboLeagueApplication.class)
+                .web(WebApplicationType.NONE)
+                .properties("roboleague.demo.enabled=true")
+                .run(args)) {
+            // DemoConfig executes the scenario through an ApplicationRunner.
+        }
     }
 }

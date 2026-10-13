@@ -13,6 +13,7 @@ import com.dps.roboleague.domain.challenge.SourceBreakdown;
 import com.dps.roboleague.domain.challenge.SourcedScore;
 import com.dps.roboleague.domain.port.in.CalculateRunScore;
 import com.dps.roboleague.domain.port.in.FindAuditTrail;
+import com.dps.roboleague.domain.port.in.FindRunResult;
 import com.dps.roboleague.domain.port.in.GetStandings;
 import com.dps.roboleague.domain.ranking.AppliedTiebreak;
 import com.dps.roboleague.domain.ranking.PendingRun;
@@ -39,14 +40,21 @@ import com.dps.roboleague.domain.shared.Points;
 import com.dps.roboleague.domain.shared.RoundId;
 import com.dps.roboleague.domain.shared.RunId;
 import com.dps.roboleague.domain.shared.TeamId;
-import com.dps.roboleague.infrastructure.config.RoboLeagueCompositionRoot;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE,
+        properties = "roboleague.demo.enabled=true")
+@Import(DemoScenarioTest.FixedClockConfig.class)
 class DemoScenarioTest {
 
     private static final CategoryId CATEGORY = CategoryId.of("CATEGORY-1");
@@ -55,17 +63,16 @@ class DemoScenarioTest {
     private static final TeamId OMEGA = TeamId.of("TEAM-3");
     private static final TeamId SIGMA = TeamId.of("TEAM-4");
 
-    private final RoboLeagueCompositionRoot module = RoboLeagueCompositionRoot.inMemory(
-            Clock.fixed(Instant.parse("2026-03-02T10:00:00Z"), ZoneOffset.UTC));
-
-    @BeforeEach
-    void runTheDemo() {
-        assertDoesNotThrow(() -> new DemoScenario(module).run());
-    }
+    @Autowired CalculateRunScore calculateRunScore;
+    @Autowired FindAuditTrail findAuditTrail;
+    @Autowired FindRunResult findRunResult;
+    @Autowired GetStandings getStandings;
+    @Autowired DemoScenario demoScenario;
 
     @Test
-    void theCompositionRootWiresEveryUseCaseOfTheEdition() {
-        List<AuditAction> actions = module.findAuditTrailUseCase().execute(new FindAuditTrail.Command(CATEGORY))
+    void springWiresEveryUseCaseOfTheEdition() {
+        assertDoesNotThrow(() -> demoScenario.getClass());
+        List<AuditAction> actions = findAuditTrail.execute(new FindAuditTrail.Command(CATEGORY))
                 .stream().map(event -> event.action()).toList();
         assertTrue(actions.containsAll(List.of(AuditAction.STANDINGS_GENERATED, AuditAction.STANDINGS_PUBLISHED,
                 AuditAction.STANDINGS_RECALCULATED)));
@@ -143,7 +150,7 @@ class DemoScenarioTest {
         assertEquals(Actor.of("head-judge"),
                 kappa.completion().receiptOf(ResultSource.JUDGES).orElseThrow().actor());
         List.of("RUN-22", "RUN-23", "RUN-24").forEach(run -> assertEquals(Points.of(60), scoreOf(run).total()));
-        assertEquals(List.of(ResultSource.JUDGES, ResultSource.AUTOMATIC), module.findRunResultUseCase()
+        assertEquals(List.of(ResultSource.JUDGES, ResultSource.AUTOMATIC), findRunResult
                 .execute(RunId.of("RUN-24")).completion().receipts().stream().map(SourceReceipt::source).toList());
     }
 
@@ -165,7 +172,7 @@ class DemoScenarioTest {
     }
 
     private CalculateRunScore.RunScore scoreOf(String run) {
-        return module.calculateRunScoreUseCase().execute(new CalculateRunScore.Command(RunId.of(run)));
+        return calculateRunScore.execute(new CalculateRunScore.Command(RunId.of(run)));
     }
 
     private ScoreBreakdown rescueBreakdownOf(String run) {
@@ -173,7 +180,7 @@ class DemoScenarioTest {
     }
 
     private List<Standings> history() {
-        return module.getStandingsUseCase()
+        return getStandings
                 .execute(new GetStandings.Command(CompetitionId.of("COMPETITION-1"), CATEGORY)).history();
     }
 
@@ -194,5 +201,14 @@ class DemoScenarioTest {
 
     private List<RoundStatus> statusesOf(ScoreSubtotal subtotal) {
         return subtotal.rounds().stream().map(RoundOutcome::status).toList();
+    }
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class FixedClockConfig {
+        @Bean
+        @Primary
+        Clock fixedClock() {
+            return Clock.fixed(Instant.parse("2026-03-02T10:00:00Z"), ZoneOffset.UTC);
+        }
     }
 }

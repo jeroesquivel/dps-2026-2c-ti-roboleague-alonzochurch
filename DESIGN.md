@@ -140,29 +140,26 @@ operaciones que estos casos de uso no necesitan. Un repositorio genérico no rom
 por sí mismo, pero aquí no justificaba abstraer las consultas específicas. También se descartó usar las
 implementaciones concretas directamente en los casos de uso, que ataría el negocio al detalle.
 
-### 1.4 Composition root explícito, sin framework de inyección
+### 1.4 Composición explícita con Spring en el backend
 
 **Patrón / principio:** Composition Root, Inyección de dependencias por constructor.
 
-**Dónde:** `infrastructure/config/RoboLeagueCompositionRoot`.
+**Dónde:** `backend/config/InfrastructureConfig`, `DomainServicesConfig` y `UseCasesConfig`.
 
-Es el lugar de ensamblado donde se eligen los adaptadores concretos. Los casos de uso reciben sus
-colaboradores por constructor; los agregados son inmutables y sus transiciones devuelven instancias
-nuevas (ver 4.11). **Sus métodos de acceso a casos de uso sólo devuelven puertos de entrada:** no hay
-getters de repositorios. Algunas consultas devuelven agregados del dominio; como no se pueden mutar,
-no abren un camino alternativo a los casos de uso, pero un futuro adaptador de API igual deberá
-proyectar su salida a DTOs para no acoplar el contrato público al modelo interno.
+Estas configuraciones son el composition root de producción: seleccionan adaptadores concretos,
+colaboradores de dominio y casos de uso, que Spring conserva como instancias singleton compartidas.
+Los casos de uso reciben sus colaboradores por constructor y se exponen por sus puertos de entrada;
+los controllers y la demo no acceden a repositorios ni a interactors concretos.
 
-`acceptAppealUseCase()` recibe la instancia de `recalculateStandingsUseCase()`: aceptar una apelación
+`AcceptAppealUseCase` recibe el bean `RecalculateStandings` por su interfaz: aceptar una apelación
 dispara el recálculo a través del mismo puerto de entrada (ver 4.5).
 
-**Por qué:** deja ver de un vistazo el grafo completo del sistema y permite que los tests construyan
-el módulo con un `Clock` fijo. Además prueba que el dominio funciona sin contenedor.
+**Por qué:** el backend web ya usa Spring Boot, por lo que mantener un segundo ensamblado manual de
+producción duplicaría el grafo. Los tests del núcleo conservan un fixture manual en `core/src/test`,
+lo que sigue probando que el dominio funciona sin contenedor y permite usar un `Clock` fijo.
 
-**Alternativas descartadas:** Spring u otro contenedor (dependencia pesada e innecesaria para una
-entrega de dominio); repositorios con estado mutable global o singletons compartidos (dificultan
-aislar el estado entre tests). Sí existen constantes y fábricas estáticas sin ese estado compartido,
-como `RoboLeagueCompositionRoot.inMemory`.
+**Alternativas descartadas:** conservar simultáneamente un composition root manual de producción y
+la configuración Spring; repositorios con estado mutable global o singletons fuera del contenedor.
 
 ## 2. Modelado del puntaje
 
@@ -1509,19 +1506,20 @@ No se aplicó: aceptar una apelación no emite un evento. `AcceptAppealUseCase` 
 sincrónica el puerto `RecalculateStandings` cuando la categoría ya tiene posiciones (ver 4.5), y
 `RecalculateStandings` sigue disponible para que el operador lo invoque por otros motivos.
 
-**Consecuencia:** la cadena corrección → recálculo es automática pero está cableada en el composition
-root, no desacoplada por un bus: si mañana otra operación también debe recalcular, hay que invocarlo
+**Consecuencia:** la cadena corrección → recálculo es automática pero está cableada explícitamente en
+`UseCasesConfig`, no desacoplada por un bus: si mañana otra operación también debe recalcular, hay que invocarlo
 explícitamente o introducir eventos. Publicar sigue siendo una decisión del operador. A cambio, el
 flujo es explícito, sincrónico y fácil de auditar, sin infraestructura de mensajería que esta entrega
 no tiene.
 
 ### 5.4 Framework de inyección de dependencias
 
-No se aplicó: el cableado es manual en `RoboLeagueCompositionRoot`.
+Se aplica Spring únicamente en el backend. `core` continúa dependiendo sólo del JDK y mantiene sus
+interactors libres de anotaciones. Agregar un caso de uso al backend requiere declararlo en
+`UseCasesConfig`; los consumidores reciben su puerto de entrada por constructor.
 
-**Consecuencia:** exponer un caso de uso nuevo desde el composition root exige modificar ese archivo.
-A cambio, el ensamblado es visible y la producción sólo depende del JDK. Los tests sí usan JUnit
-Jupiter, y Maven usa los plugins de compilación, verificación y empaquetado declarados en `pom.xml`.
+**Consecuencia:** el grafo de producción tiene una sola fuente de composición y puede reutilizarse
+por HTTP, consola y pruebas de integración, sin trasladar el framework al núcleo.
 
 ### 5.5 Framework de mocking
 
