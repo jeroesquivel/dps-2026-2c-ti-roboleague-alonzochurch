@@ -119,13 +119,21 @@ Then la API responde con conflicto y no guarda el resultado.
 - Actualización en tiempo real del frontend.
 - Cálculo del puntaje, cubierto por `SPEC_consultar-puntaje-explicable.md`.
 
-## 6. HTTP contract decisions
+## 6. Open questions
 
-- `POST /api/runs` realiza la captura completa.
-- `POST /api/runs/automatic-measurements` registra la fuente automática.
-- `POST /api/runs/panel-evaluations` registra la fuente de jueces.
-- `GET /api/runs/{runId}` consulta una corrida.
-- Por cada fuente se exponen `received`, `actor` y `receivedAt`; el recibo interno no forma parte
-  del contrato público.
+Resueltas:
 
-La adaptación HTTP y la interfaz mínima de `FR-10` están implementadas.
+- **URLs.** `POST /runs` (captura completa), `POST /runs/automatic-measurements` y
+  `POST /runs/panel-evaluations` (fuentes mixtas), y `GET /runs/{runId}` (consulta, compartida con
+  apelaciones y puntaje). Sin prefijo `/api`, igual que el resto de la API. Ronda, equipo, intento y
+  actor van en el cuerpo, porque son los datos del comando del núcleo.
+- **Respuesta.** Todas las operaciones devuelven el mismo `RunResponse` que la consulta, ampliado con
+  `evaluations`; no hay una segunda representación de la corrida. La captura completa y la primera fuente
+  responden `201` con `Location: /runs/{runId}`; la fuente que completa una corrida existente responde
+  `200` con el mismo `runId`.
+- **Recibos.** Se exponen `source`, `actor` y `receivedAt` por fuente recibida (es todo lo que contiene
+  un recibo) y las fuentes que faltan en `missingSources`. No se publica nada interno del agregado.
+- **Errores.** El formato común `{code, message}`: `409` para fuente repetida, intento ya capturado y
+  categoría cerrada; `422` para intento fuera de límite, métricas o penalidades desconocidas, paneles
+  inválidos, equipo ajeno a la ronda y modo de captura incorrecto; `400` para campos ausentes o inválidos
+  (nunca `500`).

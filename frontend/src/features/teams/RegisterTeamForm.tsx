@@ -13,6 +13,7 @@ import {
   type MemberDraft,
 } from './formModel';
 import RegistrationResult from './RegistrationResult';
+import TeamLookup from './TeamLookup';
 import type { DocumentType, MemberRole, RegistrationOutcome } from './types';
 
 type RobotField = keyof FormState['robot'];
@@ -170,6 +171,7 @@ export default function RegisterTeamForm() {
         </section>
       )}
       {outcome && <RegistrationResult outcome={outcome} />}
+      <TeamLookup />
     </>
   );
 }

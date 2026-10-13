@@ -1,16 +1,17 @@
 import { useState, type FormEvent } from 'react';
 import { ApiRequestError } from '../../api/http';
-import { captureAutomatic, captureComplete, capturePanel, findRunResult } from './api';
+import { captureAutomatic, captureComplete, capturePanel, findRun } from './api';
 import { emptyCaptureForm, parseCapture, type CaptureFormState } from './formModel';
 import RunResultView from './RunResultView';
-import type { AutomaticCaptureRequest, CompleteCaptureRequest, PanelCaptureRequest, RunResult } from './types';
+import type { Run } from '../appeals/types';
+import type { AutomaticCaptureRequest, CompleteCaptureRequest, PanelCaptureRequest } from './types';
 
 export default function ResultsPage() {
   const [form, setForm] = useState<CaptureFormState>(emptyCaptureForm);
   const [runId, setRunId] = useState('');
   const [problems, setProblems] = useState<string[]>([]);
   const [error, setError] = useState<ApiRequestError | null>(null);
-  const [result, setResult] = useState<RunResult | null>(null);
+  const [result, setResult] = useState<Run | null>(null);
   const [busy, setBusy] = useState(false);
 
   const update = (change: Partial<CaptureFormState>) => setForm((current) => ({ ...current, ...change }));
@@ -46,7 +47,7 @@ export default function ResultsPage() {
     setProblems([]);
     setBusy(true);
     try {
-      setResult(await findRunResult(runId.trim()));
+      setResult(await findRun(runId.trim()));
     } catch (failure) {
       setError(asApiError(failure));
     } finally {
@@ -96,7 +97,7 @@ export default function ResultsPage() {
         <h2>No se pudo registrar o consultar la corrida</h2>
         <p>{error.message}</p><p className="code">Código: {error.code}</p>
       </section>}
-      {result && <RunResultView result={result} />}
+      {result && <RunResultView run={result} />}
     </>
   );
 }

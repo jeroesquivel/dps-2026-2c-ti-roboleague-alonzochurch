@@ -20,7 +20,7 @@ npm run build    # comprobación de tipos y build de producción en dist/
 ## Comunicación con el backend
 
 En desarrollo el navegador sólo habla con el origen de Vite (`localhost:5173`). `vite.config.ts`
-define un proxy que reenvía `/api`, `/teams`, `/rounds`, `/competitions`, `/appeals`, `/runs`, `/audit` y `/seasons` a `http://localhost:8080`, por lo que **no hace falta
+define un proxy que reenvía `/teams`, `/rounds`, `/competitions`, `/appeals`, `/runs`, `/audit` y `/seasons` a `http://localhost:8080`, por lo que **no hace falta
 configurar CORS** en Spring. Para apuntar a otro backend:
 
 ```bash
@@ -36,11 +36,12 @@ proxy equivalente. Al agregar un endpoint nuevo hay que sumar su prefijo al prox
 src/api/http.ts            cliente HTTP compartido: JSON, ApiRequestError {code, message, conflicts}
 src/App.tsx                navegación entre Equipos y Rondas
 src/features/teams/
-  api.ts                   POST /teams
+  api.ts                   POST /teams y GET /teams/{id}
   types.ts                 contrato de la API según el README de la raíz
   formModel.ts             estado del formulario, validación de presencia/formato y armado del request
   RegisterTeamForm.tsx     formulario: integrantes, robot y documentación
   RegistrationResult.tsx   aceptación o rechazo con cada violación
+  TeamLookup.tsx           consulta de una inscripción por ID (datos, estado y violaciones)
 src/features/rounds/
   api.ts                   POST /rounds y GET /rounds/{id}
   types.ts                 contrato de la API de rondas
@@ -62,11 +63,11 @@ src/features/scores/
   ScorePage.tsx            consulta del puntaje de una corrida por ID
   ScoreView.tsx            total, contribuciones, tope, grupos por fuente o estado pendiente
 src/features/results/
-  api.ts                   captura completa, fuentes mixtas y GET /api/runs/{id}
-  types.ts                 contrato observable de resultados y requests por modalidad
+  api.ts                   POST /runs, /runs/automatic-measurements, /runs/panel-evaluations y GET /runs/{id}
+  types.ts                 requests por modalidad (la respuesta es el `Run` de appeals)
   formModel.ts             validación de presencia, números y estructura JSON
   ResultsPage.tsx          captura completa, automática, de jueces y consulta por ID
-  RunResultView.tsx        estado pendiente/completo, fuentes, recibos y datos actuales
+  RunResultView.tsx        estado pendiente/completo, recibos por fuente y datos actuales de una corrida
 src/features/event/
   api.ts                   POST /seasons, POST /seasons/{id}/competitions, GET /competitions/{id}, POST …/rulebooks
   types.ts                 contrato de la API de configuración del evento
@@ -106,7 +107,7 @@ src/features/appeals/
   competencia se puede publicar una versión nueva del reglamento.
 - **Registrar equipo** — spec [`SPEC_registrar-equipo`](../.docs/specs/SPEC_registrar-equipo.md)
   (FR-7, AC-6). Los IDs de la competencia y de la categoría se ingresan a mano (los muestra la pantalla de
-  configurar el evento).
+  configurar el evento). Debajo del formulario, «Consultar equipo» muestra una inscripción por su ID.
 - **Programar ronda** — spec [`SPEC_programar-rondas`](../.docs/specs/SPEC_programar-rondas.md)
   (FR-8). Se agregan o quitan largadas, y al enviar se muestra la ronda (consultada con
   `GET /rounds/{id}`) o, ante un `409 SCHEDULE_CONFLICT`, cada conflicto con su tipo. El campo de
@@ -117,8 +118,8 @@ src/features/appeals/
   provisionales y finales, se ven las corridas pendientes y la explicación de cada puntaje (rondas
   computadas y descartadas), y se publica como final. El botón de publicar aparece sólo en la última
   revisión provisional; si el servidor la rechaza (corridas o apelaciones pendientes) se muestra su
-  mensaje. La pantalla no ordena ni decide desempates: muestra lo que devuelve la API. Recalcular
-  queda sólo en la API. Para probarlo con datos, arrancar el backend con el perfil `dev` (ver el
+  mensaje. La pantalla no ordena ni decide desempates: muestra lo que devuelve la API. «Recalcular
+  posiciones» pide un motivo y crea una revisión provisional nueva. Para probarlo con datos, arrancar el backend con el perfil `dev` (ver el
   README de la raíz) y usar `COMPETITION-1` y `CATEGORY-1`.
 - **Apelaciones** — spec [`SPEC_gestionar-apelaciones`](../.docs/specs/SPEC_gestionar-apelaciones.md)
   (FR-10). Se consulta una corrida con su puntaje, se presenta una apelación y se consulta su estado.
@@ -144,7 +145,7 @@ src/features/appeals/
   mediciones, evaluaciones e incidentes se ingresan como JSON para admitir las claves definidas por
   cada reglamento sin duplicarlas en la interfaz. Después de cada operación se muestran el mismo
   `RunId`, el estado pendiente o completo, las fuentes recibidas y faltantes, sus actores y fechas,
-  los datos actuales y el estado de correcciones. Los conflictos y demás rechazos conservan el
+  los datos actuales y el estado de correcciones (la misma corrida que ve la pantalla de apelaciones). Los conflictos y demás rechazos conservan el
   mensaje entregado por la API.
 - **Auditoría** — spec [`SPEC_consultar-auditoria`](../.docs/specs/SPEC_consultar-auditoria.md) (FR-7). Se
   ingresa el ID de un sujeto (`RUN-1`, `APPEAL-1`, `ROUND-1`, `COMPETITION-1`, `CATEGORY-1`, `TEAM-1`,
@@ -154,3 +155,23 @@ src/features/appeals/
   eventos» y no como error. La pantalla no reconstruye ningún estado a partir de los eventos. Con el
   perfil `dev`, `RUN-1` tiene su captura; presentar y aceptar una apelación suma eventos a `APPEAL-1` y
   `RUN-1`.
+
+## Cobertura de los requisitos funcionales
+
+Cada capacidad de la consigna se puede ejecutar desde la interfaz, sin usar `curl`:
+
+| Capacidad (consigna) | Dónde se hace en el frontend |
+| --- | --- |
+| Configuración del evento | Evento: temporada, competencia con categorías y fechas, consulta |
+| Registro de equipos | Equipos: integrantes, robot, categoría y documentación; «Consultar equipo» |
+| Elegibilidad | Equipos: cada violación del reglamento se muestra al registrar o consultar |
+| Configuración de desafíos | Evento: reglamento (métricas, reglas, penalizaciones, bonificaciones, tope, N de M, mixto) y nuevas versiones |
+| Programación | Rondas: turnos, pistas y jueces; consulta de la ronda y conflictos de agenda |
+| Captura de resultados | Resultados: captura completa o por fuente (automática y jueces) |
+| Cálculo explicable | Puntaje y Apelaciones: total y contribución por contribución |
+| Ranking y desempates | Posiciones: orden, desempates aplicados y rondas computadas o descartadas |
+| Publicación | Posiciones: revisiones provisionales y publicación como final |
+| Apelaciones | Apelaciones: presentar, aceptar con corrección completa, rechazar |
+| Recálculo | Posiciones: «Recalcular posiciones» (y automático al aceptar una apelación) |
+| Auditoría | Auditoría: traza por sujeto, con valores originales y correcciones |
+| F1 / F2 / F3 | Posiciones (N de M), Puntaje (tope de bonificaciones), Resultados y Puntaje (mixto pendiente) |

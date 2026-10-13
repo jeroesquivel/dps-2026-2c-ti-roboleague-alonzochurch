@@ -20,3 +20,12 @@ export function findRevisions(competitionId: string, categoryId: string): Promis
 export function publishStandings(competitionId: string, categoryId: string, actor: string): Promise<Standings> {
   return postJson<Standings>(`${standingsPath(competitionId, categoryId)}/publication`, { actor });
 }
+
+export function recalculateStandings(
+  competitionId: string,
+  categoryId: string,
+  reason: string,
+  actor: string,
+): Promise<Standings> {
+  return postJson<Standings>(`${standingsPath(competitionId, categoryId)}/recalculation`, { reason, actor });
+}

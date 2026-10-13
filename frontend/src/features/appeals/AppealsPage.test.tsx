@@ -52,6 +52,7 @@ function run(overrides: Partial<Run> = {}): Run {
     currentMeasurements: { ENERGY: 42, OBJECTIVES: 4, TIME: 95.5 },
     currentIncidents: [],
     originalMeasurements: { ENERGY: 42, OBJECTIVES: 4, TIME: 95.5 },
+    evaluations: [],
     originalIncidents: [],
     corrections: [],
     completion: { status: 'COMPLETE', expectedSources: [], missingSources: [], receipts: [] },

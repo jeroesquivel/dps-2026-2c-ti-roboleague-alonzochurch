@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ApiRequestError } from '../../api/http';
-import { findLatestStandings, findRevisions, generateStandings, publishStandings } from './api';
+import { findLatestStandings, findRevisions, generateStandings, publishStandings, recalculateStandings } from './api';
 import RevisionList from './RevisionList';
 import StandingsView from './StandingsView';
 import type { Standings } from './types';
@@ -9,9 +9,10 @@ interface FormState {
   competitionId: string;
   categoryId: string;
   actor: string;
+  reason: string;
 }
 
-function problemsOf(form: FormState, needsActor: boolean): string[] {
+function problemsOf(form: FormState, needsActor: boolean, needsReason = false): string[] {
   const problems: string[] = [];
   if (form.competitionId.trim() === '') {
     problems.push('El ID de la competencia es obligatorio.');
@@ -22,11 +23,14 @@ function problemsOf(form: FormState, needsActor: boolean): string[] {
   if (needsActor && form.actor.trim() === '') {
     problems.push('Indicá quién realiza la operación.');
   }
+  if (needsReason && form.reason.trim() === '') {
+    problems.push('Indicá el motivo del recálculo.');
+  }
   return problems;
 }
 
 export default function StandingsPage() {
-  const [form, setForm] = useState<FormState>({ competitionId: '', categoryId: '', actor: '' });
+  const [form, setForm] = useState<FormState>({ competitionId: '', categoryId: '', actor: '', reason: '' });
   const [problems, setProblems] = useState<string[]>([]);
   const [error, setError] = useState<ApiRequestError | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -42,10 +46,10 @@ export default function StandingsPage() {
   const showingLatest = shown !== null && latest !== null && shown.revision === latest.revision;
 
   /** Valida el formulario, ejecuta la operación y traduce sus fallos a un mensaje para la pantalla. */
-  async function perform(needsActor: boolean, operation: () => Promise<void>) {
+  async function perform(needsActor: boolean, operation: () => Promise<void>, needsReason = false) {
     setError(null);
     setNotice(null);
-    const found = problemsOf(form, needsActor);
+    const found = problemsOf(form, needsActor, needsReason);
     setProblems(found);
     if (found.length > 0) {
       return;
@@ -86,6 +90,17 @@ export default function StandingsPage() {
       setNotice(`La revisión ${published.revision} quedó publicada como final.`);
     });
 
+  const recalculate = () =>
+    perform(
+      true,
+      async () => {
+        const recalculated = await recalculateStandings(competitionId, categoryId, form.reason.trim(), actor);
+        show(recalculated);
+        setNotice(`Se recalcularon las posiciones: nueva revisión ${recalculated.revision}.`);
+      },
+      true,
+    );
+
   const loadHistory = () =>
     perform(false, async () => {
       const history = await findRevisions(competitionId, categoryId);
@@ -105,6 +120,8 @@ export default function StandingsPage() {
             onChange={(value) => setForm({ ...form, categoryId: value })} />
           <Field label="Operación realizada por" value={form.actor}
             onChange={(value) => setForm({ ...form, actor: value })} />
+          <Field label="Motivo del recálculo" value={form.reason}
+            onChange={(value) => setForm({ ...form, reason: value })} />
         </fieldset>
 
         {problems.length > 0 && (
@@ -121,6 +138,7 @@ export default function StandingsPage() {
         <div className="actions">
           <button type="button" disabled={busy} onClick={consult}>Consultar posiciones</button>
           <button type="button" disabled={busy} onClick={generate}>Generar posiciones</button>
+          <button type="button" disabled={busy} onClick={recalculate}>Recalcular posiciones</button>
           <button type="button" disabled={busy} onClick={loadHistory}>Ver historial</button>
         </div>
       </form>

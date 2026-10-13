@@ -193,4 +193,29 @@ describe('RegisterTeamForm', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('team-3');
     expect(screen.getByRole('button', { name: 'Registrar equipo' })).toBeEnabled();
   });
+
+  it('consults a registration by id and shows its status, violations and data', async () => {
+    const fetchMock = mockFetch(jsonResponse({
+      teamId: 'TEAM-7', competitionId: 'COMPETITION-1', categoryId: 'CATEGORY-1', name: 'Rescue Crew',
+      status: 'REJECTED',
+      members: [{ memberId: 'MEMBER-1', fullName: 'Ada', birthDate: '2010-05-20', role: 'COMPETITOR' }],
+      robot: { name: 'Rex', robotClass: 'RESCUE_BOT', weightKg: 2.4, dimensions: { lengthMm: 200, widthMm: 150, heightMm: 120 } },
+      documentTypes: ['TECHNICAL_SHEET'],
+      violations: [{ code: 'REQUIRED_DOCUMENTS', reason: 'missing PARENTAL_CONSENT' }],
+    }, 200));
+    const user = userEvent.setup();
+    render(<RegisterTeamForm />);
+
+    await user.click(screen.getByRole('button', { name: 'Consultar equipo' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('El ID del equipo es obligatorio.');
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText('ID del equipo a consultar'), 'TEAM-7');
+    await user.click(screen.getByRole('button', { name: 'Consultar equipo' }));
+
+    expect(await screen.findByText('Inscripción rechazada')).toBeInTheDocument();
+    expect(screen.getByText(/missing PARENTAL_CONSENT/)).toBeInTheDocument();
+    expect(screen.getByText('Rex (RESCUE_BOT, 2.4 kg, 200×150×120 mm)')).toBeInTheDocument();
+    expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe('/teams/TEAM-7');
+  });
 });

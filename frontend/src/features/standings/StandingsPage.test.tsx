@@ -151,6 +151,25 @@ describe('StandingsPage', () => {
     expect(screen.getByRole('table')).toBeInTheDocument();
   });
 
+  it('recalculates the standings with a reason and shows the new revision', async () => {
+    const fetchMock = mockFetch(jsonResponse(standings({ revision: 2 }), 201));
+    const user = userEvent.setup();
+    render(<StandingsPage />);
+
+    await fillCategory(user);
+    await user.click(screen.getByRole('button', { name: 'Recalcular posiciones' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Indicá el motivo del recálculo.');
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText('Motivo del recálculo'), 'appeal APPEAL-1 accepted');
+    await user.click(screen.getByRole('button', { name: 'Recalcular posiciones' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('nueva revisión 2');
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(STANDINGS_URL + '/recalculation');
+    expect(JSON.parse(init.body as string)).toEqual({ reason: 'appeal APPEAL-1 accepted', actor: 'organizer' });
+  });
+
   it('does not call the API when the category or the actor is missing', async () => {
     const fetchMock = mockFetch();
     const user = userEvent.setup();

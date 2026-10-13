@@ -1,25 +1,21 @@
 import { getJson, postJson } from '../../api/http';
-import type {
-  AutomaticCaptureRequest,
-  CompleteCaptureRequest,
-  PanelCaptureRequest,
-  RunResult,
-} from './types';
+import type { Run } from '../appeals/types';
+import type { AutomaticCaptureRequest, CompleteCaptureRequest, PanelCaptureRequest } from './types';
 
-const RUNS = '/api/runs';
+const RUNS = '/runs';
 
-export function captureComplete(request: CompleteCaptureRequest): Promise<RunResult> {
-  return postJson<RunResult>(RUNS, request);
+export function captureComplete(request: CompleteCaptureRequest): Promise<Run> {
+  return postJson<Run>(RUNS, request);
 }
 
-export function captureAutomatic(request: AutomaticCaptureRequest): Promise<RunResult> {
-  return postJson<RunResult>(`${RUNS}/automatic-measurements`, request);
+export function captureAutomatic(request: AutomaticCaptureRequest): Promise<Run> {
+  return postJson<Run>(`${RUNS}/automatic-measurements`, request);
 }
 
-export function capturePanel(request: PanelCaptureRequest): Promise<RunResult> {
-  return postJson<RunResult>(`${RUNS}/panel-evaluations`, request);
+export function capturePanel(request: PanelCaptureRequest): Promise<Run> {
+  return postJson<Run>(`${RUNS}/panel-evaluations`, request);
 }
 
-export function findRunResult(runId: string): Promise<RunResult> {
-  return getJson<RunResult>(`${RUNS}/${encodeURIComponent(runId)}`);
+export function findRun(runId: string): Promise<Run> {
+  return getJson<Run>(`${RUNS}/${encodeURIComponent(runId)}`);
 }

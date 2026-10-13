@@ -55,23 +55,6 @@ GET http://localhost:8080/technical/health
 200 {"status":"UP"}
 ```
 
-La API de captura y consulta de resultados expone:
-
-```text
-POST /api/runs
-POST /api/runs/automatic-measurements
-POST /api/runs/panel-evaluations
-GET  /api/runs/{runId}
-```
-
-Las operaciones de captura reciben `roundId`, `teamId`, `attemptNumber`, `actor` y los datos
-correspondientes a su modalidad. Las métricas se representan como un objeto de claves y valores;
-las evaluaciones e incidentes como listas de DTOs. Cada respuesta devuelve la corrida observable,
-incluidos su estado de completitud, fuentes recibidas y faltantes, mediciones, evaluaciones,
-incidentes y estado de correcciones.
-
-Los errores usan un formato uniforme con `status`, `error` y `message`. Valores mal
-formados responden `400`, violaciones de negocio `422`, conflictos `409` y ausencias `404`.
 ### Datos de demostración (perfil `dev`)
 
 Con los repositorios en memoria, el backend arranca vacío y ninguna API crea competencias todavía. Para
@@ -328,6 +311,55 @@ publicar una revisión ya final dan `409 CONFLICT`. El `message` de una publicac
 las corridas pendientes o los identificadores de las apelaciones pendientes, pero su texto no es
 estable.
 
+## API: captura de resultados
+
+Spec: [`.docs/specs/SPEC_capturar-resultados.md`](.docs/specs/SPEC_capturar-resultados.md). `RunController`
+invoca los puertos `CaptureRunResult`, `RegisterAutomaticMeasurements`, `RegisterPanelEvaluations` y
+`FindRunResult`. Un desafío común se captura en una operación; uno mixto (F3) recibe sus dos fuentes por
+separado y en cualquier orden.
+
+| Operación | Ruta | Respuesta |
+| --- | --- | --- |
+| Captura completa (desafío no mixto) | `POST /runs` | `201` + `Location: /runs/{runId}` |
+| Fuente automática (desafío mixto) | `POST /runs/automatic-measurements` | `201` si abre la corrida, `200` si la completa |
+| Fuente de jueces (desafío mixto) | `POST /runs/panel-evaluations` | `201` si abre la corrida, `200` si la completa |
+| Consultar una corrida | `GET /runs/{runId}` | `200` |
+
+Todas devuelven el mismo cuerpo que `GET /runs/{runId}` (ver [API: apelaciones y
+corridas](#api-apelaciones-y-corridas)), con `evaluations` además de mediciones e incidentes. Las dos
+fuentes de un mismo equipo, ronda e intento operan sobre el mismo `runId`.
+
+```json
+// POST /runs
+{"roundId": "ROUND-1", "teamId": "TEAM-1", "attemptNumber": 1, "actor": "scorekeeper",
+ "measurements": {"TIME": 70, "OBJECTIVES": 5, "ENERGY": 40},
+ "evaluations": [{"judgeId": "J1", "criterion": "DESIGN", "score": 8}],
+ "incidents": [{"code": "RESTART", "occurrences": 1}]}
+
+// POST /runs/automatic-measurements
+{"roundId": "ROUND-2", "teamId": "TEAM-1", "attemptNumber": 1, "actor": "track-system",
+ "measurements": {"TIME": 70, "ACCURACY": 0.8}}
+
+// POST /runs/panel-evaluations
+{"roundId": "ROUND-2", "teamId": "TEAM-1", "attemptNumber": 1, "actor": "head-judge",
+ "evaluations": [{"judgeId": "J1", "criterion": "CREATIVITY", "score": 8}],
+ "incidents": []}
+```
+
+- Las métricas se indican por clave y las evaluaciones por juez y criterio; no se serializa
+  `MeasurementSet`, `JudgeEvaluations` ni `RunResult`. `evaluations` e `incidents` pueden ser `[]` pero
+  no faltar.
+- Una corrida pendiente tiene `completion.status = "PENDING"` y `completion.missingSources` con la
+  fuente que falta (`AUTOMATIC` o `JUDGES`); no tiene puntaje (`GET /runs/{runId}/score` responde
+  `PENDING`). Cada recibo de `completion.receipts` trae sólo `source`, `actor` y `receivedAt`; la
+  comprobación interna de la fuente no forma parte del contrato.
+- Una fuente repetida, un intento ya capturado y la captura de una categoría con posiciones finales dan
+  `409 CONFLICT` y no guardan nada (la recepción original se conserva). Un intento por encima del
+  máximo del desafío, una métrica o penalidad inexistente, un juez fuera del heat, un panel incompleto,
+  un equipo ajeno a la ronda y usar el modo equivocado (fuente suelta en un desafío común o captura
+  completa en uno mixto) dan `422 RULE_VIOLATION`. Campos faltantes o valores inválidos dan
+  `400 INVALID_VALUE`; una ronda o corrida inexistente, `404`.
+
 ## API: apelaciones y corridas
 
 Spec: [`.docs/specs/SPEC_gestionar-apelaciones.md`](.docs/specs/SPEC_gestionar-apelaciones.md). Los
@@ -376,7 +408,7 @@ El detalle de una corrida (`GET /runs/{runId}`) trae `status` (`CAPTURED` o `COR
 `currentMeasurements`/`currentIncidents`, `originalMeasurements`/`originalIncidents` (el original se
 conserva siempre), `corrections` (cada una con `appliedAt`, `actor`, `reason`, sus mediciones e
 incidentes y la apelación de origen), `rulebookVersion`, `roundId`, `heatId`, `attemptNumber` y
-`completion` (`PENDING` o `COMPLETE`, fuentes esperadas, faltantes y recibidas). El puntaje se describe en [API: puntaje de una corrida](#api-puntaje-de-una-corrida).
+`evaluations` (las del panel, tal como se recibieron) y `completion` (`PENDING` o `COMPLETE`, fuentes esperadas, faltantes y recibidas). El puntaje se describe en [API: puntaje de una corrida](#api-puntaje-de-una-corrida).
 
 Errores (mismo formato y tabla que el resto de la API): un equipo ajeno, una ventana vencida o una
 corrida incompleta dan `422 RULE_VIOLATION` y no guardan ni auditan nada; apelar dos veces la misma

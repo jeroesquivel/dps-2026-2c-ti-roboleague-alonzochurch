@@ -29,3 +29,21 @@ export interface RegistrationOutcome {
   status: 'ACCEPTED' | 'REJECTED';
   violations: Violation[];
 }
+
+/** Inscripción tal como la devuelve `GET /teams/{teamId}`. */
+export interface TeamRegistration {
+  teamId: string;
+  competitionId: string;
+  categoryId: string;
+  name: string;
+  status: 'SUBMITTED' | 'ACCEPTED' | 'REJECTED';
+  members: { memberId: string; fullName: string; birthDate: string; role: MemberRole }[];
+  robot: {
+    name: string;
+    robotClass: string;
+    weightKg: number;
+    dimensions: { lengthMm: number; widthMm: number; heightMm: number };
+  };
+  documentTypes: DocumentType[];
+  violations: Violation[];
+}

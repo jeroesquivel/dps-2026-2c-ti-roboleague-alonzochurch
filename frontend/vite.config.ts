@@ -9,7 +9,6 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': BACKEND,
       '/teams': BACKEND,
       '/rounds': BACKEND,
       '/competitions': BACKEND,

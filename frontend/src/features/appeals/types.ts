@@ -55,6 +55,13 @@ export interface Correction {
   sourceAppeal: string;
 }
 
+/** Evaluación de un juez para un criterio, tal como la recibió la corrida. */
+export interface Evaluation {
+  judgeId: string;
+  criterion: string;
+  score: number;
+}
+
 export interface Receipt {
   source: string;
   actor: string;
@@ -81,6 +88,7 @@ export interface Run {
   status: RunStatus;
   currentMeasurements: Record<string, number>;
   currentIncidents: Incident[];
+  evaluations: Evaluation[];
   originalMeasurements: Record<string, number>;
   originalIncidents: Incident[];
   corrections: Correction[];

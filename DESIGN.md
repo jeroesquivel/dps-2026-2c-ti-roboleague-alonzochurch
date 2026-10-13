@@ -2002,3 +2002,25 @@ los reglamentos de F1 y F3 como presets cargados en un editor JSON; el frontend 
 JSON y el backend decide qué es válido. Los formularios de temporada y competencia sí son reales, y los
 ids obtenidos se encadenan entre pasos para no volver a tipearlos (AC-6).
 
+### 10.6 Captura de resultados en la API
+
+**Un recurso de corrida, no dos.** La captura vive en `RunController`, junto a la consulta de la corrida
+y de su puntaje, bajo `/runs`. Una primera versión de este adaptador definía su propio controller bajo
+`/api/runs` con un `RunResponse` y un manejador de errores propios; se descartó porque duplicaba la
+consulta (`GET /runs/{id}` y `GET /api/runs/{id}` con formas distintas, versión del reglamento como
+número y como texto), rompía el formato de error común y, además, dos `@RestControllerAdvice` con el
+mismo nombre simple impedían arrancar la aplicación. Ahora toda operación que devuelve una corrida
+devuelve el mismo `RunResponse`, ampliado con las evaluaciones del panel.
+
+**201 si abre, 200 si completa.** El caso de uso sólo devuelve el `RunId`; el controller consulta la corrida
+con `FindRunResult` y decide el estado por el número de recibos: una sola recepción significa que esta
+operación creó la corrida. Es una proyección del estado observable, no una regla nueva (C-1).
+
+**Presencia en el mapper, reglas en el núcleo.** `RunWebMapper` exige los campos de cada solicitud
+(`measurements`, `evaluations` e `incidents` aunque estén vacíos) y responde `400` si faltan, en lugar de
+dejar escapar un `NullPointerException`. La validez contra el reglamento (métricas, penalidades, jueces,
+intento) y el modo de captura son decisiones de `ChallengeSpec`.
+
+**Los identificadores de corrida se consumen aunque la captura se rechace.** Los casos de uso piden el
+`RunId` antes de validar, de modo que un rechazo deja un hueco en la secuencia. No se modificó el núcleo
+por esto: la spec exige que no se cree otra corrida, no que los ids sean contiguos.
