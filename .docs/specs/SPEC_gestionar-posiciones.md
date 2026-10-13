@@ -119,8 +119,16 @@ Then la API responde como recurso no encontrado.
 
 ## 6. Open questions
 
-- Definir si el endpoint de consulta devuelve siempre historial completo o separa última revisión e
-  historial para evitar respuestas innecesariamente grandes.
-- Definir qué identificación legible de equipo acompaña al `TeamId`; hoy `StandingEntry` no contiene
-  el nombre y el controller no puede consultar repositorios directamente.
+Resueltas:
 
+- **Consulta e historial.** Se separan: `GET …/standings` devuelve sólo la última revisión y
+  `GET …/standings/revisions` devuelve todas, de la primera a la última, cada una completa con su
+  explicación, estado, fecha y versión de reglamento. El frontend carga el historial sólo cuando se lo
+  pide.
+- **Identificación del equipo.** El adaptador web consulta `FindTeamRegistration` y agrega `teamName`
+  a cada entrada y a cada corrida pendiente, una vez por equipo y por petición. No se modifica
+  `StandingEntry`: el nombre es el actual de la inscripción, no el de la fecha de la revisión.
+- **Motivo del recálculo.** `RecalculateStandings.Command` rechaza un motivo ausente o en blanco
+  (`InvalidValueException`, `400`); antes un `null` fallaba al auditar.
+- **Apelación pendiente.** La publicación bloqueada responde `409 CONFLICT` y el `message` incluye los
+  identificadores de las apelaciones pendientes; el texto no es parte del contrato.

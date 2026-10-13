@@ -19,13 +19,22 @@ export class ApiRequestError extends Error {
   }
 }
 
+/** Tiempo máximo de espera de la respuesta del servidor. */
+export const REQUEST_TIMEOUT_MS = 15_000;
+
 /** Envía una petición a la API y devuelve la respuesta si fue exitosa; si no, lanza `ApiRequestError`. */
 export async function request(url: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   let response: Response;
   try {
-    response = await fetch(url, init);
+    response = await fetch(url, { ...init, signal: controller.signal });
   } catch {
-    throw new ApiRequestError('NETWORK_ERROR', 'No se pudo conectar con el servidor.', 0);
+    throw controller.signal.aborted
+      ? new ApiRequestError('TIMEOUT', 'El servidor tardó demasiado en responder.', 0)
+      : new ApiRequestError('NETWORK_ERROR', 'No se pudo conectar con el servidor.', 0);
+  } finally {
+    clearTimeout(timer);
   }
   if (!response.ok) {
     throw await errorOf(response);

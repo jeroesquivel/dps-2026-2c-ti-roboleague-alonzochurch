@@ -55,6 +55,23 @@ GET http://localhost:8080/technical/health
 200 {"status":"UP"}
 ```
 
+### Datos de demostración (perfil `dev`)
+
+Con los repositorios en memoria, el backend arranca vacío y ninguna API crea competencias todavía. Para
+usar el frontend de punta a punta se puede arrancar con el perfil `dev`, que carga una competencia con
+una categoría, cuatro equipos, seis rondas y sus resultados:
+
+```bash
+java -jar backend/target/roboleague-backend-1.0-SNAPSHOT.jar --spring.profiles.active=dev
+```
+
+Los datos se declaran en [`application-dev.yaml`](backend/src/main/resources/application-dev.yaml) y se
+cargan por los puertos de entrada del núcleo. Los identificadores son secuenciales y siempre los mismos:
+competencia `COMPETITION-1`, categoría `CATEGORY-1`, equipos `TEAM-1` a `TEAM-4` (Kappa Labs, Delta
+Bots, Omega Crew y Sigma Works), rondas `ROUND-1` a `ROUND-6`. No se generan posiciones: eso se hace
+desde la API o la pantalla. La corrida de SHOWCASE de Omega Crew queda pendiente (falta el jurado), así
+que publicar da conflicto hasta que se complete. Sin el perfil `dev` no se carga nada.
+
 ## API: equipos
 
 Spec: [`.docs/specs/SPEC_registrar-equipo.md`](.docs/specs/SPEC_registrar-equipo.md). El controller
@@ -217,6 +234,83 @@ rondas «mejores N de M» alcanzado → `409 CONFLICT`; heat fuera del período 
 no aceptado/de otra competencia → `422 RULE_VIOLATION`; equipo, competencia, categoría o desafío
 inexistente → `404`.
 
+## API: posiciones
+
+Spec: [`.docs/specs/SPEC_gestionar-posiciones.md`](.docs/specs/SPEC_gestionar-posiciones.md). El controller
+invoca los puertos `GenerateStandings`, `GetStandings`, `PublishStandings` y `RecalculateStandings`, y
+`FindTeamRegistration` para agregar el nombre de cada equipo. El orden, los desempates y la selección
+de rondas los decide el dominio; la API sólo los proyecta.
+
+Todas las rutas cuelgan de `/competitions/{competitionId}/categories/{categoryId}/standings`.
+
+| Operación | Ruta | Cuerpo | Respuesta |
+| --- | --- | --- | --- |
+| Generar la primera tabla provisional | `POST …/standings` | `{"actor": "organizer"}` | `201` con la revisión 1 y `Location: …/standings` |
+| Consultar la última revisión | `GET …/standings` | — | `200` con la última revisión |
+| Consultar todas las revisiones | `GET …/standings/revisions` | — | `200` `{"revisions": [...]}` de la primera a la última |
+| Publicar como final | `POST …/standings/publication` | `{"actor": "organizer"}` | `200` con la misma revisión en estado `FINAL` |
+| Recalcular | `POST …/standings/recalculation` | `{"reason": "…", "actor": "organizer"}` | `201` con la revisión siguiente, `PROVISIONAL` |
+
+`actor` es obligatorio en las operaciones que modifican; `reason` debe ser no vacío (si no, `400`).
+Una apelación aceptada sobre una categoría con posiciones también crea una revisión nueva, sin
+llamar a este endpoint.
+
+Cada revisión tiene esta forma:
+
+```json
+{
+  "competitionId": "COMPETITION-1",
+  "categoryId": "CATEGORY-1",
+  "revision": 1,
+  "status": "PROVISIONAL",
+  "generatedAt": "2026-03-02T10:15:30.123Z",
+  "rulebookVersion": "v1",
+  "entries": [
+    {
+      "position": 1,
+      "teamId": "TEAM-3",
+      "teamName": "Omega Crew",
+      "totalPoints": 71.50,
+      "appliedTiebreaks": [{"code": "HIGHEST_SINGLE_RUN", "description": "highest single run"}],
+      "explanation": {
+        "subtotals": [
+          {
+            "code": "BEST_ROUNDS",
+            "description": "best 2 of 3 rounds",
+            "points": 71.50,
+            "rounds": [
+              {"ordinal": 3, "points": 40.00, "status": "COUNTED", "reason": "…"},
+              {"ordinal": 4, "points": 31.50, "status": "COUNTED", "reason": "…"},
+              {"ordinal": 5, "points": 20.00, "status": "DISCARDED", "reason": "…"}
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "pendingRuns": [
+    {"runId": "RUN-23", "teamId": "TEAM-4", "teamName": "Sigma Works", "roundId": "ROUND-6",
+     "attemptNumber": 1, "missingSources": ["JUDGES"]}
+  ]
+}
+```
+
+- `status` es `PROVISIONAL` o `FINAL`; `generatedAt` es un instante UTC. Cada revisión conserva su
+  propio estado, fecha y versión de reglamento: las anteriores nunca cambian.
+- `entries` ya viene ordenado y con `position`; sólo incluye equipos con al menos una corrida
+  completa. `totalPoints` y `points` son decimales con dos cifras.
+- `rounds` de cada subtotal aparece sólo en desafíos con «mejores N de M»: `COUNTED` suma sus puntos y
+  `DISCARDED` no; `reason` es una descripción que no debe interpretarse.
+- `pendingRuns` lista las corridas incompletas, que no puntúan, y qué fuente falta (`AUTOMATIC` o
+  `JUDGES`).
+- `teamName` es el nombre actual de la inscripción del equipo.
+
+Errores (mismo formato y tabla que el resto de la API): una categoría sin posiciones da `404` al
+consultar, publicar o recalcular; generar dos veces, publicar con corridas o apelaciones pendientes y
+publicar una revisión ya final dan `409 CONFLICT`. El `message` de una publicación bloqueada indica
+las corridas pendientes o los identificadores de las apelaciones pendientes, pero su texto no es
+estable.
+
 ## Ejecutar el frontend
 
 El frontend (React + Vite) vive en [`frontend/`](frontend/README.md). Con el backend en
@@ -229,7 +323,7 @@ npm run dev     # http://localhost:5173
 npm test
 ```
 
-En desarrollo Vite reenvía `/teams` y `/rounds` al backend mediante un proxy, así que no hace falta CORS.
+En desarrollo Vite reenvía `/teams`, `/rounds` y `/competitions` al backend mediante un proxy, así que no hace falta CORS.
 
 ## Ejecutar la demo repetible
 

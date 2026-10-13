@@ -11,6 +11,7 @@ export default defineConfig({
     proxy: {
       '/teams': BACKEND,
       '/rounds': BACKEND,
+      '/competitions': BACKEND,
     },
   },
   test: {

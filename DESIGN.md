@@ -1873,3 +1873,29 @@ Verificación del bootstrap el 12 de octubre de 2026: **324 tests, 0 fallos, 0 e
 (303 en `core` y 21 en `backend`). JaCoCo 0.8.15 mantiene **100 %** de instrucciones, ramas, líneas,
 complejidad, métodos y clases del código productivo de `core`. La prueba del backend cubre el
 arranque completo y la infraestructura HTTP real.
+
+### 10.1 Adaptador web de posiciones y datos de demostración
+
+Las specs de equipos, rondas y posiciones agregaron controllers que invocan sólo puertos de entrada
+(`TeamController`, `RoundController`, `StandingsController`); `GET /technical/health` ya no es la única
+entrada HTTP. Los DTOs y mappers viven en `adapter/in/web/...` y un `ApiExceptionHandler` compartido
+traduce la jerarquía de excepciones del dominio (4.9) a estados HTTP.
+
+**Posiciones.** `StandingsController` expone generar, última revisión, historial, publicación y
+recálculo. Proyecta `Standings`, `StandingEntry` y `ScoreExplanation` sin reordenar ni recalcular nada.
+El nombre del equipo se agrega en el adaptador consultando `FindTeamRegistration` en lugar de
+guardarlo en `StandingEntry`: evita tocar el núcleo por un dato de presentación, a costa de mostrar el
+nombre actual y no el de la fecha de la revisión. La consulta se separa en «última» e «historial» para
+no enviar todas las revisiones en cada lectura.
+
+**El motivo del recálculo lo exige el núcleo.** `RecalculateStandings.Command` valida que `reason` no
+sea nulo ni esté en blanco. Hasta ahora sólo el log de auditoría dependía de él y un `null` fallaba con
+una excepción no controlada; la regla pertenece al comando, no a cada adaptador que lo construya.
+
+**Datos de demostración para la web.** El perfil `dev` de Spring (`application-dev.yaml`) carga una
+competencia con equipos, rondas y resultados mediante los puertos de entrada, con un `ApplicationRunner`
+declarado sólo en ese perfil. Los datos son configuración (`@ConfigurationProperties`), no código, y
+reutilizan el `DemoRulebook` de la demo por consola. Sin el perfil no se carga nada, por lo que la
+alternativa descartada de 10 («cargar la demo durante cada arranque») sigue vigente para el arranque
+normal y para los tests. Una prueba arranca el perfil `dev` y verifica que los resultados cargados
+producen posiciones con una corrida pendiente y rondas descartadas.

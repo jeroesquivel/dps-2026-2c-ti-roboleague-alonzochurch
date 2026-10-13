@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import ScheduleRoundForm from './features/rounds/ScheduleRoundForm';
+import StandingsPage from './features/standings/StandingsPage';
 import RegisterTeamForm from './features/teams/RegisterTeamForm';
 
-type Section = 'teams' | 'rounds';
+type Section = 'teams' | 'rounds' | 'standings';
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'teams', label: 'Equipos' },
   { id: 'rounds', label: 'Rondas' },
+  { id: 'standings', label: 'Posiciones' },
 ];
 
 export default function App() {
@@ -22,7 +24,9 @@ export default function App() {
           </button>
         ))}
       </nav>
-      {section === 'teams' ? <RegisterTeamForm /> : <ScheduleRoundForm />}
+      {section === 'teams' && <RegisterTeamForm />}
+      {section === 'rounds' && <ScheduleRoundForm />}
+      {section === 'standings' && <StandingsPage />}
     </main>
   );
 }

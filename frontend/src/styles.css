@@ -23,3 +23,15 @@ dd { margin: 0; }
 table { width: 100%; border-collapse: collapse; font-size: .9rem; background: #fff; }
 caption { text-align: left; font-weight: 600; padding-bottom: .3rem; }
 th, td { border: 1px solid #c8ccd2; padding: .3rem .5rem; text-align: left; }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.badge { display: inline-block; padding: .1rem .5rem; border-radius: 1rem; font-size: .8rem; font-weight: 600; vertical-align: middle; }
+.badge--provisional { background: #fff4e5; border: 1px solid #f0b35c; }
+.badge--final { background: #e7f6ec; border: 1px solid #4cae6b; }
+.meta { font-size: .85rem; color: #555; }
+.pending { background: #fff4e5; border: 1px solid #f0b35c; border-radius: .5rem; padding: .5rem 1rem; margin-bottom: 1rem; }
+.pending h3 { margin: 0 0 .25rem; font-size: 1rem; }
+.revisions { display: flex; flex-direction: column; gap: .35rem; margin: 1rem 0 0; }
+.revisions button[aria-current='true'] { background: #1a1a1a; border-color: #1a1a1a; color: #fff; }
+.notice { background: #e7f6ec; border: 1px solid #4cae6b; border-radius: .5rem; padding: .5rem 1rem; }
+.publish { margin-top: 1rem; background: #1f4fd8; border-color: #1f4fd8; color: #fff; }
+details ul { margin: .4rem 0 0; padding-left: 1.2rem; }
