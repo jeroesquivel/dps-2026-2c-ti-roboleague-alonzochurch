@@ -11,6 +11,7 @@ import com.dps.roboleague.domain.ranking.Revision;
 import com.dps.roboleague.domain.ranking.Standings;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.scoring.BonusCap;
+import com.dps.roboleague.domain.scoring.BonusCapOutcome;
 import com.dps.roboleague.domain.scoring.ContributionKind;
 import com.dps.roboleague.domain.scoring.ScoreBreakdown;
 import com.dps.roboleague.domain.scoring.ScoreContribution;
@@ -51,6 +52,25 @@ class BonusCapScoringTest {
         assertTrue(trim.explanation().contains("10.00"));
         assertEquals(Points.of(25), breakdown.totalOf(ContributionKind.BONUS));
         assertEquals(Points.of(75), score(run).total());
+    }
+
+    @Test
+    void theRunScoreReportsTheBonusesObtainedTheCapAndTheTrimAsData() {
+        RulebookVersion uncapped = publishThreeBonuses(Optional.empty());
+        RunId earlier = captureAllBonuses(edition.scheduleRoundFor(RescueEditionFixture.CHALLENGE_ID, 1,
+                List.of(delta)));
+        publishThreeBonuses(Optional.of(BonusCap.of(25)));
+        RunId later = captureAllBonuses(edition.scheduleRoundFor(RescueEditionFixture.CHALLENGE_ID, 2,
+                List.of(delta)));
+
+        BonusCapOutcome outcome = score(later).bonusCap().orElseThrow();
+
+        assertEquals(Points.of(35), outcome.obtained());
+        assertEquals(Points.of(25), outcome.cap());
+        assertEquals(Points.of(10), outcome.trimmed());
+        assertEquals(Points.of(25), outcome.applied());
+        assertEquals(uncapped, score(earlier).rulebookVersion());
+        assertTrue(score(earlier).bonusCap().isEmpty());
     }
 
     @Test

@@ -1,4 +1,4 @@
-import type { AppealStatus, ContributionKind, RunStatus } from './types';
+import type { AppealStatus, RunStatus } from './types';
 
 export const APPEAL_STATUS_LABELS: Record<AppealStatus, string> = {
   SUBMITTED: 'Pendiente',
@@ -9,12 +9,6 @@ export const APPEAL_STATUS_LABELS: Record<AppealStatus, string> = {
 export const RUN_STATUS_LABELS: Record<RunStatus, string> = {
   CAPTURED: 'Capturada',
   CORRECTED: 'Corregida',
-};
-
-export const CONTRIBUTION_LABELS: Record<ContributionKind, string> = {
-  EARNED: 'Puntos',
-  BONUS: 'Bonus',
-  PENALTY: 'Penalidad',
 };
 
 export { formatInstant, formatPoints } from '../standings/labels';

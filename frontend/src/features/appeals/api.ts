@@ -4,7 +4,6 @@ import type {
   Appeal,
   RejectAppealRequest,
   Run,
-  RunScore,
   SubmitAppealRequest,
 } from './types';
 
@@ -29,8 +28,4 @@ export function rejectAppeal(appealId: string, request: RejectAppealRequest): Pr
 
 export function findRun(runId: string): Promise<Run> {
   return getJson<Run>(runPath(runId));
-}
-
-export function findRunScore(runId: string): Promise<RunScore> {
-  return getJson<RunScore>(`${runPath(runId)}/score`);
 }

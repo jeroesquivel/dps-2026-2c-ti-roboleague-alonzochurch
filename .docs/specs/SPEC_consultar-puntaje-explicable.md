@@ -114,7 +114,20 @@ Then la API responde como recurso no encontrado.
 
 ## 6. Open questions
 
-- Definir si una corrida pendiente se representa con `409 Conflict`, `422 Unprocessable Entity` o
-  una respuesta exitosa sin total; el criterio debe ser uniforme con el contrato general de la API.
-- Definir los nombres públicos de `ContributionKind` y `ResultSource`.
+Resueltas:
 
+- **Corrida pendiente.** `GET /runs/{runId}/score` responde `200` con `completionStatus` `PENDING`,
+  `missingSources` (`AUTOMATIC` y/o `JUDGES`) y `total`, `contributions`, `bonusCap` y `bySource` en
+  `null`. La corrida existe y la consulta es válida: es un estado, no un error, y así también lo
+  informa la tabla de posiciones. `409` y `422` quedan para operaciones que modifican y chocan con el
+  estado; además su cuerpo de error no tiene un campo estructurado para las fuentes faltantes.
+  `FindRunResult` informa el estado de completitud y sólo una corrida completa se pasa a
+  `CalculateRunScore`.
+- **Tope de bonificaciones.** `CalculateRunScore.RunScore` incorpora `Optional<BonusCapOutcome>`
+  (obtenidas, tope y recorte), calculado por el desafío histórico con la misma cuenta que la
+  contribución `BONUS_CAP`. La API lo expone como `bonusCap {obtained, cap, trimmed, applied}`
+  (`null` si el desafío no tiene tope) y la contribución `BONUS_CAP` sigue apareciendo en la lista.
+  Así el tope y el recorte no dependen de interpretar el texto de una explicación, que no es parte
+  del contrato.
+- **Nombres públicos.** Se usan los del dominio: `EARNED`, `BONUS`, `PENALTY` y `AUTOMATIC`,
+  `JUDGES`. El frontend los traduce a español en sus etiquetas.

@@ -1,5 +1,7 @@
-import { CONTRIBUTION_LABELS, formatAmount, formatInstant, formatPoints, RUN_STATUS_LABELS } from './labels';
-import type { Incident, Run, RunScore } from './types';
+import ScoreView from '../scores/ScoreView';
+import type { RunScore } from '../scores/types';
+import { formatAmount, formatInstant, RUN_STATUS_LABELS } from './labels';
+import type { Incident, Run } from './types';
 
 function incidentsText(incidents: Incident[]): string {
   return incidents.length === 0 ? 'ninguno' : incidents.map((i) => `${i.code} × ${i.occurrences}`).join(', ');
@@ -58,21 +60,7 @@ export default function RunView({ run, score }: { run: Run; score: RunScore | nu
       <MeasurementsTable caption="Mediciones vigentes" measurements={run.currentMeasurements} />
       <p>Incidentes vigentes: {incidentsText(run.currentIncidents)}</p>
 
-      {score && (
-        <div className="score">
-          <h3>
-            Puntaje: <strong>{formatPoints(score.total)}</strong>
-          </h3>
-          <ul>
-            {score.contributions.map((contribution, index) => (
-              <li key={`${contribution.ruleCode}-${index}`}>
-                {`${CONTRIBUTION_LABELS[contribution.kind]} ${contribution.ruleCode}: ${formatPoints(contribution.points)}`}
-                <span className="code"> — {contribution.explanation}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {score && <ScoreView score={score} />}
 
       {corrected && (
         <details open>

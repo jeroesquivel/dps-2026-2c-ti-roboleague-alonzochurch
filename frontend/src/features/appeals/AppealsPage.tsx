@@ -5,12 +5,14 @@ import type { Round } from '../rounds/types';
 import { findRevisions } from '../standings/api';
 import StandingsView from '../standings/StandingsView';
 import type { Standings } from '../standings/types';
-import { acceptAppeal, findAppeal, findRun, findRunScore, rejectAppeal, submitAppeal } from './api';
+import { findRunScore } from '../scores/api';
+import type { RunScore } from '../scores/types';
+import { acceptAppeal, findAppeal, findRun, rejectAppeal, submitAppeal } from './api';
 import AppealView from './AppealView';
 import { submissionProblems } from './formModel';
 import ResolutionForm from './ResolutionForm';
 import RunView from './RunView';
-import type { AcceptAppealRequest, Appeal, RejectAppealRequest, Run, RunScore, SubmitAppealRequest } from './types';
+import type { AcceptAppealRequest, Appeal, RejectAppealRequest, Run, SubmitAppealRequest } from './types';
 
 /** Lo que se observa de las posiciones de la categoría tras aceptar una apelación. */
 type Recalculation =

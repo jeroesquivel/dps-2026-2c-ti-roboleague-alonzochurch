@@ -55,6 +55,12 @@ src/features/standings/
   StandingsPage.tsx        formulario de categoría y acciones (consultar, generar, historial, publicar)
   StandingsView.tsx        tabla de una revisión, corridas pendientes y explicación por equipo
   RevisionList.tsx         selector de revisiones del historial
+src/features/scores/
+  api.ts                   GET /runs/{id}/score
+  types.ts                 contrato del puntaje (contribuciones, tope de bonificaciones, fuentes, pendiente)
+  labels.ts                etiquetas en español (tipo de contribución, fuentes)
+  ScorePage.tsx            consulta del puntaje de una corrida por ID
+  ScoreView.tsx            total, contribuciones, tope, grupos por fuente o estado pendiente
 src/features/appeals/
   api.ts                   presentar, consultar, aceptar, rechazar; consultar corrida y puntaje
   types.ts                 contrato de la API de apelaciones y corridas
@@ -63,7 +69,7 @@ src/features/appeals/
   AppealsPage.tsx          consulta de corrida, presentación y consulta de apelaciones, aceptación/rechazo
   ResolutionForm.tsx       revisor, fundamento y corrección editable (mediciones e incidentes)
   AppealView.tsx           estado, reclamo y decisión de una apelación
-  RunView.tsx              resultado vigente, puntaje explicado e historial de correcciones
+  RunView.tsx              resultado vigente, puntaje (con ScoreView) e historial de correcciones
 ```
 
 ## Flujos implementados
@@ -94,3 +100,11 @@ src/features/appeals/
   ventana vencida, apelación repetida, corrección inválida) se muestran con su mensaje. El frontend no
   calcula puntajes ni decide elegibilidad: sólo valida presencia y formato numérico. Con el perfil
   `dev`, `RUN-1` es una corrida de `TEAM-1`.
+- **Puntaje de una corrida** — spec
+  [`SPEC_consultar-puntaje-explicable`](../.docs/specs/SPEC_consultar-puntaje-explicable.md) (FR-10). Se
+  consulta una corrida por ID y se muestran el total, el reglamento, cada contribución (las penalidades
+  se distinguen con color y signo negativo), el tope de bonificaciones (obtenidas, tope, recorte y
+  aplicadas), los grupos por fuente con su subtotal en un desafío mixto y, si la corrida está pendiente,
+  que no tiene puntaje y qué fuente falta. Todos los números vienen de la API: la pantalla no suma ni
+  calcula. `ScoreView` también se usa en la pantalla de apelaciones. Con el perfil `dev`, `RUN-1` tiene
+  tope de bonificaciones, `RUN-21` es mixta completa y `RUN-23` está pendiente.

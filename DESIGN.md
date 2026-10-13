@@ -1929,3 +1929,25 @@ corrección inválida o una apelación ya resuelta no dejan cambios. La web no n
 La observación de que presentar una apelación rechazada consume un identificador de la secuencia
 es aceptada: el identificador no se guarda ni se audita.
 
+### 10.3 Puntaje explicable en la API
+
+**El tope de bonificaciones se expone como dato.** `CalculateRunScore.RunScore` incorpora
+`Optional<BonusCapOutcome>` (bonificaciones obtenidas, tope y recorte). `BonusCap.outcomeOf` hace la
+cuenta una sola vez y `BonusCap.trim` la reutiliza para construir la contribución `BONUS_CAP` (2.5), de
+modo que el dato y la contribución no pueden divergir. El desafío lo calcula desde el reglamento
+histórico de la corrida (`ChallengeSpec.bonusCapOutcome`). La alternativa descartada era interpretar el
+texto de la explicación o dejar el tope fuera de la respuesta: el texto no es contrato y el tope no
+figuraba en ningún otro lugar accesible desde los puertos. No cambia la fórmula ni el desglose existente.
+
+**Una corrida pendiente es un estado, no un error.** `CalculateRunScore` sigue rechazando una corrida
+incompleta con `RuleViolationException` (no hay puntaje parcial, 4.13). El controller consulta antes
+`FindRunResult` y, si la corrida está incompleta, responde `200` con `PENDING` y las fuentes faltantes
+en lugar de traducir esa excepción a `422`: la consulta es válida, el recurso existe y el cuerpo de
+error no tiene un campo estructurado para las fuentes. Es coherente con las posiciones, que ya listan
+las corridas pendientes como datos. Decidir si una corrida está completa sigue siendo del núcleo; el
+controller sólo lee el estado que `FindRunResult` informa.
+
+**Vocabulario público.** La API usa los nombres del dominio (`EARNED`, `BONUS`, `PENALTY`, `AUTOMATIC`,
+`JUDGES`) y el frontend los traduce, en vez de mantener un segundo vocabulario que habría que
+sincronizar en el mapper.
+

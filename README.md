@@ -359,9 +359,7 @@ El detalle de una corrida (`GET /runs/{runId}`) trae `status` (`CAPTURED` o `COR
 `currentMeasurements`/`currentIncidents`, `originalMeasurements`/`originalIncidents` (el original se
 conserva siempre), `corrections` (cada una con `appliedAt`, `actor`, `reason`, sus mediciones e
 incidentes y la apelación de origen), `rulebookVersion`, `roundId`, `heatId`, `attemptNumber` y
-`completion` (`PENDING` o `COMPLETE`, fuentes esperadas, faltantes y recibidas). El puntaje
-(`GET /runs/{runId}/score`) trae `total`, `contributions` (`ruleCode`, `kind` `EARNED`/`BONUS`/`PENALTY`,
-`explanation`, `points`), `completionStatus` y `bySource` (sólo en desafíos mixtos).
+`completion` (`PENDING` o `COMPLETE`, fuentes esperadas, faltantes y recibidas). El puntaje se describe en [API: puntaje de una corrida](#api-puntaje-de-una-corrida).
 
 Errores (mismo formato y tabla que el resto de la API): un equipo ajeno, una ventana vencida o una
 corrida incompleta dan `422 RULE_VIOLATION` y no guardan ni auditan nada; apelar dos veces la misma
@@ -372,6 +370,48 @@ blanco, números negativos o incidentes sin ocurrencias dan `400 INVALID_VALUE`;
 inexistentes dan `404`. Con posiciones existentes, aceptar crea una revisión `PROVISIONAL` nueva
 (`GET …/standings/revisions`); sin posiciones no se crea ninguna. Mientras haya una apelación
 pendiente, publicar las posiciones de su categoría da `409`.
+
+## API: puntaje de una corrida
+
+Spec: [`.docs/specs/SPEC_consultar-puntaje-explicable.md`](.docs/specs/SPEC_consultar-puntaje-explicable.md).
+`GET /runs/{runId}/score` invoca `FindRunResult` (estado de completitud) y `CalculateRunScore` (el único
+cálculo del puntaje); no hay fórmulas en la API ni en el frontend. La corrida se puntúa con la versión
+del reglamento fijada en ella, que la respuesta informa, y con sus valores vigentes si fue corregida.
+
+```json
+{
+  "runId": "RUN-1",
+  "teamId": "TEAM-1",
+  "challengeId": "RESCUE",
+  "rulebookVersion": "v1",
+  "completionStatus": "COMPLETE",
+  "missingSources": [],
+  "total": 93.50,
+  "contributions": [
+    {"ruleCode": "TIME", "kind": "EARNED", "explanation": "99.000 s against a reference of 120.000 s", "points": 10.50},
+    {"ruleCode": "BONUS", "kind": "BONUS", "explanation": "OBJECTIVES 5.000 is at least 5: bonus granted", "points": 15.00},
+    {"ruleCode": "BONUS_CAP", "kind": "BONUS", "explanation": "bonuses obtained 35.00 exceed the cap of 25.00: 10.00 trimmed", "points": -10.00},
+    {"ruleCode": "PENALTIES", "kind": "PENALTY", "explanation": "manual restart applied 1 time(s)", "points": -3.00}
+  ],
+  "bonusCap": {"obtained": 35.00, "cap": 25.00, "trimmed": 10.00, "applied": 25.00},
+  "bySource": null
+}
+```
+
+- `contributions` enumera cada contribución, incluidas las que aportan cero, y su suma es `total`.
+  `kind` es `EARNED`, `BONUS` o `PENALTY`; las penalidades tienen puntos negativos.
+- `bonusCap` está presente sólo si el desafío limita la suma de bonificaciones: `obtained` (antes del
+  tope), `cap`, `trimmed` (el recorte, positivo) y `applied` (`obtained - trimmed`). El recorte también
+  está en `contributions` como `BONUS_CAP`. Los números son parte del contrato; el texto de
+  `explanation` no.
+- `bySource` está presente sólo en desafíos mixtos: `sources` (`source` `AUTOMATIC` o `JUDGES`,
+  `subtotal` y sus `contributions`) y `acrossSources` (ajustes que no derivan de una sola fuente,
+  como `BONUS_CAP`). La suma de los subtotales más el de `acrossSources` es `total`. Las deducciones
+  por incidentes aparecen en el grupo `JUDGES`.
+- **Corrida pendiente.** Una corrida mixta que espera una fuente no tiene puntaje parcial: responde
+  `200` con `"completionStatus": "PENDING"`, `"missingSources": ["JUDGES"]` (o `AUTOMATIC`) y `total`,
+  `contributions`, `bonusCap` y `bySource` en `null`.
+- Una corrida inexistente da `404 NOT_FOUND`.
 
 ## Ejecutar el frontend
 

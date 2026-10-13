@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import AppealsPage from './features/appeals/AppealsPage';
+import ScorePage from './features/scores/ScorePage';
 import ScheduleRoundForm from './features/rounds/ScheduleRoundForm';
 import StandingsPage from './features/standings/StandingsPage';
 import RegisterTeamForm from './features/teams/RegisterTeamForm';
 
-type Section = 'teams' | 'rounds' | 'standings' | 'appeals';
+type Section = 'teams' | 'rounds' | 'standings' | 'appeals' | 'score';
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'teams', label: 'Equipos' },
   { id: 'rounds', label: 'Rondas' },
   { id: 'standings', label: 'Posiciones' },
   { id: 'appeals', label: 'Apelaciones' },
+  { id: 'score', label: 'Puntaje' },
 ];
 
 export default function App() {
@@ -30,6 +32,7 @@ export default function App() {
       {section === 'rounds' && <ScheduleRoundForm />}
       {section === 'standings' && <StandingsPage />}
       {section === 'appeals' && <AppealsPage />}
+      {section === 'score' && <ScorePage />}
     </main>
   );
 }

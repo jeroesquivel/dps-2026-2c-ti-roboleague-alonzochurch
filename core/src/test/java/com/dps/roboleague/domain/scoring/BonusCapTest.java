@@ -33,6 +33,33 @@ class BonusCapTest {
         assertEquals(Points.of(applied), Points.of(obtained).plus(trim.points()));
     }
 
+    @ParameterizedTest(name = "bonuses {0} with a cap of {1}: trimmed {2}, applied {3}")
+    @CsvSource({
+            "35, 25, 10.00, 25.00",
+            "25, 25, 0.00, 25.00",
+            "10, 25, 0.00, 10.00",
+            "15, 0, 15.00, 0.00",
+            "0, 25, 0.00, 0.00"})
+    void exposesTheBonusesObtainedTheCapAndTheTrimAsData(long obtained, long cap, String trimmed, String applied) {
+        ScoreBreakdown breakdown = new ScoreBreakdown(List.of(ScoreContribution.bonus(RULE, "bonus",
+                Points.of(obtained))));
+
+        BonusCapOutcome outcome = BonusCap.of(cap).outcomeOf(breakdown);
+
+        assertEquals(Points.of(obtained), outcome.obtained());
+        assertEquals(Points.of(cap), outcome.cap());
+        assertEquals(Points.of(trimmed), outcome.trimmed());
+        assertEquals(Points.of(applied), outcome.applied());
+        assertEquals(Points.of(trimmed).negated(), BonusCap.of(cap).trim(breakdown).points());
+    }
+
+    @Test
+    void anOutcomeRequiresEveryValue() {
+        assertThrows(NullPointerException.class, () -> new BonusCapOutcome(null, Points.ZERO, Points.ZERO));
+        assertThrows(NullPointerException.class, () -> new BonusCapOutcome(Points.ZERO, null, Points.ZERO));
+        assertThrows(NullPointerException.class, () -> new BonusCapOutcome(Points.ZERO, Points.ZERO, null));
+    }
+
     @Test
     void comparesTheCapAgainstTheSumAndNotAgainstEachBonus() {
         ScoreBreakdown breakdown = new ScoreBreakdown(List.of(

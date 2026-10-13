@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.dps.roboleague.domain.scoring.BonusCap;
+import com.dps.roboleague.domain.scoring.BonusCapOutcome;
 import com.dps.roboleague.domain.scoring.BonusPoints;
 import com.dps.roboleague.domain.scoring.ContributionKind;
 import com.dps.roboleague.domain.scoring.IncidentReport;
@@ -143,6 +144,20 @@ class ChallengeSpecBonusCapTest {
         assertTrue(breakdown.contributions().stream()
                 .noneMatch(contribution -> contribution.ruleCode().equals(BonusCap.CODE)));
         assertEquals(Points.of(35), breakdown.totalOf(ContributionKind.BONUS));
+    }
+
+    @Test
+    void reportsTheOutcomeOfTheCapAsDataAndNothingWithoutACap() {
+        ScoringContext exceeding = context(5, "55", "35", List.of());
+
+        BonusCapOutcome outcome = capped.bonusCapOutcome(exceeding).orElseThrow();
+
+        assertEquals(Points.of(35), outcome.obtained());
+        assertEquals(Points.of(25), outcome.cap());
+        assertEquals(Points.of(10), outcome.trimmed());
+        assertEquals(Points.of(25), outcome.applied());
+        assertEquals(Points.of(-10), trimOf(capped.score(exceeding)).points());
+        assertTrue(uncapped.bonusCapOutcome(exceeding).isEmpty());
     }
 
     @Test

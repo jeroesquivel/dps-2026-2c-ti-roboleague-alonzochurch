@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Standings } from '../standings/types';
 import AppealsPage from './AppealsPage';
-import type { Appeal, Run, RunScore } from './types';
+import type { RunScore } from '../scores/types';
+import type { Appeal, Run } from './types';
 
 type UserSession = ReturnType<typeof userEvent.setup>;
 
@@ -70,6 +71,9 @@ function score(overrides: Partial<RunScore> = {}): RunScore {
       { ruleCode: 'RESTART', kind: 'PENALTY', explanation: '1 restart at 5 points', points: -5 },
     ],
     completionStatus: 'COMPLETE',
+    missingSources: [],
+    bonusCap: null,
+    bySource: null,
     ...overrides,
   };
 }

@@ -86,23 +86,3 @@ export interface Run {
   corrections: Correction[];
   completion: Completion;
 }
-
-export type ContributionKind = 'EARNED' | 'BONUS' | 'PENALTY';
-
-export interface Contribution {
-  ruleCode: string;
-  kind: ContributionKind;
-  explanation: string;
-  points: number;
-}
-
-/** Puntaje explicado de una corrida, calculado por el backend. */
-export interface RunScore {
-  runId: string;
-  teamId: string;
-  challengeId: string;
-  rulebookVersion: string;
-  total: number;
-  contributions: Contribution[];
-  completionStatus: 'PENDING' | 'COMPLETE';
-}

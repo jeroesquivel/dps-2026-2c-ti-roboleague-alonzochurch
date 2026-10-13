@@ -8,6 +8,7 @@ import com.dps.roboleague.domain.result.ResultCorrection;
 import com.dps.roboleague.domain.result.RunCompletion;
 import com.dps.roboleague.domain.result.RunResult;
 import com.dps.roboleague.domain.result.SourceReceipt;
+import com.dps.roboleague.domain.scoring.BonusCapOutcome;
 import com.dps.roboleague.domain.scoring.IncidentReport;
 import com.dps.roboleague.domain.scoring.ScoreBreakdown;
 import com.dps.roboleague.domain.scoring.ScoreContribution;
@@ -32,10 +33,20 @@ final class RunWebMapper {
                 completionOf(run.completion()));
     }
 
+    /** Una corrida que todavía espera alguna fuente no tiene puntaje: sólo se informa qué fuentes faltan. */
+    static RunScoreResponse toPendingResponse(RunResult run) {
+        RunCompletion completion = run.completion();
+        return new RunScoreResponse(run.id().value(), run.teamId().value(), run.challengeId().value(),
+                run.rulebookVersion().toString(), completion.status().name(),
+                completion.missing().stream().map(Enum::name).toList(), null, null, null, null);
+    }
+
     static RunScoreResponse toResponse(CalculateRunScore.RunScore score) {
         return new RunScoreResponse(score.runId().value(), score.teamId().value(), score.challengeId().value(),
-                score.rulebookVersion().toString(), score.total().value(), contributionsOf(score.breakdown()),
-                score.completion().status().name(), score.bySource().map(RunWebMapper::bySourceOf).orElse(null));
+                score.rulebookVersion().toString(), score.completion().status().name(), List.of(),
+                score.total().value(), contributionsOf(score.breakdown()),
+                score.bonusCap().map(RunWebMapper::bonusCapOf).orElse(null),
+                score.bySource().map(RunWebMapper::bySourceOf).orElse(null));
     }
 
     private static Map<String, BigDecimal> measurementsOf(MeasurementSet measurements) {
@@ -75,6 +86,11 @@ final class RunWebMapper {
     private static RunScoreResponse.ContributionResponse contributionOf(ScoreContribution contribution) {
         return new RunScoreResponse.ContributionResponse(contribution.ruleCode().value(), contribution.kind().name(),
                 contribution.explanation(), contribution.points().value());
+    }
+
+    private static RunScoreResponse.BonusCapResponse bonusCapOf(BonusCapOutcome outcome) {
+        return new RunScoreResponse.BonusCapResponse(outcome.obtained().value(), outcome.cap().value(),
+                outcome.trimmed().value(), outcome.applied().value());
     }
 
     private static RunScoreResponse.BySourceResponse bySourceOf(SourcedScore sourced) {
