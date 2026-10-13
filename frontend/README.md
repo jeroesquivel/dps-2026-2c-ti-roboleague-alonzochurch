@@ -20,7 +20,7 @@ npm run build    # comprobación de tipos y build de producción en dist/
 ## Comunicación con el backend
 
 En desarrollo el navegador sólo habla con el origen de Vite (`localhost:5173`). `vite.config.ts`
-define un proxy que reenvía `/teams`, `/rounds`, `/competitions`, `/appeals` y `/runs` a `http://localhost:8080`, por lo que **no hace falta
+define un proxy que reenvía `/teams`, `/rounds`, `/competitions`, `/appeals`, `/runs` y `/audit` a `http://localhost:8080`, por lo que **no hace falta
 configurar CORS** en Spring. Para apuntar a otro backend:
 
 ```bash
@@ -61,6 +61,12 @@ src/features/scores/
   labels.ts                etiquetas en español (tipo de contribución, fuentes)
   ScorePage.tsx            consulta del puntaje de una corrida por ID
   ScoreView.tsx            total, contribuciones, tope, grupos por fuente o estado pendiente
+src/features/audit/
+  api.ts                   GET /audit?subjectId=
+  types.ts                 contrato de la traza de auditoría
+  labels.ts                etiquetas en español de acciones y detalles, formato de instantes en UTC
+  AuditPage.tsx            consulta de la traza de un sujeto por ID
+  AuditTrailView.tsx       secuencia de eventos con instante, actor y detalles (o traza vacía)
 src/features/appeals/
   api.ts                   presentar, consultar, aceptar, rechazar; consultar corrida y puntaje
   types.ts                 contrato de la API de apelaciones y corridas
@@ -108,3 +114,11 @@ src/features/appeals/
   que no tiene puntaje y qué fuente falta. Todos los números vienen de la API: la pantalla no suma ni
   calcula. `ScoreView` también se usa en la pantalla de apelaciones. Con el perfil `dev`, `RUN-1` tiene
   tope de bonificaciones, `RUN-21` es mixta completa y `RUN-23` está pendiente.
+- **Auditoría** — spec [`SPEC_consultar-auditoria`](../.docs/specs/SPEC_consultar-auditoria.md) (FR-7). Se
+  ingresa el ID de un sujeto (`RUN-1`, `APPEAL-1`, `ROUND-1`, `COMPETITION-1`, `CATEGORY-1`, `TEAM-1`,
+  `SEASON-1`) y se muestra la secuencia de eventos en el orden que devuelve la API, cada uno con su
+  instante (UTC), el actor y los detalles registrados; en una corrección se leen los valores originales
+  y los corregidos, y en una apelación su estado y fundamento. Una traza vacía se muestra como «No hay
+  eventos» y no como error. La pantalla no reconstruye ningún estado a partir de los eventos. Con el
+  perfil `dev`, `RUN-1` tiene su captura; presentar y aceptar una apelación suma eventos a `APPEAL-1` y
+  `RUN-1`.

@@ -413,6 +413,43 @@ del reglamento fijada en ella, que la respuesta informa, y con sus valores vigen
   `contributions`, `bonusCap` y `bySource` en `null`.
 - Una corrida inexistente da `404 NOT_FOUND`.
 
+## API: auditoría
+
+Spec: [`.docs/specs/SPEC_consultar-auditoria.md`](.docs/specs/SPEC_consultar-auditoria.md).
+`GET /audit?subjectId=<ID>` invoca `FindAuditTrail` y devuelve la traza del sujeto. Es de sólo lectura:
+cualquier otro método responde `405`. El tipo de sujeto se deduce del prefijo del identificador:
+`SEASON`, `COMPETITION`, `CATEGORY`, `TEAM`, `ROUND`, `RUN` o `APPEAL`.
+
+```json
+{
+  "subjectId": "RUN-1",
+  "events": [
+    {"occurredAt": "2026-03-01T10:00:00.123456Z", "action": "RESULT_CAPTURED", "subjectId": "RUN-1",
+     "actor": "dev-seed", "details": {"measurements": "{ENERGY=48, OBJECTIVES=5, TIME=99}", "rulebook": "v1"}},
+    {"occurredAt": "2026-03-01T11:30:05.361953Z", "action": "RESULT_CORRECTED", "subjectId": "RUN-1",
+     "actor": "reviewer", "details": {"corrected": "{ENERGY=48, OBJECTIVES=5, TIME=120}",
+     "original": "{ENERGY=48, OBJECTIVES=5, TIME=99}", "reason": "appeal APPEAL-1 accepted"}}
+  ]
+}
+```
+
+- Los eventos van en orden de `occurredAt`; los del mismo instante conservan el orden en que se
+  registraron. `occurredAt` es un instante ISO-8601 en UTC.
+- `action` es una de: `SEASON_CREATED`, `COMPETITION_CREATED`, `RULEBOOK_PUBLISHED`, `TEAM_REGISTERED`,
+  `TEAM_REJECTED`, `ROUND_SCHEDULED`, `RESULT_CAPTURED`, `RESULT_SOURCE_RECEIVED`, `RESULT_CORRECTED`,
+  `STANDINGS_GENERATED`, `STANDINGS_PUBLISHED`, `STANDINGS_RECALCULATED`, `APPEAL_SUBMITTED`,
+  `APPEAL_RESOLVED`.
+- `details` sólo trae las claves registradas para esa acción, con valores de texto: `rulebook`,
+  `version`, `violations`, `heats`, `measurements`, `source`, `evaluations`, `incidents`, `original`,
+  `corrected`, `reason`, `revision`, `run`, `status` y `rationale`. Una corrección conserva el valor
+  `original` y el `corrected`; la resolución de una apelación trae `status` (`ACCEPTED` o `REJECTED`) y
+  `rationale`. Los textos de `measurements`, `original` y `corrected` son informativos (no son un
+  formato para interpretar).
+- Un identificador bien formado sin eventos, o inexistente, da `200` con `"events": []`. Un
+  `subjectId` ausente o de un tipo no soportado da `400 INVALID_VALUE`.
+- La traza de una apelación aceptada tiene `APPEAL_SUBMITTED` y `APPEAL_RESOLVED`; la corrida suma
+  `RESULT_CORRECTED`. En una apelación rechazada no hay corrección.
+
 ## Ejecutar el frontend
 
 El frontend (React + Vite) vive en [`frontend/`](frontend/README.md). Con el backend en
@@ -425,7 +462,7 @@ npm run dev     # http://localhost:5173
 npm test
 ```
 
-En desarrollo Vite reenvía `/teams`, `/rounds`, `/competitions`, `/appeals` y `/runs` al backend mediante un proxy, así que no hace falta CORS.
+En desarrollo Vite reenvía `/teams`, `/rounds`, `/competitions`, `/appeals`, `/runs` y `/audit` al backend mediante un proxy, así que no hace falta CORS.
 
 ## Ejecutar la demo repetible
 

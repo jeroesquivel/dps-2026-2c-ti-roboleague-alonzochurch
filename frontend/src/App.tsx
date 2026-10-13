@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import AppealsPage from './features/appeals/AppealsPage';
+import AuditPage from './features/audit/AuditPage';
 import ScorePage from './features/scores/ScorePage';
 import ScheduleRoundForm from './features/rounds/ScheduleRoundForm';
 import StandingsPage from './features/standings/StandingsPage';
 import RegisterTeamForm from './features/teams/RegisterTeamForm';
 
-type Section = 'teams' | 'rounds' | 'standings' | 'appeals' | 'score';
+type Section = 'teams' | 'rounds' | 'standings' | 'appeals' | 'score' | 'audit';
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'teams', label: 'Equipos' },
@@ -13,6 +14,7 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: 'standings', label: 'Posiciones' },
   { id: 'appeals', label: 'Apelaciones' },
   { id: 'score', label: 'Puntaje' },
+  { id: 'audit', label: 'Auditoría' },
 ];
 
 export default function App() {
@@ -33,6 +35,7 @@ export default function App() {
       {section === 'standings' && <StandingsPage />}
       {section === 'appeals' && <AppealsPage />}
       {section === 'score' && <ScorePage />}
+      {section === 'audit' && <AuditPage />}
     </main>
   );
 }

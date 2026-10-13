@@ -1951,3 +1951,25 @@ controller sólo lee el estado que `FindRunResult` informa.
 `JUDGES`) y el frontend los traduce, en vez de mantener un segundo vocabulario que habría que
 sincronizar en el mapper.
 
+### 10.4 Auditoría en la API
+
+**Una consulta, un recurso.** `GET /audit?subjectId=…` invoca `FindAuditTrail`; el controller no conoce
+`AuditLog` ni su implementación en memoria. La alternativa de una URL de auditoría por recurso
+(`/runs/{id}/audit`, `/appeals/{id}/audit`, …) se descartó: repetiría el mismo endpoint en cada
+controller y obligaría al frontend a elegir una ruta según el tipo. El tipo se deduce del prefijo del
+identificador porque `AuditLog` indexa por `Identifier` tipado (un `RunId` y un `AppealId` con el mismo
+valor son sujetos distintos); la deducción vive en el mapper web y no en el núcleo, que sigue sin
+saber cómo se escriben los identificadores en la API.
+
+**El contrato público se decide en el mapper.** `AuditAction` y `AuditDetail` no se serializan: el mapper
+los traduce con un `switch` exhaustivo, de modo que sumar una acción o un detalle al núcleo no compila
+hasta decidir cómo se expone. Los detalles se publican como `Map<String,String>` con claves en
+minúsculas y orden estable. Los valores son los textos que el núcleo registró; la API no los interpreta
+(la traza complementa al estado actual y no se usa para reconstruirlo, C-4).
+
+**Orden y vacío.** La API ordena por instante con un orden estable, de modo que los eventos del mismo
+instante (en una aceptación, la resolución de la apelación y la corrección de la corrida) conservan el
+orden de registro. No se valida la existencia del sujeto: un identificador sin eventos devuelve `200`
+con la lista vacía; validarlo obligaría a consultar el repositorio de cada tipo de agregado desde la
+auditoría. Sólo un `subjectId` ausente o de un tipo no soportado es un error (`400`).
+

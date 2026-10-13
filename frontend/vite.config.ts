@@ -14,6 +14,7 @@ export default defineConfig({
       '/competitions': BACKEND,
       '/appeals': BACKEND,
       '/runs': BACKEND,
+      '/audit': BACKEND,
     },
   },
   test: {

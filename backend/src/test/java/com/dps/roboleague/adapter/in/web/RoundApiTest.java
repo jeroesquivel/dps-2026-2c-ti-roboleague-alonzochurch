@@ -322,7 +322,7 @@ class RoundApiTest {
     private Edition newEdition(RulebookDraft rulebook) {
         DateRange period = Editions.nextPeriod();
         SeasonId seasonId = createSeason.execute(
-                new CreateSeason.Command("Season " + period.start(), 2026, period, ACTOR));
+                new CreateSeason.Command("Season " + period.start(), period.start().getYear(), period, ACTOR));
         CreateCompetition.Result competition = createCompetition.execute(new CreateCompetition.Command(seasonId,
                 "Competition " + period.start(), period,
                 List.of(new CreateCompetition.CategoryDraft("Junior", AgeRange.between(12, 17),

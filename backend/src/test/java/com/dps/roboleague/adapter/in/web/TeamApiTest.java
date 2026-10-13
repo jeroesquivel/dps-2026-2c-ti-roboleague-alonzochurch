@@ -240,7 +240,7 @@ class TeamApiTest {
     private CreateCompetition.Result newCompetition(String name) {
         DateRange period = Editions.nextPeriod();
         SeasonId seasonId = createSeason.execute(
-                new CreateSeason.Command("Season " + period.start(), 2026, period, ACTOR));
+                new CreateSeason.Command("Season " + period.start(), period.start().getYear(), period, ACTOR));
         return createCompetition.execute(new CreateCompetition.Command(seasonId, name, period,
                 List.of(new CreateCompetition.CategoryDraft("Junior", AgeRange.between(12, 17),
                         TeamFixtures.RESCUE_BOT)),

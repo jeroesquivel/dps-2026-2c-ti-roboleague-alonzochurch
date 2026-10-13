@@ -93,8 +93,17 @@ Then sólo dispone de operaciones de consulta.
 
 ## 6. Open questions
 
-- Confirmar si la Entrega 2 requiere una pantalla de auditoría o sólo conservar los datos. Si no hay
-  consumidor externo, esta spec se descarta y `FindAuditTrail` puede quedar limitado a demo/tests.
-- Definir si el sujeto se expresa con un tipo más un valor o si cada recurso expone una URL de
-  auditoría propia.
+Resueltas:
 
+- **Pantalla.** La Entrega 2 incluye una pantalla de auditoría (FR-7), además de la API de consulta.
+  `FindAuditTrail` deja de ser sólo de demo/tests.
+- **Sujeto.** Un único recurso, `GET /audit?subjectId=RUN-1`. El tipo se deduce del prefijo del
+  identificador (`SEASON`, `COMPETITION`, `CATEGORY`, `TEAM`, `ROUND`, `RUN`, `APPEAL`), que es el que
+  generan los ids secuenciales. Un identificador ausente o con un prefijo no soportado responde
+  `400 INVALID_VALUE`. Una URL por recurso habría repetido el endpoint en cada controller y sumado un
+  prefijo al proxy del frontend por cada uno.
+- **Sin eventos.** Un identificador bien formado sin eventos, o que no existe, responde `200` con
+  `events: []` (FR-6, AC-4). No se valida la existencia del sujeto: hacerlo exigiría que la auditoría
+  consultara los repositorios de cada agregado, y la bitácora no es fuente del estado actual (C-4).
+- **Orden.** Por instante de ocurrencia; los eventos del mismo instante conservan su orden de registro
+  (en una aceptación, la resolución de la apelación precede a la corrección que causa).
