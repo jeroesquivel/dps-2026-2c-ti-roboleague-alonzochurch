@@ -59,7 +59,7 @@ async function errorOf(response: Response): Promise<ApiRequestError> {
   try {
     const body: unknown = await response.json();
     if (isApiError(body)) {
-      return new ApiRequestError(body.code, body.message, response.status, conflictsOf(body));
+      return new ApiRequestError(codeOf(body, response.status), body.message, response.status, conflictsOf(body));
     }
   } catch {
     // El cuerpo no era JSON: se informa como respuesta inesperada.
@@ -71,13 +71,18 @@ async function errorOf(response: Response): Promise<ApiRequestError> {
   );
 }
 
-function isApiError(body: unknown): body is { code: string; message: string; conflicts?: unknown } {
+function isApiError(body: unknown): body is { code?: string; error?: string; message: string; conflicts?: unknown } {
   return (
     typeof body === 'object' &&
     body !== null &&
-    typeof (body as { code?: unknown }).code === 'string' &&
+    (typeof (body as { code?: unknown }).code === 'string' ||
+      typeof (body as { error?: unknown }).error === 'string') &&
     typeof (body as { message?: unknown }).message === 'string'
   );
+}
+
+function codeOf(body: { code?: string; error?: string }, status: number): string {
+  return body.code ?? body.error ?? `HTTP_${status}`;
 }
 
 function conflictsOf(body: { conflicts?: unknown }): ScheduleConflict[] {

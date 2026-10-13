@@ -20,7 +20,7 @@ npm run build    # comprobación de tipos y build de producción en dist/
 ## Comunicación con el backend
 
 En desarrollo el navegador sólo habla con el origen de Vite (`localhost:5173`). `vite.config.ts`
-define un proxy que reenvía `/teams`, `/rounds`, `/competitions`, `/appeals`, `/runs`, `/audit` y `/seasons` a `http://localhost:8080`, por lo que **no hace falta
+define un proxy que reenvía `/api`, `/teams`, `/rounds`, `/competitions`, `/appeals`, `/runs`, `/audit` y `/seasons` a `http://localhost:8080`, por lo que **no hace falta
 configurar CORS** en Spring. Para apuntar a otro backend:
 
 ```bash
@@ -61,6 +61,12 @@ src/features/scores/
   labels.ts                etiquetas en español (tipo de contribución, fuentes)
   ScorePage.tsx            consulta del puntaje de una corrida por ID
   ScoreView.tsx            total, contribuciones, tope, grupos por fuente o estado pendiente
+src/features/results/
+  api.ts                   captura completa, fuentes mixtas y GET /api/runs/{id}
+  types.ts                 contrato observable de resultados y requests por modalidad
+  formModel.ts             validación de presencia, números y estructura JSON
+  ResultsPage.tsx          captura completa, automática, de jueces y consulta por ID
+  RunResultView.tsx        estado pendiente/completo, fuentes, recibos y datos actuales
 src/features/event/
   api.ts                   POST /seasons, POST /seasons/{id}/competitions, GET /competitions/{id}, POST …/rulebooks
   types.ts                 contrato de la API de configuración del evento
@@ -132,6 +138,14 @@ src/features/appeals/
   que no tiene puntaje y qué fuente falta. Todos los números vienen de la API: la pantalla no suma ni
   calcula. `ScoreView` también se usa en la pantalla de apelaciones. Con el perfil `dev`, `RUN-1` tiene
   tope de bonificaciones, `RUN-21` es mixta completa y `RUN-23` está pendiente.
+- **Capturar y consultar resultados** — spec
+  [`SPEC_capturar-resultados`](../.docs/specs/SPEC_capturar-resultados.md) (FR-10). Permite elegir
+  captura completa, fuente automática o fuente de jueces, y consultar una corrida por ID. Las
+  mediciones, evaluaciones e incidentes se ingresan como JSON para admitir las claves definidas por
+  cada reglamento sin duplicarlas en la interfaz. Después de cada operación se muestran el mismo
+  `RunId`, el estado pendiente o completo, las fuentes recibidas y faltantes, sus actores y fechas,
+  los datos actuales y el estado de correcciones. Los conflictos y demás rechazos conservan el
+  mensaje entregado por la API.
 - **Auditoría** — spec [`SPEC_consultar-auditoria`](../.docs/specs/SPEC_consultar-auditoria.md) (FR-7). Se
   ingresa el ID de un sujeto (`RUN-1`, `APPEAL-1`, `ROUND-1`, `COMPETITION-1`, `CATEGORY-1`, `TEAM-1`,
   `SEASON-1`) y se muestra la secuencia de eventos en el orden que devuelve la API, cada uno con su

@@ -13,6 +13,7 @@ button:disabled { opacity: .6; cursor: progress; }
 .problems, .result--error { background: #fff4e5; border: 1px solid #f0b35c; }
 .result--accepted { background: #e7f6ec; border: 1px solid #4cae6b; }
 .result--rejected { background: #fdeaea; border: 1px solid #d96060; }
+.result--pending { background: #fff4e5; border: 1px solid #f0b35c; }
 .result h2 { margin-top: 0; font-size: 1.1rem; }
 .code { font-size: .8rem; color: #555; }
 nav { display: flex; gap: .5rem; margin-bottom: 1rem; }
@@ -52,4 +53,5 @@ details ul { margin: .4rem 0 0; padding-left: 1.2rem; }
 .audit-detail { display: grid; grid-template-columns: 10rem 1fr; gap: 0 1rem; }
 .audit-detail dd { font-family: ui-monospace, monospace; font-size: .85rem; overflow-wrap: anywhere; }
 .json-editor { font-family: ui-monospace, monospace; font-size: .8rem; width: 100%; box-sizing: border-box; padding: .5rem; border: 1px solid #98a0ab; border-radius: .3rem; }
-section[aria-label='Temporada'], section[aria-label='Competencia'], section[aria-label='Consulta y nuevas versiones'] { margin-top: 1.5rem; }
+section[aria-label='Temporada'], section[aria-label='Competencia'], section[aria-label='Consulta y nuevas versiones'], .lookup { margin-top: 1.5rem; }
+.lookup { display: flex; flex-direction: column; gap: .75rem; }

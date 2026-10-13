@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | In progress |
+| **Status** | Implemented |
 | **Author** | |
 | **Date** | 2026-10-12 |
 
@@ -128,5 +128,4 @@ Then la API responde con conflicto y no guarda el resultado.
 - Por cada fuente se exponen `received`, `actor` y `receivedAt`; el recibo interno no forma parte
   del contrato público.
 
-La adaptación HTTP está implementada. `FR-10` queda pendiente hasta elegir la tecnología del
-frontend, decisión abierta en `architecture.md`.
+La adaptación HTTP y la interfaz mínima de `FR-10` están implementadas.
