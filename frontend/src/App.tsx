@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import AppealsPage from './features/appeals/AppealsPage';
 import AuditPage from './features/audit/AuditPage';
+import EventPage from './features/event/EventPage';
 import ScorePage from './features/scores/ScorePage';
 import ScheduleRoundForm from './features/rounds/ScheduleRoundForm';
 import StandingsPage from './features/standings/StandingsPage';
 import RegisterTeamForm from './features/teams/RegisterTeamForm';
 
-type Section = 'teams' | 'rounds' | 'standings' | 'appeals' | 'score' | 'audit';
+type Section = 'event' | 'teams' | 'rounds' | 'standings' | 'appeals' | 'score' | 'audit';
 
 const SECTIONS: { id: Section; label: string }[] = [
+  { id: 'event', label: 'Evento' },
   { id: 'teams', label: 'Equipos' },
   { id: 'rounds', label: 'Rondas' },
   { id: 'standings', label: 'Posiciones' },
@@ -18,7 +20,7 @@ const SECTIONS: { id: Section; label: string }[] = [
 ];
 
 export default function App() {
-  const [section, setSection] = useState<Section>('teams');
+  const [section, setSection] = useState<Section>('event');
   return (
     <main className="page">
       <h1>RoboLeague</h1>
@@ -30,6 +32,7 @@ export default function App() {
           </button>
         ))}
       </nav>
+      {section === 'event' && <EventPage />}
       {section === 'teams' && <RegisterTeamForm />}
       {section === 'rounds' && <ScheduleRoundForm />}
       {section === 'standings' && <StandingsPage />}

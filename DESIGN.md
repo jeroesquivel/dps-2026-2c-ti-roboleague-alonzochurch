@@ -1973,3 +1973,34 @@ orden de registro. No se valida la existencia del sujeto: un identificador sin e
 con la lista vacía; validarlo obligaría a consultar el repositorio de cada tipo de agregado desde la
 auditoría. Sólo un `subjectId` ausente o de un tipo no soportado es un error (`400`).
 
+### 10.5 Configuración del evento en la API
+
+**DTO plano con discriminador, no polimorfismo de Jackson.** `ScoringRule`, `EligibilityRule`,
+`TiebreakRule` y `AttemptAggregation` no se serializan (C-2). Cada familia es un único record con
+`type` y los campos de todas sus variantes. Se descartó `@JsonTypeInfo` con subtipos: ataría el contrato
+público a las clases del dominio, devolvería errores de Jackson (`400` genéricos) en vez de mensajes
+sobre el campo que falta, y sumar una variante al núcleo cambiaría la API sin querer. Con el record
+plano el `switch` del mapper decide qué campos exige cada variante y un `type` desconocido lista los
+soportados. El costo es que el JSON admite campos que la variante ignora.
+
+**El mapper arma todo antes de llamar al puerto.** `EventWebMapper` construye el `RulebookDraft`
+completo (desafíos, reglas, elegibilidad, agregación, desempates) antes de invocar `CreateCompetition`
+o `PublishRulebook`. Así una configuración inválida falla sin haber guardado nada (AC-3), sin
+transacciones ni compensaciones. Los invariantes del dominio (por ejemplo, un desafío mixto requiere
+reglas de ambas fuentes) siguen en los constructores del núcleo; el mapper sólo valida presencia y
+formato.
+
+**«Al menos una categoría» vive en el núcleo.** `CreateCompetitionUseCase` aceptaba una lista vacía.
+Como la regla es de la competencia y no del transporte, se agregó allí (antes de generar ids o
+guardar) con su prueba, y no en el mapper, para que cualquier otro adaptador herede la regla.
+
+**Respuesta con correspondencia explícita.** La creación devuelve las categorías en el orden de la
+solicitud, cada una con `categoryId` y `name` (FR-5); no hay un recurso de categorías porque la spec no lo
+pide. `Location` se informa sólo para la competencia, que es la única con consulta propia.
+
+**Frontend: presets más JSON editable.** Un constructor visual de reglas está fuera de alcance, y
+exponer cada variante como formulario habría duplicado el catálogo de `type` en TypeScript. Se ofrecen
+los reglamentos de F1 y F3 como presets cargados en un editor JSON; el frontend sólo verifica que sea
+JSON y el backend decide qué es válido. Los formularios de temporada y competencia sí son reales, y los
+ids obtenidos se encadenan entre pasos para no volver a tipearlos (AC-6).
+

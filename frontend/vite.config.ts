@@ -15,6 +15,7 @@ export default defineConfig({
       '/appeals': BACKEND,
       '/runs': BACKEND,
       '/audit': BACKEND,
+      '/seasons': BACKEND,
     },
   },
   test: {

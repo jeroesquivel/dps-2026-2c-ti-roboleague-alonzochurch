@@ -450,6 +450,100 @@ cualquier otro método responde `405`. El tipo de sujeto se deduce del prefijo d
 - La traza de una apelación aceptada tiene `APPEAL_SUBMITTED` y `APPEAL_RESOLVED`; la corrida suma
   `RESULT_CORRECTED`. En una apelación rechazada no hay corrección.
 
+## API: configuración del evento
+
+Spec: [`.docs/specs/SPEC_configurar-evento.md`](.docs/specs/SPEC_configurar-evento.md). Cuatro endpoints
+sobre los puertos `CreateSeason`, `CreateCompetition`, `FindCompetition` y `PublishRulebook`. El actor va
+en el cuerpo de cada solicitud que escribe.
+
+| Método y ruta | Resultado |
+|---|---|
+| `POST /seasons` | `201` `{"seasonId": "SEASON-1"}` |
+| `POST /seasons/{seasonId}/competitions` | `201` + `Location: /competitions/{id}` |
+| `GET /competitions/{competitionId}` | `200` con datos, categorías y versión activa |
+| `POST /competitions/{competitionId}/rulebooks` | `201` `{"competitionId", "rulebookVersion": "v2"}` |
+
+```bash
+curl -s -X POST localhost:8080/seasons -H 'Content-Type: application/json' -d '{
+  "name": "Temporada 2027", "year": 2027,
+  "period": {"start": "2027-01-01", "end": "2027-12-31"}, "actor": "organizer"}'
+
+curl -s -X POST localhost:8080/seasons/SEASON-1/competitions -H 'Content-Type: application/json' -d '{
+  "name": "Copa Otoño", "period": {"start": "2027-04-10", "end": "2027-04-11"}, "actor": "organizer",
+  "categories": [{"name": "Junior", "minimumAge": 10, "maximumAge": 14, "robotClass": "RESCUE_BOT"}],
+  "rulebook": { ... ver abajo ... }}'
+```
+
+La respuesta de la segunda llamada conserva el orden de las categorías y repite su nombre:
+
+```json
+{"competitionId": "COMPETITION-1", "rulebookVersion": "v1",
+ "categories": [{"categoryId": "CATEGORY-1", "name": "Junior"}]}
+```
+
+### Reglamento
+
+```json
+{
+  "challenges": [{
+    "id": "RESCUE", "name": "Rescue mission",
+    "metrics": [{"key": "TIME", "kind": "TIME_SECONDS", "unit": "s", "requirement": "REQUIRED"}],
+    "scoringRules": [
+      {"type": "TIME", "metric": "TIME", "referenceSeconds": 120, "pointsPerSecondSaved": 0.5, "maximumPoints": 30}],
+    "penalties": [{"code": "RESTART", "description": "manual restart", "pointsDeducted": 3}],
+    "maximumAttempts": 2,
+    "bestRounds": {"counted": 2, "outOf": 3},
+    "bonusCap": {"maximumPoints": 20},
+    "mixedSources": false
+  }],
+  "eligibility": [{"type": "AGE_RANGE"}, {"type": "ROBOT_CLASS"}],
+  "attemptAggregation": {"type": "BEST_ATTEMPT"},
+  "tiebreaks": [{"type": "HIGHEST_SINGLE_RUN"}, {"type": "FASTEST_METRIC", "metric": "TIME"}],
+  "appealWindowMinutes": 60
+}
+```
+
+`bestRounds`, `bonusCap` y `mixedSources` son opcionales (`null` o ausentes = no aplica). Las variantes son
+DTO planos con un discriminador `type`; cada una usa sólo sus campos:
+
+| Familia | `type` | Campos |
+|---|---|---|
+| puntaje | `TIME` | `metric`, `referenceSeconds`, `pointsPerSecondSaved`, `maximumPoints` |
+| | `OBJECTIVES` | `metric`, `pointsPerObjective`, `maximumObjectives` |
+| | `PRECISION` | `metric`, `maximumPoints` |
+| | `RESOURCE` | `metric`, `allowance`, `pointsPerUnitOver` |
+| | `JUDGES` | `criterion`, `weight` |
+| | `BONUS` | `metric`, `comparison` (`AT_LEAST`/`AT_MOST`), `threshold`, `bonusPoints` |
+| elegibilidad | `AGE_RANGE`, `ROBOT_CLASS` | — |
+| | `TEAM_COMPOSITION` | `minimumCompetitors`, `maximumCompetitors`, `coachRequiredUnderAge` |
+| | `ROBOT_SPECIFICATION` | `maximumWeightKg`, `maximumDimensionsMm` `{length, width, height}` |
+| | `REQUIRED_DOCUMENTS` | `documents` (`PARENTAL_CONSENT`, `INSURANCE`, `TECHNICAL_SHEET`, `SAFETY_CHECK`) |
+| agregación | `BEST_ATTEMPT`, `SUM_OF_ATTEMPTS` | — |
+| desempate | `HIGHEST_SINGLE_RUN`, `FEWEST_PENALTIES` | — |
+| | `FASTEST_METRIC` | `metric` |
+
+Las métricas tienen `kind` `TIME_SECONDS`, `OBJECTIVE_COUNT`, `PRECISION_RATIO`, `RESOURCE_UNITS` o
+`JUDGE_CRITERION`, y `requirement` `REQUIRED` u `OPTIONAL`. Un desafío mixto (F3) lleva
+`"mixedSources": true` y reglas de ambas fuentes (automáticas y `JUDGES`).
+
+### Versiones y errores
+
+- Publicar un reglamento crea la versión siguiente (`v2`, `v3`, …) y la deja activa. Las rondas ya
+  programadas conservan la versión con la que se programaron, así que no cambian sus resultados.
+- Los errores usan el formato común (`code` y `message`):
+
+| Caso | Respuesta |
+|---|---|
+| Temporada o competencia inexistente (no se guarda nada) | `404 NOT_FOUND` |
+| JSON mal formado | `400 MALFORMED_REQUEST` |
+| Campo faltante, `type` desconocido, valor inválido o desafío mixto sin reglas de ambas fuentes | `400 INVALID_VALUE` |
+| Competencia sin categorías | `400 INVALID_VALUE` |
+| Período de la competencia fuera de la temporada | `422 RULE_VIOLATION` |
+| Temporada que se superpone con otra | `409 CONFLICT` |
+
+Una solicitud inválida no deja nada a medias: el mapper arma el reglamento completo antes de invocar el
+puerto, así que no se crea la competencia ni se consume un id.
+
 ## Ejecutar el frontend
 
 El frontend (React + Vite) vive en [`frontend/`](frontend/README.md). Con el backend en
@@ -462,7 +556,7 @@ npm run dev     # http://localhost:5173
 npm test
 ```
 
-En desarrollo Vite reenvía `/teams`, `/rounds`, `/competitions`, `/appeals`, `/runs` y `/audit` al backend mediante un proxy, así que no hace falta CORS.
+En desarrollo Vite reenvía `/teams`, `/rounds`, `/competitions`, `/appeals`, `/runs`, `/audit` y `/seasons` al backend mediante un proxy, así que no hace falta CORS.
 
 ## Ejecutar la demo repetible
 

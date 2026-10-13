@@ -20,7 +20,7 @@ npm run build    # comprobación de tipos y build de producción en dist/
 ## Comunicación con el backend
 
 En desarrollo el navegador sólo habla con el origen de Vite (`localhost:5173`). `vite.config.ts`
-define un proxy que reenvía `/teams`, `/rounds`, `/competitions`, `/appeals`, `/runs` y `/audit` a `http://localhost:8080`, por lo que **no hace falta
+define un proxy que reenvía `/teams`, `/rounds`, `/competitions`, `/appeals`, `/runs`, `/audit` y `/seasons` a `http://localhost:8080`, por lo que **no hace falta
 configurar CORS** en Spring. Para apuntar a otro backend:
 
 ```bash
@@ -61,6 +61,17 @@ src/features/scores/
   labels.ts                etiquetas en español (tipo de contribución, fuentes)
   ScorePage.tsx            consulta del puntaje de una corrida por ID
   ScoreView.tsx            total, contribuciones, tope, grupos por fuente o estado pendiente
+src/features/event/
+  api.ts                   POST /seasons, POST /seasons/{id}/competitions, GET /competitions/{id}, POST …/rulebooks
+  types.ts                 contrato de la API de configuración del evento
+  presets.ts               reglamentos de ejemplo (F1 Rescate, F3 Mixto) como JSON
+  formModel.ts             borradores de temporada y competencia, validación y requests
+  Field.tsx, Problems.tsx  campo con etiqueta y lista de errores de validación
+  SeasonForm.tsx           paso 1: crear temporada
+  CompetitionForm.tsx      paso 2: crear competencia con sus categorías y el reglamento inicial
+  RulebookEditor.tsx       selector de presets y editor JSON del reglamento
+  CompetitionPanel.tsx     competencia consultada, ids de categorías y publicación de versiones
+  EventPage.tsx            encadena los pasos y conserva los ids obtenidos
 src/features/audit/
   api.ts                   GET /audit?subjectId=
   types.ts                 contrato de la traza de auditoría
@@ -80,9 +91,16 @@ src/features/appeals/
 
 ## Flujos implementados
 
+- **Configurar el evento** — spec [`SPEC_configurar-evento`](../.docs/specs/SPEC_configurar-evento.md)
+  (FR-9). Es la pantalla inicial («Evento»). Se crea la temporada, luego la competencia con sus
+  categorías y el reglamento inicial, y se consulta la competencia creada con su versión activa. Los ids
+  obtenidos (temporada, competencia, categorías) se encadenan solos y se muestran para copiarlos en las
+  otras pantallas. El reglamento se elige entre presets y se edita como JSON; el frontend sólo comprueba
+  que sea JSON válido y deja que el backend valide las reglas, mostrando sus mensajes. Desde la
+  competencia se puede publicar una versión nueva del reglamento.
 - **Registrar equipo** — spec [`SPEC_registrar-equipo`](../.docs/specs/SPEC_registrar-equipo.md)
-  (FR-7, AC-6). El ID de la competencia y de la categoría se ingresan a mano: todavía no hay un
-  endpoint para listarlos (queda para el spec de configurar evento).
+  (FR-7, AC-6). Los IDs de la competencia y de la categoría se ingresan a mano (los muestra la pantalla de
+  configurar el evento).
 - **Programar ronda** — spec [`SPEC_programar-rondas`](../.docs/specs/SPEC_programar-rondas.md)
   (FR-8). Se agregan o quitan largadas, y al enviar se muestra la ronda (consultada con
   `GET /rounds/{id}`) o, ante un `409 SCHEDULE_CONFLICT`, cada conflicto con su tipo. El campo de
