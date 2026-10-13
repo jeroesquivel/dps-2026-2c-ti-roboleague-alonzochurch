@@ -591,7 +591,7 @@ Las métricas tienen `kind` `TIME_SECONDS`, `OBJECTIVE_COUNT`, `PRECISION_RATIO`
 | Temporada que se superpone con otra | `409 CONFLICT` |
 
 Una solicitud inválida no deja nada a medias: el mapper arma el reglamento completo antes de invocar el
-puerto, así que no se crea la competencia ni se consume un id.
+puerto, así que no se crea la competencia ni se consume un Id.
 
 ## Ejecutar el frontend
 
