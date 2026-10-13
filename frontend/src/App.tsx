@@ -1,14 +1,16 @@
 import { useState } from 'react';
+import AppealsPage from './features/appeals/AppealsPage';
 import ScheduleRoundForm from './features/rounds/ScheduleRoundForm';
 import StandingsPage from './features/standings/StandingsPage';
 import RegisterTeamForm from './features/teams/RegisterTeamForm';
 
-type Section = 'teams' | 'rounds' | 'standings';
+type Section = 'teams' | 'rounds' | 'standings' | 'appeals';
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'teams', label: 'Equipos' },
   { id: 'rounds', label: 'Rondas' },
   { id: 'standings', label: 'Posiciones' },
+  { id: 'appeals', label: 'Apelaciones' },
 ];
 
 export default function App() {
@@ -27,6 +29,7 @@ export default function App() {
       {section === 'teams' && <RegisterTeamForm />}
       {section === 'rounds' && <ScheduleRoundForm />}
       {section === 'standings' && <StandingsPage />}
+      {section === 'appeals' && <AppealsPage />}
     </main>
   );
 }

@@ -1899,3 +1899,33 @@ reutilizan el `DemoRulebook` de la demo por consola. Sin el perfil no se carga n
 alternativa descartada de 10 («cargar la demo durante cada arranque») sigue vigente para el arranque
 normal y para los tests. Una prueba arranca el perfil `dev` y verifica que los resultados cargados
 producen posiciones con una corrida pendiente y rondas descartadas.
+
+### 10.2 Adaptador web de apelaciones y consulta de corridas
+
+`AppealController` expone presentar, consultar, aceptar y rechazar, y `RunController` consultar una
+corrida y su puntaje; ambos invocan sólo puertos de entrada (`SubmitAppeal`, `FindAppeal`,
+`AcceptAppeal`, `RejectAppeal`, `FindRunResult`, `CalculateRunScore`). Ningún agregado se serializa
+directamente: `Appeal`, `AppealDecision`, `ResultCorrection` y `RunResult` se proyectan a DTOs.
+
+**Aceptar y rechazar son recursos distintos** (`…/acceptance` y `…/rejection`). Un único endpoint con
+un indicador `accepted` habría fusionado en el contrato web lo que 4.5 mantiene separado en el núcleo
+y habría obligado a que algunos campos fueran opcionales según la decisión.
+
+**La corrección se envía completa.** `AcceptAppeal.Command` pide el conjunto entero de mediciones e
+incidentes; el adaptador lo traduce sin combinarlo con el resultado actual. La alternativa descartada
+(enviar diferencias) habría puesto en la web la lógica de aplicar un parche al resultado, es decir, una
+decisión sobre qué queda de la corrida, y habría hecho ambiguo borrar un incidente. A cambio, quien
+corrige necesita conocer el resultado vigente, que ofrece `GET /runs/{runId}`.
+
+**Consulta de corridas de sólo lectura.** El detalle de la corrida (vigente, original, correcciones,
+completitud) y su puntaje explicado sirven a dos requisitos: que el equipo identifique el resultado que
+apelará (FR-1) y que el revisor prepare una corrección. No se exponen las evaluaciones individuales
+de los jueces: no hacen falta para ninguno de los dos usos. Cualquier cambio de la corrida sigue
+entrando únicamente por `AcceptAppeal`, que valida contra el reglamento fijado en ella (C-3).
+
+**Sin efectos parciales.** `AcceptAppealUseCase` construye la apelación aceptada y la corrida
+corregida (donde se validan métricas e incidentes) antes de guardar o auditar nada, por lo que una
+corrección inválida o una apelación ya resuelta no dejan cambios. La web no necesita compensar nada.
+La observación de que presentar una apelación rechazada consume un identificador de la secuencia
+es aceptada: el identificador no se guarda ni se audita.
+

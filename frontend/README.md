@@ -20,7 +20,7 @@ npm run build    # comprobación de tipos y build de producción en dist/
 ## Comunicación con el backend
 
 En desarrollo el navegador sólo habla con el origen de Vite (`localhost:5173`). `vite.config.ts`
-define un proxy que reenvía `/teams`, `/rounds` y `/competitions` a `http://localhost:8080`, por lo que **no hace falta
+define un proxy que reenvía `/teams`, `/rounds`, `/competitions`, `/appeals` y `/runs` a `http://localhost:8080`, por lo que **no hace falta
 configurar CORS** en Spring. Para apuntar a otro backend:
 
 ```bash
@@ -55,6 +55,15 @@ src/features/standings/
   StandingsPage.tsx        formulario de categoría y acciones (consultar, generar, historial, publicar)
   StandingsView.tsx        tabla de una revisión, corridas pendientes y explicación por equipo
   RevisionList.tsx         selector de revisiones del historial
+src/features/appeals/
+  api.ts                   presentar, consultar, aceptar, rechazar; consultar corrida y puntaje
+  types.ts                 contrato de la API de apelaciones y corridas
+  labels.ts                etiquetas en español (estado de la apelación y de la corrida, tipo de contribución)
+  formModel.ts             borrador de la corrección (a partir del resultado vigente), validación y requests
+  AppealsPage.tsx          consulta de corrida, presentación y consulta de apelaciones, aceptación/rechazo
+  ResolutionForm.tsx       revisor, fundamento y corrección editable (mediciones e incidentes)
+  AppealView.tsx           estado, reclamo y decisión de una apelación
+  RunView.tsx              resultado vigente, puntaje explicado e historial de correcciones
 ```
 
 ## Flujos implementados
@@ -75,3 +84,13 @@ src/features/standings/
   mensaje. La pantalla no ordena ni decide desempates: muestra lo que devuelve la API. Recalcular
   queda sólo en la API. Para probarlo con datos, arrancar el backend con el perfil `dev` (ver el
   README de la raíz) y usar `COMPETITION-1` y `CATEGORY-1`.
+- **Apelaciones** — spec [`SPEC_gestionar-apelaciones`](../.docs/specs/SPEC_gestionar-apelaciones.md)
+  (FR-10). Se consulta una corrida con su puntaje, se presenta una apelación y se consulta su estado.
+  Para una apelación pendiente aparece el formulario de resolución: la corrección se precarga con las
+  mediciones e incidentes vigentes de la corrida y se envía completa; «Aceptar» y «Rechazar» son
+  botones y endpoints distintos. Tras aceptar se muestran la corrida corregida (con su historial y el
+  puntaje nuevo) y si las posiciones de su categoría tuvieron una revisión nueva, comparando las
+  revisiones antes y después; tras rechazar, que nada cambió. Los errores de la API (equipo ajeno,
+  ventana vencida, apelación repetida, corrección inválida) se muestran con su mensaje. El frontend no
+  calcula puntajes ni decide elegibilidad: sólo valida presencia y formato numérico. Con el perfil
+  `dev`, `RUN-1` es una corrida de `TEAM-1`.

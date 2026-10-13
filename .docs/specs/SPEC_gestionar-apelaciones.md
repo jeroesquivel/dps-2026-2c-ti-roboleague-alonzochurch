@@ -122,8 +122,13 @@ Then la API responde con conflicto hasta que la apelación sea resuelta.
 
 ## 6. Open questions
 
-- Definir si las mediciones corregidas deben enviarse completas o como diferencias respecto del
-  resultado actual; el puerto actual requiere el conjunto completo.
-- Definir cómo obtiene el frontend los valores actuales necesarios para preparar una corrección sin
-  exponer detalles internos innecesarios.
+Resueltas:
 
+- **Mediciones corregidas.** Se envían completas, no como diferencias: coincide con
+  `AcceptAppeal.Command.correctedMeasurements` y evita que el adaptador combine el pedido con el
+  resultado actual. Lo mismo vale para los incidentes (`correctedIncidents`, que puede ser una lista
+  vacía pero no puede faltar). El frontend precarga el formulario con el resultado vigente.
+- **Valores actuales para corregir.** `GET /runs/{runId}` devuelve el detalle de la corrida
+  (mediciones e incidentes vigentes y originales, correcciones aplicadas, estado y completitud) y
+  `GET /runs/{runId}/score` su puntaje explicado. Son de sólo lectura, sirven también para FR-1 y no
+  exponen las evaluaciones individuales de los jueces.

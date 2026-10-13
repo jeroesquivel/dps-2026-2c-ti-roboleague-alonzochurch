@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import App from './App';
 
 describe('App', () => {
-  it('switches between the teams, rounds and standings sections', async () => {
+  it('switches between the teams, rounds, standings and appeals sections', async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -14,6 +14,8 @@ describe('App', () => {
     expect(screen.queryByRole('heading', { name: 'Registrar equipo' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Posiciones' }));
     expect(screen.getByRole('heading', { name: 'Posiciones' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Apelaciones' }));
+    expect(screen.getByRole('heading', { name: 'Apelaciones' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Equipos' }));
     expect(screen.getByRole('heading', { name: 'Registrar equipo' })).toBeInTheDocument();
   });

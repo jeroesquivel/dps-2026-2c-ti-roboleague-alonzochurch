@@ -311,6 +311,68 @@ publicar una revisión ya final dan `409 CONFLICT`. El `message` de una publicac
 las corridas pendientes o los identificadores de las apelaciones pendientes, pero su texto no es
 estable.
 
+## API: apelaciones y corridas
+
+Spec: [`.docs/specs/SPEC_gestionar-apelaciones.md`](.docs/specs/SPEC_gestionar-apelaciones.md). Los
+controllers invocan los puertos `SubmitAppeal`, `FindAppeal`, `AcceptAppeal`, `RejectAppeal`,
+`FindRunResult` y `CalculateRunScore`. Aceptar y rechazar son recursos distintos (no hay un endpoint
+con un indicador que combine ambas decisiones) y la corrección de una corrida entra sólo por
+`AcceptAppeal`, que valida contra el reglamento fijado en la corrida y recalcula las posiciones si ya
+existen.
+
+| Operación | Ruta | Cuerpo | Respuesta |
+| --- | --- | --- | --- |
+| Presentar una apelación | `POST /appeals` | `{"runId", "teamId", "claim", "actor"}` | `201` `{"appealId"}` y `Location: /appeals/{appealId}` |
+| Consultar una apelación | `GET /appeals/{appealId}` | — | `200` con la apelación |
+| Aceptar | `POST /appeals/{appealId}/acceptance` | `{"rationale", "correctedMeasurements", "correctedIncidents", "reviewer"}` | `200` con la apelación `ACCEPTED` |
+| Rechazar | `POST /appeals/{appealId}/rejection` | `{"rationale", "reviewer"}` | `200` con la apelación `REJECTED` |
+| Consultar una corrida | `GET /runs/{runId}` | — | `200` con el detalle de la corrida |
+| Consultar su puntaje | `GET /runs/{runId}/score` | — | `200` con el puntaje explicado |
+
+Una apelación tiene esta forma; `decision` es `null` mientras `status` es `SUBMITTED`:
+
+```json
+{
+  "appealId": "APPEAL-2",
+  "runId": "RUN-1",
+  "teamId": "TEAM-1",
+  "claim": "timer late",
+  "submittedAt": "2026-03-02T10:30:00.000Z",
+  "status": "ACCEPTED",
+  "decision": {"reviewer": "rev", "rationale": "video review", "decidedAt": "2026-03-02T11:00:00.000Z"}
+}
+```
+
+Para aceptar se envía el **conjunto completo** de mediciones e incidentes que reemplaza al resultado
+vigente, no diferencias; `correctedIncidents` puede ser `[]` pero no puede faltar:
+
+```json
+{
+  "rationale": "video review",
+  "correctedMeasurements": {"TIME": 80, "OBJECTIVES": 5, "ENERGY": 48},
+  "correctedIncidents": [{"code": "RESTART", "occurrences": 1}],
+  "reviewer": "rev"
+}
+```
+
+El detalle de una corrida (`GET /runs/{runId}`) trae `status` (`CAPTURED` o `CORRECTED`),
+`currentMeasurements`/`currentIncidents`, `originalMeasurements`/`originalIncidents` (el original se
+conserva siempre), `corrections` (cada una con `appliedAt`, `actor`, `reason`, sus mediciones e
+incidentes y la apelación de origen), `rulebookVersion`, `roundId`, `heatId`, `attemptNumber` y
+`completion` (`PENDING` o `COMPLETE`, fuentes esperadas, faltantes y recibidas). El puntaje
+(`GET /runs/{runId}/score`) trae `total`, `contributions` (`ruleCode`, `kind` `EARNED`/`BONUS`/`PENALTY`,
+`explanation`, `points`), `completionStatus` y `bySource` (sólo en desafíos mixtos).
+
+Errores (mismo formato y tabla que el resto de la API): un equipo ajeno, una ventana vencida o una
+corrida incompleta dan `422 RULE_VIOLATION` y no guardan ni auditan nada; apelar dos veces la misma
+corrida (aunque la primera esté resuelta) y resolver una apelación ya resuelta dan `409 CONFLICT`; una
+corrección que viola el reglamento histórico (métrica o penalidad inexistente, valor fuera de rango)
+da `422` sin cambiar la apelación, la corrida, las posiciones ni la auditoría; campos ausentes o en
+blanco, números negativos o incidentes sin ocurrencias dan `400 INVALID_VALUE`; apelaciones o corridas
+inexistentes dan `404`. Con posiciones existentes, aceptar crea una revisión `PROVISIONAL` nueva
+(`GET …/standings/revisions`); sin posiciones no se crea ninguna. Mientras haya una apelación
+pendiente, publicar las posiciones de su categoría da `409`.
+
 ## Ejecutar el frontend
 
 El frontend (React + Vite) vive en [`frontend/`](frontend/README.md). Con el backend en
@@ -323,7 +385,7 @@ npm run dev     # http://localhost:5173
 npm test
 ```
 
-En desarrollo Vite reenvía `/teams`, `/rounds` y `/competitions` al backend mediante un proxy, así que no hace falta CORS.
+En desarrollo Vite reenvía `/teams`, `/rounds`, `/competitions`, `/appeals` y `/runs` al backend mediante un proxy, así que no hace falta CORS.
 
 ## Ejecutar la demo repetible
 

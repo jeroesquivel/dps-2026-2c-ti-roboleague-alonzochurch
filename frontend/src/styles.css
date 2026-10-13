@@ -35,3 +35,8 @@ th, td { border: 1px solid #c8ccd2; padding: .3rem .5rem; text-align: left; }
 .notice { background: #e7f6ec; border: 1px solid #4cae6b; border-radius: .5rem; padding: .5rem 1rem; }
 .publish { margin-top: 1rem; background: #1f4fd8; border-color: #1f4fd8; color: #fff; }
 details ul { margin: .4rem 0 0; padding-left: 1.2rem; }
+.badge--submitted, .badge--captured { background: #fff4e5; border: 1px solid #f0b35c; }
+.badge--accepted, .badge--corrected { background: #e7f6ec; border: 1px solid #4cae6b; }
+.badge--rejected { background: #fdeaea; border: 1px solid #d96060; }
+.incident-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem; }
+.score ul { margin: .4rem 0 1rem; padding-left: 1.2rem; }

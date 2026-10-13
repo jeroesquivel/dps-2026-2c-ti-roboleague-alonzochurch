@@ -12,6 +12,8 @@ export default defineConfig({
       '/teams': BACKEND,
       '/rounds': BACKEND,
       '/competitions': BACKEND,
+      '/appeals': BACKEND,
+      '/runs': BACKEND,
     },
   },
   test: {
