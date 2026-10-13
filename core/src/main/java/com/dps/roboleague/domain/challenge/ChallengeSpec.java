@@ -1,6 +1,7 @@
 package com.dps.roboleague.domain.challenge;
 
 import com.dps.roboleague.domain.scoring.BonusCap;
+import com.dps.roboleague.domain.scoring.BonusCapOutcome;
 import com.dps.roboleague.domain.scoring.IncidentReport;
 import com.dps.roboleague.domain.scoring.JudgeEvaluations;
 import com.dps.roboleague.domain.scoring.PenaltyCode;
@@ -144,6 +145,11 @@ public record ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> 
                         PenaltyScoringRule.of(penalties).apply(context).stream())
                 .flatMap(Function.identity())
                 .toList());
+    }
+
+    /** Bonificaciones obtenidas, tope y recorte de una corrida; vacío si el desafío no tiene tope. */
+    public Optional<BonusCapOutcome> bonusCapOutcome(ScoringContext context) {
+        return bonusCap.map(cap -> cap.outcomeOf(scoreByRules(context)));
     }
 
     public Optional<SourcedScore> scoreBySource(ScoringContext context) {

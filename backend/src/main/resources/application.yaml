@@ -1,0 +1,9 @@
+# Configuración común del backend. El perfil `dev` (application-dev.yaml) agrega datos de demostración.
+#
+#   java -jar backend/target/roboleague-backend-1.0-SNAPSHOT.jar --spring.profiles.active=dev
+spring:
+  application:
+    name: roboleague
+
+server:
+  port: 8080

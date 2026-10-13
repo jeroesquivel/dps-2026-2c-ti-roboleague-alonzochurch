@@ -3,6 +3,7 @@ package com.dps.roboleague.domain.port.in;
 import com.dps.roboleague.domain.challenge.SourcedScore;
 import com.dps.roboleague.domain.result.RunCompletion;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
+import com.dps.roboleague.domain.scoring.BonusCapOutcome;
 import com.dps.roboleague.domain.scoring.ScoreBreakdown;
 import com.dps.roboleague.domain.shared.ChallengeId;
 import com.dps.roboleague.domain.shared.Points;
@@ -18,7 +19,8 @@ public interface CalculateRunScore {
     }
 
     record RunScore(RunId runId, TeamId teamId, ChallengeId challengeId, RulebookVersion rulebookVersion,
-            ScoreBreakdown breakdown, RunCompletion completion, Optional<SourcedScore> bySource) {
+            ScoreBreakdown breakdown, RunCompletion completion, Optional<SourcedScore> bySource,
+            Optional<BonusCapOutcome> bonusCap) {
 
         public Points total() {
             return breakdown.total();

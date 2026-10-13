@@ -1,0 +1,103 @@
+# Datos de demostración que se cargan al arrancar con el perfil `dev`. Se cargan a través de los
+# puertos de entrada del núcleo, igual que cualquier otro cliente, y los repositorios son en memoria:
+# cada arranque parte de cero.
+#
+# Los identificadores los genera el backend de forma secuencial (COMPETITION-1, CATEGORY-1, TEAM-1…
+# TEAM-4, ROUND-1…ROUND-6); al arrancar se registran en el log.
+#
+# Reglas del reglamento (desafíos RESCUE, SPRINT, PRECISION y SHOWCASE) en DemoRulebook.
+roboleague:
+  dev-seed:
+    actor: dev-seed
+    season:
+      name: Season 2026
+      year: 2026
+      start: "2026-01-01"
+      end: "2026-12-31"
+    competition:
+      name: National Open
+      start: "2026-03-01"
+      end: "2026-03-05"
+    category:
+      name: Junior
+      min-age: 12
+      max-age: 17
+      robot-class: RESCUE_BOT
+    teams:
+      - Kappa Labs
+      - Delta Bots
+      - Omega Crew
+      - Sigma Works
+    # Cada ronda programa un heat por equipo, en el orden de `teams`, con estos parámetros.
+    arena: A1
+    judges: [J1, J2]
+    heat-minutes: 15
+    heat-spacing-minutes: 20
+    # `source` indica cómo llega el resultado: CAPTURE (todo junto, por defecto), MEASUREMENTS (sólo
+    # mediciones automáticas) o PANEL (sólo evaluaciones del jurado). Las puntuaciones de los jueces se
+    # leen en el orden de `judges`.
+    rounds:
+      - ordinal: 1
+        challenge: RESCUE
+        start: "2026-03-02T09:00:00"
+        results:
+          - team: Kappa Labs
+            measurements: {time: "99", objectives: "5", energy: "48"}
+            judge-scores: {design: [8, 8]}
+          - team: Delta Bots
+            measurements: {time: "117", objectives: "5", energy: "48"}
+            judge-scores: {design: [5, 5]}
+          - team: Omega Crew
+            measurements: {time: "105", objectives: "5", energy: "55"}
+            judge-scores: {design: [7, 7]}
+            incidents: [RESTART]
+          - team: Sigma Works
+            measurements: {time: "107", objectives: "5", energy: "50"}
+            judge-scores: {design: [8, 8]}
+            incidents: [RESTART, OUT_OF_BOUNDS]
+      - ordinal: 2
+        challenge: SPRINT
+        start: "2026-03-02T10:30:00"
+        results:
+          - {team: Kappa Labs, measurements: {time: "44", checkpoints: "4"}}
+          - {team: Delta Bots, measurements: {time: "44", checkpoints: "4"}}
+          - {team: Omega Crew, measurements: {time: "44", checkpoints: "4"}}
+          - {team: Sigma Works, measurements: {time: "46", checkpoints: "4"}}
+      # PRECISION cuenta las 2 mejores de 3 rondas: la tabla explica cuáles se tomaron y cuáles se descartaron.
+      - ordinal: 3
+        challenge: PRECISION
+        start: "2026-03-02T12:00:00"
+        results:
+          - {team: Kappa Labs, measurements: {accuracy: "0.80"}}
+          - {team: Delta Bots, measurements: {accuracy: "0.90"}}
+          - {team: Omega Crew, measurements: {accuracy: "0.95"}}
+          - {team: Sigma Works, measurements: {accuracy: "0.95"}}
+      - ordinal: 4
+        challenge: PRECISION
+        start: "2026-03-02T13:30:00"
+        results:
+          - {team: Kappa Labs, measurements: {accuracy: "0.65"}}
+          - {team: Delta Bots, measurements: {accuracy: "0.85"}}
+          - {team: Omega Crew, measurements: {accuracy: "0.80"}}
+          - {team: Sigma Works, measurements: {accuracy: "0.85"}}
+      - ordinal: 5
+        challenge: PRECISION
+        start: "2026-03-02T15:00:00"
+        results:
+          - {team: Kappa Labs, measurements: {accuracy: "0.65"}}
+          - {team: Delta Bots, measurements: {accuracy: "0.50"}}
+          - {team: Omega Crew, measurements: {accuracy: "0.40"}}
+          - {team: Sigma Works, measurements: {accuracy: "0.60"}}
+      # SHOWCASE llega en dos fuentes. Omega Crew sólo tiene las mediciones automáticas: su corrida queda
+      # pendiente (falta el jurado), no puntúa y bloquea la publicación de las posiciones.
+      - ordinal: 6
+        challenge: SHOWCASE
+        start: "2026-03-02T16:30:00"
+        results:
+          - {team: Kappa Labs, source: MEASUREMENTS, measurements: {time: "64", accuracy: "0.80"}}
+          - {team: Kappa Labs, source: PANEL, judge-scores: {creativity: [8, 6], execution: [9, 7]}, incidents: [RESTART]}
+          - {team: Delta Bots, source: MEASUREMENTS, measurements: {time: "80", accuracy: "0.80"}}
+          - {team: Delta Bots, source: PANEL, judge-scores: {creativity: [8, 8], execution: [10, 10]}}
+          - {team: Omega Crew, source: MEASUREMENTS, measurements: {time: "70", accuracy: "0.80"}}
+          - {team: Sigma Works, source: MEASUREMENTS, measurements: {time: "70", accuracy: "0.90"}}
+          - {team: Sigma Works, source: PANEL, judge-scores: {creativity: [7, 7], execution: [6, 6]}}

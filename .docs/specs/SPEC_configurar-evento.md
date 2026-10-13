@@ -115,8 +115,29 @@ obtuvo en pasos anteriores.
 
 ## 6. Open questions
 
-- Definir la representación HTTP concreta de cada variante de `ScoringRule`, `EligibilityRule`,
-  `TiebreakRule` y `AttemptAggregation`.
-- Definir si el frontend permitirá construir cualquier reglamento soportado o usará configuraciones
-  predeterminadas suficientes para la demostración de esta entrega.
+Resueltas:
 
+- **Representación HTTP de las variantes.** Cada familia (`ScoringRule`, `EligibilityRule`,
+  `TiebreakRule`, `AttemptAggregation`) se expone como un DTO plano con un discriminador `type` y los
+  campos de cualquier variante, todos opcionales en el JSON. El mapper web valida que estén los campos
+  que la variante pide, construye el `RulebookDraft` completo y recién entonces llama al puerto: una
+  configuración inválida no crea nada (AC-3). No se usa polimorfismo de Jackson (C-2). Catálogo de
+  `type`:
+  - puntaje: `TIME`, `OBJECTIVES`, `PRECISION`, `RESOURCE`, `JUDGES`, `BONUS`;
+  - elegibilidad: `AGE_RANGE`, `TEAM_COMPOSITION`, `ROBOT_CLASS`, `ROBOT_SPECIFICATION`,
+    `REQUIRED_DOCUMENTS`;
+  - agregación de intentos: `BEST_ATTEMPT`, `SUM_OF_ATTEMPTS`;
+  - desempate: `HIGHEST_SINGLE_RUN`, `FEWEST_PENALTIES`, `FASTEST_METRIC`.
+  Un `type` ausente o desconocido responde `400 INVALID_VALUE` y lista los valores soportados.
+- **Frontend.** Formularios reales para temporada y competencia (con sus categorías); el reglamento se
+  elige entre presets (F1 «Rescate» y F3 «Mixto») que se cargan en un editor JSON editable, con la
+  misma validación del backend. Los ids obtenidos se encadenan solos entre pasos (FR-9, AC-6). No hay
+  constructor visual de reglas (fuera de alcance).
+- **Endpoints.** `POST /seasons` (201, `{seasonId}`), `POST /seasons/{seasonId}/competitions` (201 con
+  `Location: /competitions/{id}`), `GET /competitions/{competitionId}` (200) y
+  `POST /competitions/{competitionId}/rulebooks` (201). Temporadas y reglamentos no tienen recurso
+  propio de consulta (la spec no los pide), así que esas respuestas no llevan `Location`.
+- **Categorías.** La respuesta de creación devuelve las categorías en el orden de la solicitud, cada una
+  con su `categoryId` y su `name` (FR-5). El actor viaja en el cuerpo (C-4).
+- **Cambio en el núcleo.** `CreateCompetitionUseCase` exige al menos una categoría (FR-2) y lo valida
+  antes de generar ids o guardar nada; antes aceptaba una lista vacía.

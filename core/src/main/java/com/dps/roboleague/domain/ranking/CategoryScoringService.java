@@ -8,6 +8,7 @@ import com.dps.roboleague.domain.rulebook.Rulebook;
 import com.dps.roboleague.domain.rulebook.RulebookRepository;
 import com.dps.roboleague.domain.schedule.Round;
 import com.dps.roboleague.domain.schedule.RoundRepository;
+import com.dps.roboleague.domain.scoring.BonusCapOutcome;
 import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.CompetitionId;
 import com.dps.roboleague.domain.shared.NotFoundException;
@@ -73,6 +74,10 @@ public final class CategoryScoringService {
 
     public Optional<SourcedScore> scoreBySource(RunResult run, CompetitionId competitionId) {
         return challengeOf(run, competitionId).scoreBySource(run.scoringContext());
+    }
+
+    public Optional<BonusCapOutcome> bonusCapOutcome(RunResult run, CompetitionId competitionId) {
+        return challengeOf(run, competitionId).bonusCapOutcome(run.scoringContext());
     }
 
     private ChallengeSpec challengeOf(RunResult run, CompetitionId competitionId) {

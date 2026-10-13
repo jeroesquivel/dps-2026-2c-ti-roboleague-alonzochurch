@@ -15,6 +15,7 @@ import com.dps.roboleague.domain.rulebook.RulebookRepository;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.shared.CompetitionId;
 import com.dps.roboleague.domain.shared.IdGenerator;
+import com.dps.roboleague.domain.shared.InvalidValueException;
 import com.dps.roboleague.domain.shared.NotFoundException;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -42,6 +43,9 @@ public final class CreateCompetitionUseCase implements CreateCompetition {
 
     @Override
     public Result execute(Command command) {
+        if (command.categories().isEmpty()) {
+            throw new InvalidValueException("a competition requires at least one category");
+        }
         Season season = seasons.findById(command.seasonId())
                 .orElseThrow(() -> NotFoundException.of("Season", command.seasonId().value()));
         season.requireCompetitionPeriodInside(command.period());

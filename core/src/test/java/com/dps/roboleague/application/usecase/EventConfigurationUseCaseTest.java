@@ -17,6 +17,7 @@ import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.shared.Actor;
 import com.dps.roboleague.domain.shared.AgeRange;
 import com.dps.roboleague.domain.shared.ConflictException;
+import com.dps.roboleague.domain.shared.CompetitionId;
 import com.dps.roboleague.domain.shared.DateRange;
 import com.dps.roboleague.domain.shared.Identifier;
 import com.dps.roboleague.domain.shared.InvalidValueException;
@@ -159,6 +160,19 @@ class EventConfigurationUseCaseTest {
                 () -> createCompetition(missingSeason, SEASON_PERIOD));
 
         assertTrue(error.getMessage().contains(missingSeason.value()));
+    }
+
+    @Test
+    void rejectsACompetitionWithoutCategoriesAndLeavesNothingBehind() {
+        SeasonId seasonId = createSeason();
+
+        InvalidValueException error = assertThrows(InvalidValueException.class,
+                () -> module.createCompetitionUseCase().execute(new CreateCompetition.Command(seasonId,
+                        "National Open", SEASON_PERIOD, List.of(), RescueEditionFixture.rulebook(), ACTOR)));
+
+        assertTrue(error.getMessage().contains("at least one category"));
+        assertTrue(module.findAuditTrailUseCase()
+                .execute(new FindAuditTrail.Command(CompetitionId.of("COMPETITION-1"))).isEmpty());
     }
 
     private SeasonId createSeason() {

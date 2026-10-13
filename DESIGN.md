@@ -1871,3 +1871,134 @@ Verificación del bootstrap el 12 de octubre de 2026: **324 tests, 0 fallos, 0 e
 (303 en `core` y 21 en `backend`). JaCoCo 0.8.15 mantiene **100 %** de instrucciones, ramas, líneas,
 complejidad, métodos y clases del código productivo de `core`. La prueba del backend cubre el
 arranque completo y la infraestructura HTTP real.
+
+### 10.1 Adaptador web de posiciones y datos de demostración
+
+Las specs de equipos, rondas y posiciones agregaron controllers que invocan sólo puertos de entrada
+(`TeamController`, `RoundController`, `StandingsController`); `GET /technical/health` ya no es la única
+entrada HTTP. Los DTOs y mappers viven en `adapter/in/web/...` y un `ApiExceptionHandler` compartido
+traduce la jerarquía de excepciones del dominio (4.9) a estados HTTP.
+
+**Posiciones.** `StandingsController` expone generar, última revisión, historial, publicación y
+recálculo. Proyecta `Standings`, `StandingEntry` y `ScoreExplanation` sin reordenar ni recalcular nada.
+El nombre del equipo se agrega en el adaptador consultando `FindTeamRegistration` en lugar de
+guardarlo en `StandingEntry`: evita tocar el núcleo por un dato de presentación, a costa de mostrar el
+nombre actual y no el de la fecha de la revisión. La consulta se separa en «última» e «historial» para
+no enviar todas las revisiones en cada lectura.
+
+**El motivo del recálculo lo exige el núcleo.** `RecalculateStandings.Command` valida que `reason` no
+sea nulo ni esté en blanco. Hasta ahora sólo el log de auditoría dependía de él y un `null` fallaba con
+una excepción no controlada; la regla pertenece al comando, no a cada adaptador que lo construya.
+
+**Datos de demostración para la web.** El perfil `dev` de Spring (`application-dev.yaml`) carga una
+competencia con equipos, rondas y resultados mediante los puertos de entrada, con un `ApplicationRunner`
+declarado sólo en ese perfil. Los datos son configuración (`@ConfigurationProperties`), no código, y
+reutilizan el `DemoRulebook` de la demo por consola. Sin el perfil no se carga nada, por lo que la
+alternativa descartada de 10 («cargar la demo durante cada arranque») sigue vigente para el arranque
+normal y para los tests. Una prueba arranca el perfil `dev` y verifica que los resultados cargados
+producen posiciones con una corrida pendiente y rondas descartadas.
+
+### 10.2 Adaptador web de apelaciones y consulta de corridas
+
+`AppealController` expone presentar, consultar, aceptar y rechazar, y `RunController` consultar una
+corrida y su puntaje; ambos invocan sólo puertos de entrada (`SubmitAppeal`, `FindAppeal`,
+`AcceptAppeal`, `RejectAppeal`, `FindRunResult`, `CalculateRunScore`). Ningún agregado se serializa
+directamente: `Appeal`, `AppealDecision`, `ResultCorrection` y `RunResult` se proyectan a DTOs.
+
+**Aceptar y rechazar son recursos distintos** (`…/acceptance` y `…/rejection`). Un único endpoint con
+un indicador `accepted` habría fusionado en el contrato web lo que 4.5 mantiene separado en el núcleo
+y habría obligado a que algunos campos fueran opcionales según la decisión.
+
+**La corrección se envía completa.** `AcceptAppeal.Command` pide el conjunto entero de mediciones e
+incidentes; el adaptador lo traduce sin combinarlo con el resultado actual. La alternativa descartada
+(enviar diferencias) habría puesto en la web la lógica de aplicar un parche al resultado, es decir, una
+decisión sobre qué queda de la corrida, y habría hecho ambiguo borrar un incidente. A cambio, quien
+corrige necesita conocer el resultado vigente, que ofrece `GET /runs/{runId}`.
+
+**Consulta de corridas de sólo lectura.** El detalle de la corrida (vigente, original, correcciones,
+completitud) y su puntaje explicado sirven a dos requisitos: que el equipo identifique el resultado que
+apelará (FR-1) y que el revisor prepare una corrección. No se exponen las evaluaciones individuales
+de los jueces: no hacen falta para ninguno de los dos usos. Cualquier cambio de la corrida sigue
+entrando únicamente por `AcceptAppeal`, que valida contra el reglamento fijado en ella (C-3).
+
+**Sin efectos parciales.** `AcceptAppealUseCase` construye la apelación aceptada y la corrida
+corregida (donde se validan métricas e incidentes) antes de guardar o auditar nada, por lo que una
+corrección inválida o una apelación ya resuelta no dejan cambios. La web no necesita compensar nada.
+La observación de que presentar una apelación rechazada consume un identificador de la secuencia
+es aceptada: el identificador no se guarda ni se audita.
+
+### 10.3 Puntaje explicable en la API
+
+**El tope de bonificaciones se expone como dato.** `CalculateRunScore.RunScore` incorpora
+`Optional<BonusCapOutcome>` (bonificaciones obtenidas, tope y recorte). `BonusCap.outcomeOf` hace la
+cuenta una sola vez y `BonusCap.trim` la reutiliza para construir la contribución `BONUS_CAP` (2.5), de
+modo que el dato y la contribución no pueden divergir. El desafío lo calcula desde el reglamento
+histórico de la corrida (`ChallengeSpec.bonusCapOutcome`). La alternativa descartada era interpretar el
+texto de la explicación o dejar el tope fuera de la respuesta: el texto no es contrato y el tope no
+figuraba en ningún otro lugar accesible desde los puertos. No cambia la fórmula ni el desglose existente.
+
+**Una corrida pendiente es un estado, no un error.** `CalculateRunScore` sigue rechazando una corrida
+incompleta con `RuleViolationException` (no hay puntaje parcial, 4.13). El controller consulta antes
+`FindRunResult` y, si la corrida está incompleta, responde `200` con `PENDING` y las fuentes faltantes
+en lugar de traducir esa excepción a `422`: la consulta es válida, el recurso existe y el cuerpo de
+error no tiene un campo estructurado para las fuentes. Es coherente con las posiciones, que ya listan
+las corridas pendientes como datos. Decidir si una corrida está completa sigue siendo del núcleo; el
+controller sólo lee el estado que `FindRunResult` informa.
+
+**Vocabulario público.** La API usa los nombres del dominio (`EARNED`, `BONUS`, `PENALTY`, `AUTOMATIC`,
+`JUDGES`) y el frontend los traduce, en vez de mantener un segundo vocabulario que habría que
+sincronizar en el mapper.
+
+### 10.4 Auditoría en la API
+
+**Una consulta, un recurso.** `GET /audit?subjectId=…` invoca `FindAuditTrail`; el controller no conoce
+`AuditLog` ni su implementación en memoria. La alternativa de una URL de auditoría por recurso
+(`/runs/{id}/audit`, `/appeals/{id}/audit`, …) se descartó: repetiría el mismo endpoint en cada
+controller y obligaría al frontend a elegir una ruta según el tipo. El tipo se deduce del prefijo del
+identificador porque `AuditLog` indexa por `Identifier` tipado (un `RunId` y un `AppealId` con el mismo
+valor son sujetos distintos); la deducción vive en el mapper web y no en el núcleo, que sigue sin
+saber cómo se escriben los identificadores en la API.
+
+**El contrato público se decide en el mapper.** `AuditAction` y `AuditDetail` no se serializan: el mapper
+los traduce con un `switch` exhaustivo, de modo que sumar una acción o un detalle al núcleo no compila
+hasta decidir cómo se expone. Los detalles se publican como `Map<String,String>` con claves en
+minúsculas y orden estable. Los valores son los textos que el núcleo registró; la API no los interpreta
+(la traza complementa al estado actual y no se usa para reconstruirlo, C-4).
+
+**Orden y vacío.** La API ordena por instante con un orden estable, de modo que los eventos del mismo
+instante (en una aceptación, la resolución de la apelación y la corrección de la corrida) conservan el
+orden de registro. No se valida la existencia del sujeto: un identificador sin eventos devuelve `200`
+con la lista vacía; validarlo obligaría a consultar el repositorio de cada tipo de agregado desde la
+auditoría. Sólo un `subjectId` ausente o de un tipo no soportado es un error (`400`).
+
+### 10.5 Configuración del evento en la API
+
+**DTO plano con discriminador, no polimorfismo de Jackson.** `ScoringRule`, `EligibilityRule`,
+`TiebreakRule` y `AttemptAggregation` no se serializan (C-2). Cada familia es un único record con
+`type` y los campos de todas sus variantes. Se descartó `@JsonTypeInfo` con subtipos: ataría el contrato
+público a las clases del dominio, devolvería errores de Jackson (`400` genéricos) en vez de mensajes
+sobre el campo que falta, y sumar una variante al núcleo cambiaría la API sin querer. Con el record
+plano el `switch` del mapper decide qué campos exige cada variante y un `type` desconocido lista los
+soportados. El costo es que el JSON admite campos que la variante ignora.
+
+**El mapper arma todo antes de llamar al puerto.** `EventWebMapper` construye el `RulebookDraft`
+completo (desafíos, reglas, elegibilidad, agregación, desempates) antes de invocar `CreateCompetition`
+o `PublishRulebook`. Así una configuración inválida falla sin haber guardado nada (AC-3), sin
+transacciones ni compensaciones. Los invariantes del dominio (por ejemplo, un desafío mixto requiere
+reglas de ambas fuentes) siguen en los constructores del núcleo; el mapper sólo valida presencia y
+formato.
+
+**«Al menos una categoría» vive en el núcleo.** `CreateCompetitionUseCase` aceptaba una lista vacía.
+Como la regla es de la competencia y no del transporte, se agregó allí (antes de generar ids o
+guardar) con su prueba, y no en el mapper, para que cualquier otro adaptador herede la regla.
+
+**Respuesta con correspondencia explícita.** La creación devuelve las categorías en el orden de la
+solicitud, cada una con `categoryId` y `name` (FR-5); no hay un recurso de categorías porque la spec no lo
+pide. `Location` se informa sólo para la competencia, que es la única con consulta propia.
+
+**Frontend: presets más JSON editable.** Un constructor visual de reglas está fuera de alcance, y
+exponer cada variante como formulario habría duplicado el catálogo de `type` en TypeScript. Se ofrecen
+los reglamentos de F1 y F3 como presets cargados en un editor JSON; el frontend sólo verifica que sea
+JSON y el backend decide qué es válido. Los formularios de temporada y competencia sí son reales, y los
+ids obtenidos se encadenan entre pasos para no volver a tipearlos (AC-6).
+
