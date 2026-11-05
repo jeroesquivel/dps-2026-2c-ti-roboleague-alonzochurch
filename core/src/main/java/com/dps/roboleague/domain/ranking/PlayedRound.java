@@ -6,11 +6,13 @@ import com.dps.roboleague.domain.shared.InvalidValueException;
 import java.util.List;
 import java.util.Objects;
 
-public record PlayedRound(RoundOrdinal ordinal, ChallengeId challengeId, List<ScoredRun> attempts) {
+public record PlayedRound(RoundOrdinal ordinal, ChallengeId challengeId, RoundPolicy policy,
+        List<ScoredRun> attempts) {
 
     public PlayedRound {
         Objects.requireNonNull(ordinal, "round ordinal is required");
         Objects.requireNonNull(challengeId, "challenge id is required");
+        Objects.requireNonNull(policy, "round policy is required");
         attempts = List.copyOf(attempts);
         if (attempts.isEmpty()) {
             throw new InvalidValueException("round " + ordinal.value() + " requires at least one attempt to count as played");
@@ -25,7 +27,7 @@ public record PlayedRound(RoundOrdinal ordinal, ChallengeId challengeId, List<Sc
         return played.stream().flatMap(round -> round.attempts().stream()).toList();
     }
 
-    public RoundScore score(AttemptAggregation aggregation) {
-        return new RoundScore(ordinal, aggregation.aggregate(attempts));
+    public RoundScore score() {
+        return new RoundScore(ordinal, policy.aggregation().aggregate(attempts));
     }
 }

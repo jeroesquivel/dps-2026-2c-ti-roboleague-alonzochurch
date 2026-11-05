@@ -33,7 +33,7 @@ public record BestRounds(int counted, int outOf) implements RoundSelection {
 
     @Override
     public void explain(ChallengeRounds rounds, ExplanationDraft draft) {
-        draft.select(rounds.scores(draft.aggregation()).bestOf(this, rounds.challengeId()));
+        draft.select(rounds.scores().bestOf(this, rounds.challengeId(), rounds.policy().version()));
     }
 
     public int countedOutOf(int playedRounds) {

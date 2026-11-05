@@ -118,7 +118,7 @@ class DemoScenarioTest {
     void thePrecisionChallengeCountsTheBestTwoOfThreeRoundsWithATieAtTheCut() {
         ScoreSubtotal kappa = bestRoundsOf(published(), KAPPA);
 
-        assertEquals("the best 2 of 3 rounds of challenge PRECISION", kappa.description());
+        assertEquals("the best 2 of 3 rounds of challenge PRECISION (rulebook v1)", kappa.description());
         assertEquals(List.of(RoundStatus.COUNTED, RoundStatus.COUNTED, RoundStatus.DISCARDED), statusesOf(kappa));
         assertEquals("tied with round 4, the lower ordinal wins", kappa.rounds().get(2).reason());
     }

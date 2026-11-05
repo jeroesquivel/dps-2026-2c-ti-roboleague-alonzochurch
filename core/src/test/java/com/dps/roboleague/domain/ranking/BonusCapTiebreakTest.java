@@ -1,5 +1,6 @@
 package com.dps.roboleague.domain.ranking;
 
+import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
@@ -41,7 +42,7 @@ class BonusCapTiebreakTest {
         ScoredRun run = new ScoredRun(RunId.of(team + "-RUN"), RescueEditionFixture.CHALLENGE_ID, measurements,
                 challenge.score(context));
         TeamRuns runs = new TeamRuns(List.of(run), new SumOfAttempts());
-        return new TeamScoreSummary(TeamId.of(team), runs, new ScoreExplanation(List.of(runs.subtotal())));
+        return new TeamScoreSummary(TeamId.of(team), runs, new ScoreExplanation(List.of(runs.subtotal(RulebookVersion.first()))));
     }
 
     private static MeasurementSet measurements(int objectives, String seconds, String energy) {

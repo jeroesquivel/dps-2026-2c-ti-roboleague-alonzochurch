@@ -1,5 +1,6 @@
 package com.dps.roboleague.domain.ranking;
 
+import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.schedule.RoundOrdinal;
 import com.dps.roboleague.domain.shared.ChallengeId;
 import com.dps.roboleague.domain.shared.InvalidValueException;
@@ -26,7 +27,7 @@ public record RoundScores(List<RoundScore> scores) {
                 });
     }
 
-    public ScoreSubtotal bestOf(BestRounds rule, ChallengeId challengeId) {
+    public ScoreSubtotal bestOf(BestRounds rule, ChallengeId challengeId, RulebookVersion version) {
         List<RoundScore> ranked = scores.stream().sorted(BEST_FIRST).toList();
         int counted = rule.countedOutOf(ranked.size());
         List<RoundOutcome> outcomes = IntStream.range(0, ranked.size())
@@ -37,7 +38,7 @@ public record RoundScores(List<RoundScore> scores) {
                 .sorted(Comparator.comparing(RoundOutcome::ordinal))
                 .toList();
         return ScoreSubtotal.ofRounds(BestRounds.CODE,
-                rule.description() + " of challenge " + challengeId.value(), outcomes);
+                rule.description() + " of challenge " + challengeId.value() + " (rulebook " + version + ")", outcomes);
     }
 
     private static String discardReason(RoundScore discarded, RoundScore lastCounted, BestRounds rule) {

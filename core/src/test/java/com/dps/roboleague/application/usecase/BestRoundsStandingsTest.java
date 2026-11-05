@@ -62,7 +62,7 @@ class BestRoundsStandingsTest {
         assertEquals(Points.of(90), totalOf(standings, beta));
         assertEquals(List.of(RoundStatus.COUNTED, RoundStatus.COUNTED, RoundStatus.DISCARDED),
                 statusesOf(selectionOf(standings, alpha)));
-        assertEquals("the best 2 of 3 rounds of challenge RESCUE", selectionOf(standings, alpha).description());
+        assertEquals("the best 2 of 3 rounds of challenge RESCUE (rulebook v2)", selectionOf(standings, alpha).description());
     }
 
     @Test
@@ -117,7 +117,7 @@ class BestRoundsStandingsTest {
 
         assertEquals(bestTwo, recalculated.rulebookVersion());
         assertEquals(Points.of(100), totalOf(recalculated, alpha));
-        assertEquals("the best 2 of 3 rounds of challenge RESCUE", selectionOf(recalculated, alpha).description());
+        assertEquals("the best 2 of 3 rounds of challenge RESCUE (rulebook v2)", selectionOf(recalculated, alpha).description());
     }
 
     @Test

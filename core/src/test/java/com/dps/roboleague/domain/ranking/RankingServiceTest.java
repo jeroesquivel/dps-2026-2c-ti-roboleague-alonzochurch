@@ -1,5 +1,6 @@
 package com.dps.roboleague.domain.ranking;
 
+import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -136,7 +137,7 @@ class RankingServiceTest {
 
     private TeamScoreSummary summary(AttemptAggregation aggregation, String teamId, ScoredRun... runs) {
         TeamRuns teamRuns = new TeamRuns(List.of(runs), aggregation);
-        return new TeamScoreSummary(TeamId.of(teamId), teamRuns, new ScoreExplanation(List.of(teamRuns.subtotal())));
+        return new TeamScoreSummary(TeamId.of(teamId), teamRuns, new ScoreExplanation(List.of(teamRuns.subtotal(RulebookVersion.first()))));
     }
 
     private ScoredRun run(String runId, String basePoints, String penaltyPoints, String seconds) {

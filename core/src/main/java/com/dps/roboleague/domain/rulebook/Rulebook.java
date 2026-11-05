@@ -1,6 +1,7 @@
 package com.dps.roboleague.domain.rulebook;
 
 import com.dps.roboleague.domain.appeal.AppealWindow;
+import com.dps.roboleague.domain.ranking.RoundPolicy;
 import com.dps.roboleague.domain.ranking.RoundSelection;
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.eligibility.EligibilityRequirements;
@@ -50,8 +51,10 @@ public record Rulebook(CompetitionId competitionId, RulebookVersion version, Loc
         return spec;
     }
 
-    public RoundSelection roundSelectionOf(ChallengeId challengeId) {
+    /** La política con que este reglamento cuenta las rondas de un desafío. */
+    public RoundPolicy roundPolicyOf(ChallengeId challengeId) {
         ChallengeSpec spec = challenges.get(challengeId);
-        return spec == null ? RoundSelection.all() : spec.roundSelection();
+        RoundSelection selection = spec == null ? RoundSelection.all() : spec.roundSelection();
+        return new RoundPolicy(version, selection, attemptAggregation);
     }
 }

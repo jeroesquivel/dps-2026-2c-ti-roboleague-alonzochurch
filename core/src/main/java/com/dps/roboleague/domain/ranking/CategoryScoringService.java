@@ -6,6 +6,7 @@ import com.dps.roboleague.domain.result.RunResult;
 import com.dps.roboleague.domain.result.RunResultRepository;
 import com.dps.roboleague.domain.rulebook.Rulebook;
 import com.dps.roboleague.domain.rulebook.RulebookRepository;
+import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.schedule.Round;
 import com.dps.roboleague.domain.schedule.RoundRepository;
 import com.dps.roboleague.domain.scoring.BonusCapOutcome;
@@ -41,17 +42,19 @@ public final class CategoryScoringService {
     public List<TeamScoreSummary> collect(CompetitionId competitionId, CategoryId categoryId, Rulebook rulebook) {
         Map<TeamId, List<PlayedRound>> roundsByTeam = new LinkedHashMap<>();
         for (Round round : rounds.findByCategory(competitionId, categoryId)) {
-            Map<TeamId, List<ScoredRun>> attemptsByTeam = new LinkedHashMap<>();
+            Map<TeamId, Map<RulebookVersion, List<ScoredRun>>> attemptsByTeam = new LinkedHashMap<>();
             runResults.findByRound(round.id()).stream()
                     .filter(run -> run.completion().isComplete())
-                    .forEach(run -> attemptsByTeam.computeIfAbsent(run.teamId(), team -> new ArrayList<>())
+                    .forEach(run -> attemptsByTeam.computeIfAbsent(run.teamId(), team -> new LinkedHashMap<>())
+                            .computeIfAbsent(run.rulebookVersion(), version -> new ArrayList<>())
                             .add(scoreRun(run, competitionId)));
-            attemptsByTeam.forEach((team, attempts) -> roundsByTeam.computeIfAbsent(team, key -> new ArrayList<>())
-                    .add(new PlayedRound(round.ordinal(), round.challengeId(), attempts)));
+            attemptsByTeam.forEach((team, byVersion) -> byVersion.forEach((version, attempts) ->
+                    roundsByTeam.computeIfAbsent(team, key -> new ArrayList<>()).add(new PlayedRound(
+                            round.ordinal(), round.challengeId(),
+                            rulebookOf(competitionId, version).roundPolicyOf(round.challengeId()), attempts))));
         }
-        AttemptAggregation aggregation = rulebook.attemptAggregation();
         return roundsByTeam.entrySet().stream()
-                .map(entry -> summaryOf(entry.getKey(), new TeamRounds(entry.getValue()), aggregation, rulebook))
+                .map(entry -> summaryOf(entry.getKey(), new TeamRounds(entry.getValue()), rulebook))
                 .toList();
     }
 
@@ -81,14 +84,16 @@ public final class CategoryScoringService {
     }
 
     private ChallengeSpec challengeOf(RunResult run, CompetitionId competitionId) {
-        return rulebooks.find(competitionId, run.rulebookVersion())
-                .orElseThrow(() -> NotFoundException.of("Rulebook", run.rulebookVersion().toString()))
-                .challenge(run.challengeId());
+        return rulebookOf(competitionId, run.rulebookVersion()).challenge(run.challengeId());
     }
 
-    private static TeamScoreSummary summaryOf(TeamId teamId, TeamRounds teamRounds, AttemptAggregation aggregation,
-            Rulebook rulebook) {
-        return new TeamScoreSummary(teamId, teamRounds.runs(aggregation),
-                teamRounds.explain(aggregation, rulebook::roundSelectionOf));
+    private Rulebook rulebookOf(CompetitionId competitionId, RulebookVersion version) {
+        return rulebooks.find(competitionId, version)
+                .orElseThrow(() -> NotFoundException.of("Rulebook", version.toString()));
+    }
+
+    /** El puntaje sale de las políticas de cada ronda; el reglamento vigente solo aporta la vista para desempates. */
+    private static TeamScoreSummary summaryOf(TeamId teamId, TeamRounds teamRounds, Rulebook current) {
+        return new TeamScoreSummary(teamId, teamRounds.runs(current.attemptAggregation()), teamRounds.explain());
     }
 }

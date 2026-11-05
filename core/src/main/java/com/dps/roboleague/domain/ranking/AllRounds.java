@@ -12,7 +12,7 @@ public record AllRounds() implements RoundSelection {
 
     @Override
     public void explain(ChallengeRounds rounds, ExplanationDraft draft) {
-        draft.pool(rounds.attempts());
+        draft.pool(rounds.policy(), rounds.attempts());
     }
 
     @Override

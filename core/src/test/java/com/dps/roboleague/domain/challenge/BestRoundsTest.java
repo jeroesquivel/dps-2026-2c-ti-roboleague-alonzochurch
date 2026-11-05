@@ -34,7 +34,10 @@ class BestRoundsTest {
 
         assertEquals(BestRounds.of(3, 5),
                 rulebook.challenge(RescueEditionFixture.CHALLENGE_ID).roundSelection());
-        assertEquals(BestRounds.of(3, 5), rulebook.roundSelectionOf(RescueEditionFixture.CHALLENGE_ID));
+        assertEquals(BestRounds.of(3, 5), rulebook.roundPolicyOf(RescueEditionFixture.CHALLENGE_ID).selection());
+        assertEquals(RulebookVersion.first(), rulebook.roundPolicyOf(RescueEditionFixture.CHALLENGE_ID).version());
+        assertEquals(rulebook.attemptAggregation(),
+                rulebook.roundPolicyOf(RescueEditionFixture.CHALLENGE_ID).aggregation());
         assertEquals("the best 3 of 5 rounds", BestRounds.of(3, 5).description());
         assertEquals("BEST_ROUNDS", BestRounds.CODE);
     }
@@ -49,8 +52,8 @@ class BestRoundsTest {
         Rulebook rulebook = Rulebook.of(CompetitionId.of("COMP"), RulebookVersion.first(), LocalDate.of(2026, 3, 1),
                 RescueEditionFixture.rulebook());
 
-        assertEquals(RoundSelection.all(), rulebook.roundSelectionOf(ChallengeId.of("UNKNOWN")));
-        assertEquals(RoundSelection.all(), rulebook.roundSelectionOf(RescueEditionFixture.CHALLENGE_ID));
+        assertEquals(RoundSelection.all(), rulebook.roundPolicyOf(ChallengeId.of("UNKNOWN")).selection());
+        assertEquals(RoundSelection.all(), rulebook.roundPolicyOf(RescueEditionFixture.CHALLENGE_ID).selection());
     }
 
     @Test

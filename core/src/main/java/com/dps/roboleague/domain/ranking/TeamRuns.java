@@ -2,6 +2,7 @@ package com.dps.roboleague.domain.ranking;
 
 import com.dps.roboleague.domain.challenge.MetricKey;
 import com.dps.roboleague.domain.challenge.MetricValue;
+import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.scoring.ContributionKind;
 import com.dps.roboleague.domain.shared.InvalidValueException;
 import com.dps.roboleague.domain.shared.Points;
@@ -32,8 +33,10 @@ public record TeamRuns(List<ScoredRun> runs, AttemptAggregation aggregation) {
         return aggregation.aggregate(runs);
     }
 
-    public ScoreSubtotal subtotal() {
-        return ScoreSubtotal.of(aggregation.code(), aggregation.description(), aggregatedPoints());
+    /** Subtotal de los intentos del equipo, indicando bajo qué versión del reglamento se agregaron. */
+    public ScoreSubtotal subtotal(RulebookVersion version) {
+        return ScoreSubtotal.of(aggregation.code(), aggregation.description() + " (rulebook " + version + ")",
+                aggregatedPoints());
     }
 
     public Optional<Points> bestRunPoints() {

@@ -91,13 +91,26 @@ class StandingsLifecycleTest {
     }
 
     @Test
-    void aRulebookPublishedAfterwardsAppliesItsPolicyToNewStandings() {
+    void aRulebookPublishedAfterwardsDoesNotRewriteTheRunsPlayedUnderTheEarlierOne() {
         edition.capture(roundId, delta, 2, "95.5", 4, "42", List.of(8, 9), List.of());
         edition.publishRulebookWith(new SumOfAttempts());
 
+        Standings afterwards = generate();
+
+        assertEquals(Points.of("60.75"), afterwards.entryFor(delta).orElseThrow().totalPoints());
+    }
+
+    @Test
+    void aRoundPlayedUnderANewerRulebookIsAggregatedWithTheNewerPolicy() {
+        edition.publishRulebookWith(new SumOfAttempts());
+        RoundId newerRound = edition.scheduleRoundFor(RescueEditionFixture.CHALLENGE_ID, 2, List.of(delta));
+        edition.capture(newerRound, delta, "95.5", 4, "42", List.of(8, 9), List.of());
+        edition.capture(newerRound, delta, 2, "95.5", 4, "42", List.of(8, 9), List.of());
+
         Standings summed = generate();
 
-        assertEquals(Points.of("121.50"), summed.entryFor(delta).orElseThrow().totalPoints());
+        // 60.75 de la ronda bajo v1 (mejor intento) + 121.50 de la ronda bajo v2 (suma de dos intentos)
+        assertEquals(Points.of("182.25"), summed.entryFor(delta).orElseThrow().totalPoints());
         assertEquals(delta, summed.entries().getFirst().teamId());
     }
 
