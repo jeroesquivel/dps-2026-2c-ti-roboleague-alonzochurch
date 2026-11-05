@@ -15,7 +15,6 @@ import com.dps.roboleague.domain.shared.ConflictException;
 import com.dps.roboleague.domain.shared.InvalidValueException;
 import com.dps.roboleague.support.RescueEditionFixture;
 import java.time.LocalDate;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -31,16 +30,16 @@ class BestRoundsTest {
         Rulebook rulebook = Rulebook.of(CompetitionId.of("COMP"), RulebookVersion.first(), LocalDate.of(2026, 3, 1),
                 RescueEditionFixture.rulebook(challenge));
 
-        assertEquals(Optional.of(BestRounds.of(3, 5)),
-                rulebook.challenge(RescueEditionFixture.CHALLENGE_ID).bestRounds());
-        assertEquals(Optional.of(BestRounds.of(3, 5)), rulebook.bestRoundsOf(RescueEditionFixture.CHALLENGE_ID));
+        assertEquals(BestRounds.of(3, 5),
+                rulebook.challenge(RescueEditionFixture.CHALLENGE_ID).roundSelection());
+        assertEquals(BestRounds.of(3, 5), rulebook.roundSelectionOf(RescueEditionFixture.CHALLENGE_ID));
         assertEquals("the best 3 of 5 rounds", BestRounds.of(3, 5).description());
         assertEquals("BEST_ROUNDS", BestRounds.CODE);
     }
 
     @Test
-    void aChallengeBuiltWithTheOriginalConstructorCountsEveryRound() {
-        assertTrue(RescueEditionFixture.rescueChallenge().bestRounds().isEmpty());
+    void aChallengeWithoutExplicitSelectionCountsEveryRound() {
+        assertEquals(RoundSelection.all(), RescueEditionFixture.rescueChallenge().roundSelection());
     }
 
     @Test
@@ -48,8 +47,8 @@ class BestRoundsTest {
         Rulebook rulebook = Rulebook.of(CompetitionId.of("COMP"), RulebookVersion.first(), LocalDate.of(2026, 3, 1),
                 RescueEditionFixture.rulebook());
 
-        assertTrue(rulebook.bestRoundsOf(ChallengeId.of("UNKNOWN")).isEmpty());
-        assertTrue(rulebook.bestRoundsOf(RescueEditionFixture.CHALLENGE_ID).isEmpty());
+        assertEquals(RoundSelection.all(), rulebook.roundSelectionOf(ChallengeId.of("UNKNOWN")));
+        assertEquals(RoundSelection.all(), rulebook.roundSelectionOf(RescueEditionFixture.CHALLENGE_ID));
     }
 
     @Test
@@ -101,9 +100,14 @@ class BestRoundsTest {
     }
 
     @Test
-    void theBestRoundsConfigurationIsRequiredEvenWhenEmpty() {
-        assertThrows(NullPointerException.class, () -> new ChallengeSpec(RescueEditionFixture.CHALLENGE_ID,
-                "Rescue mission", RescueEditionFixture.metrics(), RescueEditionFixture.scoringRules(),
-                RescueEditionFixture.penalties(), AttemptLimit.of(2), null));
+    void theRoundSelectionIsRequired() {
+        assertThrows(NullPointerException.class, () -> ChallengeSpec.builder(RescueEditionFixture.CHALLENGE_ID,
+                "Rescue mission")
+                .metrics(RescueEditionFixture.metrics())
+                .scoringRules(RescueEditionFixture.scoringRules())
+                .penalties(RescueEditionFixture.penalties())
+                .maximumAttempts(AttemptLimit.of(2))
+                .roundSelection(null)
+                .build());
     }
 }

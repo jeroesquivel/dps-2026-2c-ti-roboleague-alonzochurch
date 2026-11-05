@@ -193,12 +193,15 @@ class RunResultTest {
     }
 
     private static ChallengeSpec challenge(String id) {
-        return new ChallengeSpec(ChallengeId.of(id), "Rescue mission",
-                List.of(MetricDefinition.required(OBJECTIVES, MetricKind.OBJECTIVE_COUNT, MetricUnit.of("objectives")),
-                        MetricDefinition.optional(DESIGN, MetricKind.JUDGE_CRITERION, MetricUnit.of("points"))),
-                List.of(new ObjectiveScoringRule(OBJECTIVES, PointsRate.of(10), 5),
-                        new JudgePanelScoringRule(DESIGN, PointsRate.of(1))),
-                List.of(new PenaltyDefinition(RESTART, "manual restart", PointsDeducted.of(3))), AttemptLimit.of(2));
+        return ChallengeSpec.builder(ChallengeId.of(id), "Rescue mission")
+                .metrics(List.of(
+                        MetricDefinition.required(OBJECTIVES, MetricKind.OBJECTIVE_COUNT, MetricUnit.of("objectives")),
+                        MetricDefinition.optional(DESIGN, MetricKind.JUDGE_CRITERION, MetricUnit.of("points"))))
+                .scoringRules(List.of(new ObjectiveScoringRule(OBJECTIVES, PointsRate.of(10), 5),
+                        new JudgePanelScoringRule(DESIGN, PointsRate.of(1))))
+                .penalties(List.of(new PenaltyDefinition(RESTART, "manual restart", PointsDeducted.of(3))))
+                .maximumAttempts(AttemptLimit.of(2))
+                .build();
     }
 
     private static JudgeEvaluation evaluation(String judge) {

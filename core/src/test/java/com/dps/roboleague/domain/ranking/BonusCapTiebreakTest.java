@@ -16,13 +16,12 @@ import com.dps.roboleague.domain.shared.RunId;
 import com.dps.roboleague.domain.shared.TeamId;
 import com.dps.roboleague.support.RescueEditionFixture;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class BonusCapTiebreakTest {
 
     private final ChallengeSpec challenge = RescueEditionFixture.challengeCappingBonuses(
-            RescueEditionFixture.scoringRulesWithThreeBonuses(), Optional.of(BonusCap.of(25)));
+            RescueEditionFixture.scoringRulesWithThreeBonuses(), BonusCap.of(25));
 
     @Test
     void theTrimDoesNotCountAsAPenaltyWhenBreakingATie() {

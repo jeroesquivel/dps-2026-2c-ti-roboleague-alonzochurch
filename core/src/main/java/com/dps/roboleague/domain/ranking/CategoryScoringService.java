@@ -89,6 +89,6 @@ public final class CategoryScoringService {
     private static TeamScoreSummary summaryOf(TeamId teamId, TeamRounds teamRounds, AttemptAggregation aggregation,
             Rulebook rulebook) {
         return new TeamScoreSummary(teamId, teamRounds.runs(aggregation),
-                teamRounds.explain(aggregation, rulebook::bestRoundsOf));
+                teamRounds.explain(aggregation, rulebook::roundSelectionOf));
     }
 }

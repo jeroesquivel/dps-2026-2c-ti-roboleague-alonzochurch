@@ -1,6 +1,6 @@
 package com.dps.roboleague.domain.challenge;
 
-import com.dps.roboleague.domain.scoring.BonusCap;
+import com.dps.roboleague.domain.scoring.BonusPolicy;
 import com.dps.roboleague.domain.scoring.BonusCapOutcome;
 import com.dps.roboleague.domain.scoring.IncidentReport;
 import com.dps.roboleague.domain.scoring.JudgeEvaluations;
@@ -13,7 +13,6 @@ import com.dps.roboleague.domain.scoring.ScoringRule;
 import com.dps.roboleague.domain.scoring.rule.PenaltyScoringRule;
 import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.ChallengeId;
-import com.dps.roboleague.domain.shared.ConflictException;
 import com.dps.roboleague.domain.shared.InvalidValueException;
 import com.dps.roboleague.domain.shared.JudgeId;
 import com.dps.roboleague.domain.shared.RuleViolationException;
@@ -33,14 +32,14 @@ import java.util.stream.Stream;
 
 public record ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> metrics,
         List<ScoringRule> scoringRules, List<PenaltyDefinition> penalties, AttemptLimit maximumAttempts,
-        Optional<BestRounds> bestRounds, Optional<BonusCap> bonusCap, Optional<MixedSources> mixedSources) {
+        RoundSelection roundSelection, BonusPolicy bonusPolicy, CaptureMode captureMode) {
 
     public ChallengeSpec {
         Objects.requireNonNull(id, "challenge id is required");
         Objects.requireNonNull(maximumAttempts, "maximum attempts are required");
-        Objects.requireNonNull(bestRounds, "best rounds configuration is required, even if empty");
-        Objects.requireNonNull(bonusCap, "bonus cap configuration is required, even if empty");
-        Objects.requireNonNull(mixedSources, "mixed sources configuration is required, even if empty");
+        Objects.requireNonNull(roundSelection, "round selection is required");
+        Objects.requireNonNull(bonusPolicy, "bonus policy is required");
+        Objects.requireNonNull(captureMode, "capture mode is required");
         if (name == null || name.isBlank()) {
             throw new InvalidValueException("challenge requires a name");
         }
@@ -56,26 +55,11 @@ public record ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> 
         requireUnique(metrics, MetricDefinition::key, MetricKey::value, "metric", name);
         requireUnique(penalties, PenaltyDefinition::code, PenaltyCode::value, "penalty", name);
         requireDefinedMetrics(metrics, scoringRules, name);
-        List<MetricDefinition> definedMetrics = metrics;
-        List<ScoringRule> rules = scoringRules;
-        String challenge = name;
-        mixedSources.ifPresent(mixed -> mixed.requireRulesOfEverySource(definedMetrics, rules, challenge));
+        captureMode.requireRulesOfEverySource(metrics, scoringRules, name);
     }
 
-    public ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> metrics, List<ScoringRule> scoringRules,
-            List<PenaltyDefinition> penalties, AttemptLimit maximumAttempts, Optional<BestRounds> bestRounds,
-            Optional<BonusCap> bonusCap) {
-        this(id, name, metrics, scoringRules, penalties, maximumAttempts, bestRounds, bonusCap, Optional.empty());
-    }
-
-    public ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> metrics, List<ScoringRule> scoringRules,
-            List<PenaltyDefinition> penalties, AttemptLimit maximumAttempts, Optional<BestRounds> bestRounds) {
-        this(id, name, metrics, scoringRules, penalties, maximumAttempts, bestRounds, Optional.empty());
-    }
-
-    public ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> metrics, List<ScoringRule> scoringRules,
-            List<PenaltyDefinition> penalties, AttemptLimit maximumAttempts) {
-        this(id, name, metrics, scoringRules, penalties, maximumAttempts, Optional.empty());
+    public static Builder builder(ChallengeId id, String name) {
+        return new Builder(id, name);
     }
 
     public void validate(MeasurementSet measurements) {
@@ -91,10 +75,7 @@ public record ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> 
     }
 
     public void requireSingleCapture() {
-        mixedSources.ifPresent(mixed -> {
-            throw new RuleViolationException("challenge " + name + " is mixed: its automatic measurements and"
-                    + " its panel evaluations are registered separately");
-        });
+        captureMode.requireSingleCapture(name);
     }
 
     public void validateAutomaticSource(MeasurementSet measurements) {
@@ -141,7 +122,7 @@ public record ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> 
         ScoreBreakdown byRules = scoreByRules(context);
         return new ScoreBreakdown(Stream.of(
                         byRules.contributions().stream(),
-                        trimOf(byRules).stream(),
+                        bonusPolicy.trimContributions(byRules).stream(),
                         PenaltyScoringRule.of(penalties).apply(context).stream())
                 .flatMap(Function.identity())
                 .toList());
@@ -149,20 +130,14 @@ public record ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> 
 
     /** Bonificaciones obtenidas, tope y recorte de una corrida; vacío si el desafío no tiene tope. */
     public Optional<BonusCapOutcome> bonusCapOutcome(ScoringContext context) {
-        return bonusCap.map(cap -> cap.outcomeOf(scoreByRules(context)));
+        return bonusPolicy.capOutcomeOf(scoreByRules(context));
     }
 
     public Optional<SourcedScore> scoreBySource(ScoringContext context) {
-        return mixedSources.map(mixed -> {
-            Map<ResultSource, List<ScoreContribution>> bySource = new EnumMap<>(ResultSource.class);
-            Arrays.stream(ResultSource.values()).forEach(source -> bySource.put(source, new ArrayList<>()));
-            scoringRules.forEach(rule -> bySource.get(mixed.sourceOf(rule, metrics, name))
-                    .addAll(rule.apply(context)));
-            bySource.get(MixedSources.INCIDENT_SOURCE).addAll(PenaltyScoringRule.of(penalties).apply(context));
-            return new SourcedScore(bySource.entrySet().stream()
-                    .map(group -> new SourceBreakdown(group.getKey(), new ScoreBreakdown(group.getValue())))
-                    .toList(), new ScoreBreakdown(trimOf(scoreByRules(context)).stream().toList()));
-        });
+        return switch (captureMode) {
+            case SingleCapture single -> Optional.empty();
+            case MixedSources mixed -> Optional.of(sourcedScore(mixed, context));
+        };
     }
 
     public void requireAttemptWithinLimit(AttemptNumber attempt) {
@@ -173,10 +148,7 @@ public record ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> 
     }
 
     public void requireRoomForAnotherRound(int scheduledRounds, CategoryId categoryId) {
-        bestRounds.filter(rule -> !rule.admitsAnotherRound(scheduledRounds)).ifPresent(rule -> {
-            throw new ConflictException("challenge " + name + " counts " + rule.description() + " and category "
-                    + categoryId.value() + " already has " + rule.outOf() + " rounds of it scheduled");
-        });
+        roundSelection.requireRoomForAnotherRound(scheduledRounds, name, categoryId);
     }
 
     private ScoreBreakdown scoreByRules(ScoringContext context) {
@@ -185,17 +157,22 @@ public record ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> 
                 .toList());
     }
 
-    private Optional<ScoreContribution> trimOf(ScoreBreakdown byRules) {
-        return bonusCap.map(cap -> cap.trim(byRules));
+    private SourcedScore sourcedScore(MixedSources mixed, ScoringContext context) {
+        Map<ResultSource, List<ScoreContribution>> bySource = new EnumMap<>(ResultSource.class);
+        Arrays.stream(ResultSource.values()).forEach(source -> bySource.put(source, new ArrayList<>()));
+        scoringRules.forEach(rule -> bySource.get(mixed.sourceOf(rule, metrics, name)).addAll(rule.apply(context)));
+        bySource.get(MixedSources.INCIDENT_SOURCE).addAll(PenaltyScoringRule.of(penalties).apply(context));
+        return new SourcedScore(bySource.entrySet().stream()
+                .map(group -> new SourceBreakdown(group.getKey(), new ScoreBreakdown(group.getValue())))
+                .toList(), new ScoreBreakdown(bonusPolicy.trimContributions(scoreByRules(context))));
     }
 
     private List<MetricDefinition> measuredMetrics() {
-        return mixedSources.map(mixed -> mixed.measuredAmong(metrics)).orElse(metrics);
+        return captureMode.measuredAmong(metrics);
     }
 
     private void requireMixedSources() {
-        mixedSources.orElseThrow(() -> new RuleViolationException("challenge " + name
-                + " is not mixed: its runs are captured in a single operation"));
+        captureMode.requireMixedSources(name);
     }
 
     private List<MetricKey> panelCriteria() {
@@ -245,5 +222,63 @@ public record ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> 
                     throw new InvalidValueException("a scoring rule of challenge " + challenge
                             + " refers to metric " + undefined.value() + ", which the challenge does not define");
                 });
+    }
+
+    public static final class Builder {
+
+        private final ChallengeId id;
+        private final String name;
+        private List<MetricDefinition> metrics = List.of();
+        private List<ScoringRule> scoringRules = List.of();
+        private List<PenaltyDefinition> penalties = List.of();
+        private AttemptLimit maximumAttempts;
+        private RoundSelection roundSelection = RoundSelection.all();
+        private BonusPolicy bonusPolicy = BonusPolicy.uncapped();
+        private CaptureMode captureMode = CaptureMode.single();
+
+        private Builder(ChallengeId id, String name) {
+            this.id = id;
+            this.name = name;
+        }
+
+        public Builder metrics(List<MetricDefinition> metrics) {
+            this.metrics = metrics;
+            return this;
+        }
+
+        public Builder scoringRules(List<ScoringRule> scoringRules) {
+            this.scoringRules = scoringRules;
+            return this;
+        }
+
+        public Builder penalties(List<PenaltyDefinition> penalties) {
+            this.penalties = penalties;
+            return this;
+        }
+
+        public Builder maximumAttempts(AttemptLimit maximumAttempts) {
+            this.maximumAttempts = maximumAttempts;
+            return this;
+        }
+
+        public Builder roundSelection(RoundSelection roundSelection) {
+            this.roundSelection = roundSelection;
+            return this;
+        }
+
+        public Builder bonusPolicy(BonusPolicy bonusPolicy) {
+            this.bonusPolicy = bonusPolicy;
+            return this;
+        }
+
+        public Builder captureMode(CaptureMode captureMode) {
+            this.captureMode = captureMode;
+            return this;
+        }
+
+        public ChallengeSpec build() {
+            return new ChallengeSpec(id, name, metrics, scoringRules, penalties, maximumAttempts, roundSelection,
+                    bonusPolicy, captureMode);
+        }
     }
 }

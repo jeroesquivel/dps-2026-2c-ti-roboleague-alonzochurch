@@ -1,5 +1,6 @@
 package com.dps.roboleague.adapter.in.web;
 
+import com.dps.roboleague.domain.scoring.BonusPolicy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -45,7 +46,6 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -233,7 +233,7 @@ class ScoreApiTest {
     @Test
     void usesTheRulebookVersionPinnedInTheRunEvenAfterANewVersionIsActive() {
         Edition edition = newEdition(RescueEditionFixture.rulebook(RescueEditionFixture.challengeCappingBonuses(
-                RescueEditionFixture.scoringRulesWithThreeBonuses(), Optional.empty())));
+                RescueEditionFixture.scoringRulesWithThreeBonuses(), BonusPolicy.uncapped())));
         TeamId team = register(edition, "Delta Bots");
         RunId earlier = capture(schedule(edition, RESCUE, 1, 9, team), team, "55", 5, "35", List.of(8, 9), List.of());
         publishRulebook.execute(new PublishRulebook.Command(edition.competitionId(), cappedRulebook(), ACTOR));
@@ -309,7 +309,7 @@ class ScoreApiTest {
 
     private static RulebookDraft cappedRulebook() {
         return RescueEditionFixture.rulebook(RescueEditionFixture.challengeCappingBonuses(
-                RescueEditionFixture.scoringRulesWithThreeBonuses(), Optional.of(BonusCap.of(25))));
+                RescueEditionFixture.scoringRulesWithThreeBonuses(), BonusCap.of(25)));
     }
 
     private Edition newEdition(RulebookDraft rulebook) {

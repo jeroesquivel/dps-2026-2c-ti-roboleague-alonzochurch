@@ -1,8 +1,10 @@
 package com.dps.roboleague.domain.challenge;
 
+import com.dps.roboleague.domain.shared.CategoryId;
+import com.dps.roboleague.domain.shared.ConflictException;
 import com.dps.roboleague.domain.shared.InvalidValueException;
 
-public record BestRounds(int counted, int outOf) {
+public record BestRounds(int counted, int outOf) implements RoundSelection {
 
     public static final String CODE = "BEST_ROUNDS";
 
@@ -21,10 +23,19 @@ public record BestRounds(int counted, int outOf) {
         return scheduledRounds < outOf;
     }
 
+    @Override
+    public void requireRoomForAnotherRound(int scheduledRounds, String challenge, CategoryId categoryId) {
+        if (!admitsAnotherRound(scheduledRounds)) {
+            throw new ConflictException("challenge " + challenge + " counts " + description() + " and category "
+                    + categoryId.value() + " already has " + outOf + " rounds of it scheduled");
+        }
+    }
+
     public int countedOutOf(int playedRounds) {
         return Math.min(counted, playedRounds);
     }
 
+    @Override
     public String description() {
         return "the best %d of %d rounds".formatted(counted, outOf);
     }

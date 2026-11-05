@@ -1,5 +1,6 @@
 package com.dps.roboleague.domain.ranking;
 
+import com.dps.roboleague.domain.challenge.RoundSelection;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -283,18 +284,18 @@ class BestRoundsSelectionTest {
     }
 
     private TeamScoreSummary summary(String teamId, TeamRounds rounds, AttemptAggregation aggregation,
-            Function<ChallengeId, Optional<BestRounds>> bestRoundsOf) {
+            Function<ChallengeId, RoundSelection> bestRoundsOf) {
         return new TeamScoreSummary(TeamId.of(teamId), rounds.runs(aggregation),
                 rounds.explain(aggregation, bestRoundsOf));
     }
 
-    private static Function<ChallengeId, Optional<BestRounds>> rescueCounting(int counted, int outOf) {
-        Map<ChallengeId, BestRounds> configured = Map.of(RESCUE, BestRounds.of(counted, outOf));
-        return challengeId -> Optional.ofNullable(configured.get(challengeId));
+    private static Function<ChallengeId, RoundSelection> rescueCounting(int counted, int outOf) {
+        Map<ChallengeId, RoundSelection> configured = Map.of(RESCUE, BestRounds.of(counted, outOf));
+        return challengeId -> configured.getOrDefault(challengeId, RoundSelection.all());
     }
 
-    private static Function<ChallengeId, Optional<BestRounds>> noBestRounds() {
-        return challengeId -> Optional.empty();
+    private static Function<ChallengeId, RoundSelection> noBestRounds() {
+        return challengeId -> RoundSelection.all();
     }
 
     private TeamRounds rescueRounds(int... roundPoints) {

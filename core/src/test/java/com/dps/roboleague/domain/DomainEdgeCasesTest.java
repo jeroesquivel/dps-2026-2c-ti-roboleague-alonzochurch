@@ -326,20 +326,20 @@ class DomainEdgeCasesTest {
         ObjectiveScoringRule scoringRule = new ObjectiveScoringRule(objectives, PointsRate.of(10), 5);
 
         assertThrows(InvalidValueException.class,
-                () -> new ChallengeSpec(ChallengeId.of("C"), null, List.of(definition), List.of(scoringRule),
-                        List.of(), AttemptLimit.of(1)));
+                () -> ChallengeSpec.builder(ChallengeId.of("C"), null).metrics(List.of(definition))
+                        .scoringRules(List.of(scoringRule)).maximumAttempts(AttemptLimit.of(1)).build());
         assertThrows(InvalidValueException.class,
-                () -> new ChallengeSpec(ChallengeId.of("C"), " ", List.of(definition), List.of(scoringRule),
-                        List.of(), AttemptLimit.of(1)));
+                () -> ChallengeSpec.builder(ChallengeId.of("C"), " ").metrics(List.of(definition))
+                        .scoringRules(List.of(scoringRule)).maximumAttempts(AttemptLimit.of(1)).build());
         assertThrows(InvalidValueException.class,
-                () -> new ChallengeSpec(ChallengeId.of("C"), "Challenge", List.of(), List.of(scoringRule),
-                        List.of(), AttemptLimit.of(1)));
+                () -> ChallengeSpec.builder(ChallengeId.of("C"), "Challenge").metrics(List.of())
+                        .scoringRules(List.of(scoringRule)).maximumAttempts(AttemptLimit.of(1)).build());
         assertThrows(InvalidValueException.class,
-                () -> new ChallengeSpec(ChallengeId.of("C"), "Challenge", List.of(definition), List.of(),
-                        List.of(), AttemptLimit.of(1)));
+                () -> ChallengeSpec.builder(ChallengeId.of("C"), "Challenge").metrics(List.of(definition))
+                        .scoringRules(List.of()).maximumAttempts(AttemptLimit.of(1)).build());
 
-        ChallengeSpec challenge = new ChallengeSpec(ChallengeId.of("C"), "Challenge", List.of(definition),
-                List.of(scoringRule), List.of(), AttemptLimit.of(2));
+        ChallengeSpec challenge = ChallengeSpec.builder(ChallengeId.of("C"), "Challenge").metrics(List.of(definition))
+                        .scoringRules(List.of(scoringRule)).maximumAttempts(AttemptLimit.of(2)).build();
         assertThrows(RuleViolationException.class, () -> challenge.requireAttemptWithinLimit(AttemptNumber.of(3)));
         Rulebook rulebook = Rulebook.of(CompetitionId.of("COMP-1"), RulebookVersion.first(), TODAY,
                 RescueEditionFixture.rulebook(challenge));

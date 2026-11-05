@@ -1,5 +1,7 @@
 package com.dps.roboleague.support;
 
+import com.dps.roboleague.domain.challenge.CaptureMode;
+import com.dps.roboleague.domain.scoring.BonusPolicy;
 import com.dps.roboleague.domain.challenge.AttemptLimit;
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.challenge.MeasurementSet;
@@ -17,7 +19,6 @@ import com.dps.roboleague.domain.schedule.Heat;
 import com.dps.roboleague.domain.schedule.Round;
 import com.dps.roboleague.domain.schedule.RoundOrdinal;
 import com.dps.roboleague.domain.schedule.TimeSlot;
-import com.dps.roboleague.domain.scoring.BonusCap;
 import com.dps.roboleague.domain.scoring.IncidentReport;
 import com.dps.roboleague.domain.scoring.JudgeEvaluation;
 import com.dps.roboleague.domain.scoring.JudgeEvaluations;
@@ -47,7 +48,6 @@ import com.dps.roboleague.domain.team.TeamRegistration;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 public final class ShowcaseFixture {
@@ -65,18 +65,25 @@ public final class ShowcaseFixture {
     }
 
     public static ChallengeSpec mixedShowcase() {
-        return showcase(scoringRules(), MetricRequirement.REQUIRED, Optional.empty(),
-                Optional.of(new MixedSources()));
+        return showcase(scoringRules(), MetricRequirement.REQUIRED, BonusPolicy.uncapped(),
+                new MixedSources());
     }
 
     public static ChallengeSpec singleCaptureShowcase() {
-        return showcase(scoringRules(), MetricRequirement.OPTIONAL, Optional.empty(), Optional.empty());
+        return showcase(scoringRules(), MetricRequirement.OPTIONAL, BonusPolicy.uncapped(),
+                CaptureMode.single());
     }
 
     public static ChallengeSpec showcase(List<ScoringRule> scoringRules, MetricRequirement criteria,
-            Optional<BonusCap> bonusCap, Optional<MixedSources> mixedSources) {
-        return new ChallengeSpec(CHALLENGE_ID, "Showcase", metrics(criteria), scoringRules, penalties(),
-                AttemptLimit.of(2), Optional.empty(), bonusCap, mixedSources);
+            BonusPolicy bonusPolicy, CaptureMode captureMode) {
+        return ChallengeSpec.builder(CHALLENGE_ID, "Showcase")
+                .metrics(metrics(criteria))
+                .scoringRules(scoringRules)
+                .penalties(penalties())
+                .maximumAttempts(AttemptLimit.of(2))
+                .bonusPolicy(bonusPolicy)
+                .captureMode(captureMode)
+                .build();
     }
 
     public static List<MetricDefinition> metrics(MetricRequirement criteria) {

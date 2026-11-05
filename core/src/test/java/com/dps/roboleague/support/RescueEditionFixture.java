@@ -1,5 +1,7 @@
 package com.dps.roboleague.support;
 
+import com.dps.roboleague.domain.scoring.BonusPolicy;
+import com.dps.roboleague.domain.challenge.RoundSelection;
 import com.dps.roboleague.domain.appeal.AppealWindow;
 import com.dps.roboleague.domain.challenge.AttemptLimit;
 import com.dps.roboleague.domain.challenge.BestRounds;
@@ -22,7 +24,6 @@ import com.dps.roboleague.domain.ranking.rule.FastestMetricTiebreak;
 import com.dps.roboleague.domain.ranking.rule.FewestPenaltiesTiebreak;
 import com.dps.roboleague.domain.ranking.rule.HighestSingleRunTiebreak;
 import com.dps.roboleague.domain.rulebook.RulebookDraft;
-import com.dps.roboleague.domain.scoring.BonusCap;
 import com.dps.roboleague.domain.scoring.BonusPoints;
 import com.dps.roboleague.domain.scoring.PenaltyCode;
 import com.dps.roboleague.domain.scoring.PenaltyDefinition;
@@ -41,7 +42,6 @@ import com.dps.roboleague.domain.team.DocumentType;
 import com.dps.roboleague.domain.team.Weight;
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 public final class RescueEditionFixture {
@@ -62,23 +62,29 @@ public final class RescueEditionFixture {
     }
 
     public static ChallengeSpec challengeScoredBy(List<ScoringRule> scoringRules) {
-        return new ChallengeSpec(CHALLENGE_ID, "Rescue mission", metrics(), scoringRules, penalties(),
-                AttemptLimit.of(2));
+        return rescueBuilder(CHALLENGE_ID, "Rescue mission", scoringRules).build();
     }
 
     public static ChallengeSpec rescueChallengeCountingBestRounds(BestRounds bestRounds) {
-        return challenge(CHALLENGE_ID, "Rescue mission", scoringRules(), Optional.of(bestRounds));
+        return challenge(CHALLENGE_ID, "Rescue mission", scoringRules(), bestRounds);
     }
 
     public static ChallengeSpec challenge(ChallengeId id, String name, List<ScoringRule> scoringRules,
-            Optional<BestRounds> bestRounds) {
-        return new ChallengeSpec(id, name, metrics(), scoringRules, penalties(), AttemptLimit.of(2), bestRounds);
+            RoundSelection roundSelection) {
+        return rescueBuilder(id, name, scoringRules).roundSelection(roundSelection).build();
     }
 
     public static ChallengeSpec challengeCappingBonuses(List<ScoringRule> scoringRules,
-            Optional<BonusCap> bonusCap) {
-        return new ChallengeSpec(CHALLENGE_ID, "Rescue mission", metrics(), scoringRules, penalties(),
-                AttemptLimit.of(2), Optional.empty(), bonusCap);
+            BonusPolicy bonusPolicy) {
+        return rescueBuilder(CHALLENGE_ID, "Rescue mission", scoringRules).bonusPolicy(bonusPolicy).build();
+    }
+
+    private static ChallengeSpec.Builder rescueBuilder(ChallengeId id, String name, List<ScoringRule> scoringRules) {
+        return ChallengeSpec.builder(id, name)
+                .metrics(metrics())
+                .scoringRules(scoringRules)
+                .penalties(penalties())
+                .maximumAttempts(AttemptLimit.of(2));
     }
 
     public static List<ScoringRule> scoringRulesWithThreeBonuses() {

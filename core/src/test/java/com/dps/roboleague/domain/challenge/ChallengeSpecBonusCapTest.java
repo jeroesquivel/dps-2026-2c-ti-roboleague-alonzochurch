@@ -1,5 +1,6 @@
 package com.dps.roboleague.domain.challenge;
 
+import com.dps.roboleague.domain.scoring.BonusPolicy;
 import static com.dps.roboleague.support.RescueEditionFixture.ENERGY;
 import static com.dps.roboleague.support.RescueEditionFixture.OBJECTIVES;
 import static com.dps.roboleague.support.RescueEditionFixture.RESTART;
@@ -24,7 +25,6 @@ import com.dps.roboleague.domain.shared.InvalidValueException;
 import com.dps.roboleague.domain.shared.Points;
 import com.dps.roboleague.support.RescueEditionFixture;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -37,7 +37,7 @@ class ChallengeSpecBonusCapTest {
 
     private final ChallengeSpec capped = cappedAt(25);
     private final ChallengeSpec uncapped = RescueEditionFixture.challengeCappingBonuses(
-            RescueEditionFixture.scoringRulesWithThreeBonuses(), Optional.empty());
+            RescueEditionFixture.scoringRulesWithThreeBonuses(), BonusPolicy.uncapped());
 
     @ParameterizedTest(name = "objectives {0}, time {1}, energy {2} and cap {3}: bonuses {4}, trim {5}")
     @CsvSource({
@@ -66,7 +66,7 @@ class ChallengeSpecBonusCapTest {
     void trimsASingleBonusLargerThanTheCapWithoutRejectingTheChallenge() {
         ChallengeSpec challenge = RescueEditionFixture.challengeCappingBonuses(List.of(new ThresholdBonusRule(
                 OBJECTIVES, ThresholdBonusRule.Comparison.AT_LEAST, MetricValue.of(5), BonusPoints.of(40))),
-                Optional.of(BonusCap.of(25)));
+                BonusCap.of(25));
 
         ScoreBreakdown breakdown = challenge.score(context(5, "70", "45", List.of()));
 
@@ -116,7 +116,7 @@ class ChallengeSpecBonusCapTest {
     @Test
     void capsBonusesFromAnyScoringRuleRecognisedOnlyByTheirKind() {
         ChallengeSpec challenge = RescueEditionFixture.challengeCappingBonuses(
-                List.of(OBJECTIVES_BONUS, new FlatBonusRule(Points.of(20))), Optional.of(BonusCap.of(25)));
+                List.of(OBJECTIVES_BONUS, new FlatBonusRule(Points.of(20))), BonusCap.of(25));
 
         ScoreBreakdown breakdown = challenge.score(context(5, "70", "45", List.of()));
 
@@ -139,8 +139,8 @@ class ChallengeSpecBonusCapTest {
     void aChallengeWithoutCapHasNoTrimContribution() {
         ScoreBreakdown breakdown = uncapped.score(context(5, "55", "35", List.of()));
 
-        assertTrue(uncapped.bonusCap().isEmpty());
-        assertTrue(RescueEditionFixture.rescueChallenge().bonusCap().isEmpty());
+        assertEquals(BonusPolicy.uncapped(), uncapped.bonusPolicy());
+        assertEquals(BonusPolicy.uncapped(), RescueEditionFixture.rescueChallenge().bonusPolicy());
         assertTrue(breakdown.contributions().stream()
                 .noneMatch(contribution -> contribution.ruleCode().equals(BonusCap.CODE)));
         assertEquals(Points.of(35), breakdown.totalOf(ContributionKind.BONUS));
@@ -161,7 +161,7 @@ class ChallengeSpecBonusCapTest {
     }
 
     @Test
-    void rejectsANegativeCapAndRequiresAnExplicitlyEmptyConfiguration() {
+    void rejectsANegativeCapAndRequiresABonusPolicy() {
         assertThrows(InvalidValueException.class, () -> cappedAt(-1));
         assertThrows(NullPointerException.class, () -> RescueEditionFixture.challengeCappingBonuses(
                 RescueEditionFixture.scoringRulesWithThreeBonuses(), null));
@@ -169,7 +169,7 @@ class ChallengeSpecBonusCapTest {
 
     private static ChallengeSpec cappedAt(long cap) {
         return RescueEditionFixture.challengeCappingBonuses(RescueEditionFixture.scoringRulesWithThreeBonuses(),
-                Optional.of(BonusCap.of(cap)));
+                BonusCap.of(cap));
     }
 
     private static ScoringContext context(int objectives, String seconds, String energy,

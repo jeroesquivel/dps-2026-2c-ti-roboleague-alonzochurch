@@ -217,8 +217,12 @@ class ChallengeSpecTest {
 
     private static ChallengeSpec challengeWith(List<MetricDefinition> metrics, List<ScoringRule> rules,
             List<PenaltyDefinition> penalties) {
-        return new ChallengeSpec(ChallengeId.of("RESCUE"), "Rescue mission", metrics, rules, penalties,
-                AttemptLimit.of(2));
+        return ChallengeSpec.builder(ChallengeId.of("RESCUE"), "Rescue mission")
+                .metrics(metrics)
+                .scoringRules(rules)
+                .penalties(penalties)
+                .maximumAttempts(AttemptLimit.of(2))
+                .build();
     }
 
     private static JudgeEvaluation evaluation(String judge, MetricKey criterion, long score) {

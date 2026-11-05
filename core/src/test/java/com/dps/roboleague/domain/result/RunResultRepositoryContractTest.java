@@ -69,9 +69,12 @@ public abstract class RunResultRepositoryContractTest {
         RunResultRepository repository = repository();
         RunResult run = run("RUN-1", "ROUND-1", "TEAM-1", 1);
         repository.save(run);
-        ChallengeSpec challenge = new ChallengeSpec(ChallengeId.of("RESCUE"), "Rescue",
-                List.of(MetricDefinition.required(OBJECTIVES, MetricKind.OBJECTIVE_COUNT, MetricUnit.of("objectives"))),
-                List.of(new ObjectiveScoringRule(OBJECTIVES, PointsRate.of(10), 5)), List.of(), AttemptLimit.of(2));
+        ChallengeSpec challenge = ChallengeSpec.builder(ChallengeId.of("RESCUE"), "Rescue")
+                .metrics(List.of(MetricDefinition.required(OBJECTIVES, MetricKind.OBJECTIVE_COUNT,
+                        MetricUnit.of("objectives"))))
+                .scoringRules(List.of(new ObjectiveScoringRule(OBJECTIVES, PointsRate.of(10), 5)))
+                .maximumAttempts(AttemptLimit.of(2))
+                .build();
 
         repository.save(run.applyCorrection(new ResultCorrection(NOW.plusSeconds(60), Actor.of("head-judge"),
                 "video review", MeasurementSet.empty().with(OBJECTIVES, MetricValue.of(5)), List.of(),

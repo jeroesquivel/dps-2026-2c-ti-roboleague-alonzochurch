@@ -185,9 +185,12 @@ class RulebookEvolutionTest {
     private ChallengeSpec challengeRequiringPrecision() {
         List<MetricDefinition> metrics = new ArrayList<>(RescueEditionFixture.metrics());
         metrics.add(MetricDefinition.required(PRECISION, MetricKind.PRECISION_RATIO, MetricUnit.of("ratio")));
-        return new ChallengeSpec(RescueEditionFixture.CHALLENGE_ID, "Rescue with precision", metrics,
-                List.of(new PrecisionScoringRule(PRECISION, PointsCap.of(20))), RescueEditionFixture.penalties(),
-                AttemptLimit.of(2));
+        return ChallengeSpec.builder(RescueEditionFixture.CHALLENGE_ID, "Rescue with precision")
+                .metrics(metrics)
+                .scoringRules(List.of(new PrecisionScoringRule(PRECISION, PointsCap.of(20))))
+                .penalties(RescueEditionFixture.penalties())
+                .maximumAttempts(AttemptLimit.of(2))
+                .build();
     }
 
     private RulebookVersion publish(CompetitionId competitionId, List<ChallengeSpec> challenges) {

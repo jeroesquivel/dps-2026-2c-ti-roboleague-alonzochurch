@@ -1,5 +1,8 @@
 package com.dps.roboleague.adapter.in.web.event;
 
+import com.dps.roboleague.domain.scoring.BonusPolicy;
+import com.dps.roboleague.domain.challenge.CaptureMode;
+import com.dps.roboleague.domain.challenge.RoundSelection;
 import com.dps.roboleague.domain.appeal.AppealWindow;
 import com.dps.roboleague.domain.challenge.AttemptLimit;
 import com.dps.roboleague.domain.challenge.BestRounds;
@@ -64,7 +67,6 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -162,18 +164,30 @@ final class EventWebMapper {
 
     private static ChallengeSpec challengeOf(RulebookRequest.ChallengeRequest request) {
         RulebookRequest.ChallengeRequest challenge = required(request, "challenge");
-        return new ChallengeSpec(ChallengeId.of(required(challenge.id(), "challenge id")),
-                text(challenge.name(), "challenge name"),
-                required(challenge.metrics(), "challenge metrics").stream().map(EventWebMapper::metricOf).toList(),
-                required(challenge.scoringRules(), "challenge scoring rules").stream()
-                        .map(EventWebMapper::scoringRuleOf).toList(),
-                required(challenge.penalties(), "challenge penalties").stream()
-                        .map(EventWebMapper::penaltyOf).toList(),
-                AttemptLimit.of(required(challenge.maximumAttempts(), "challenge maximum attempts")),
-                Optional.ofNullable(challenge.bestRounds()).map(EventWebMapper::bestRoundsOf),
-                Optional.ofNullable(challenge.bonusCap())
-                        .map(cap -> new BonusCap(pointsCap(cap.maximumPoints(), "bonus cap maximum points"))),
-                Boolean.TRUE.equals(challenge.mixedSources()) ? Optional.of(new MixedSources()) : Optional.empty());
+        return ChallengeSpec.builder(ChallengeId.of(required(challenge.id(), "challenge id")),
+                        text(challenge.name(), "challenge name"))
+                .metrics(required(challenge.metrics(), "challenge metrics").stream()
+                        .map(EventWebMapper::metricOf).toList())
+                .scoringRules(required(challenge.scoringRules(), "challenge scoring rules").stream()
+                        .map(EventWebMapper::scoringRuleOf).toList())
+                .penalties(required(challenge.penalties(), "challenge penalties").stream()
+                        .map(EventWebMapper::penaltyOf).toList())
+                .maximumAttempts(AttemptLimit.of(required(challenge.maximumAttempts(),
+                        "challenge maximum attempts")))
+                .roundSelection(roundSelectionOf(challenge.bestRounds()))
+                .bonusPolicy(bonusPolicyOf(challenge.bonusCap()))
+                .captureMode(Boolean.TRUE.equals(challenge.mixedSources()) ? new MixedSources()
+                        : CaptureMode.single())
+                .build();
+    }
+
+    private static RoundSelection roundSelectionOf(RulebookRequest.BestRoundsRequest request) {
+        return request == null ? RoundSelection.all() : bestRoundsOf(request);
+    }
+
+    private static BonusPolicy bonusPolicyOf(RulebookRequest.BonusCapRequest request) {
+        return request == null ? BonusPolicy.uncapped()
+                : new BonusCap(pointsCap(request.maximumPoints(), "bonus cap maximum points"));
     }
 
     private static MetricDefinition metricOf(RulebookRequest.MetricRequest request) {

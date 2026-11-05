@@ -1,9 +1,11 @@
 package com.dps.roboleague.domain.scoring;
 
 import com.dps.roboleague.domain.shared.Points;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
-public record BonusCap(PointsCap maximum) {
+public record BonusCap(PointsCap maximum) implements BonusPolicy {
 
     public static final ScoringRuleCode CODE = ScoringRuleCode.of("BONUS_CAP");
 
@@ -19,6 +21,16 @@ public record BonusCap(PointsCap maximum) {
         Points obtained = breakdown.totalOf(ContributionKind.BONUS);
         Points applied = maximum.limit(obtained);
         return new BonusCapOutcome(obtained, maximum.value(), obtained.plus(applied.negated()));
+    }
+
+    @Override
+    public List<ScoreContribution> trimContributions(ScoreBreakdown breakdown) {
+        return List.of(trim(breakdown));
+    }
+
+    @Override
+    public Optional<BonusCapOutcome> capOutcomeOf(ScoreBreakdown breakdown) {
+        return Optional.of(outcomeOf(breakdown));
     }
 
     public ScoreContribution trim(ScoreBreakdown breakdown) {

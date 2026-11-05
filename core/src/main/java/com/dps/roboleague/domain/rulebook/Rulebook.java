@@ -1,7 +1,7 @@
 package com.dps.roboleague.domain.rulebook;
 
 import com.dps.roboleague.domain.appeal.AppealWindow;
-import com.dps.roboleague.domain.challenge.BestRounds;
+import com.dps.roboleague.domain.challenge.RoundSelection;
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.eligibility.EligibilityRequirements;
 import com.dps.roboleague.domain.ranking.AttemptAggregation;
@@ -15,7 +15,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 public record Rulebook(CompetitionId competitionId, RulebookVersion version, LocalDate publishedOn,
         Map<ChallengeId, ChallengeSpec> challenges, EligibilityRequirements eligibilityRequirements,
@@ -51,7 +50,8 @@ public record Rulebook(CompetitionId competitionId, RulebookVersion version, Loc
         return spec;
     }
 
-    public Optional<BestRounds> bestRoundsOf(ChallengeId challengeId) {
-        return Optional.ofNullable(challenges.get(challengeId)).flatMap(ChallengeSpec::bestRounds);
+    public RoundSelection roundSelectionOf(ChallengeId challengeId) {
+        ChallengeSpec spec = challenges.get(challengeId);
+        return spec == null ? RoundSelection.all() : spec.roundSelection();
     }
 }

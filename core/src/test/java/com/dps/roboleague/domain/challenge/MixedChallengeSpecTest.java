@@ -1,5 +1,6 @@
 package com.dps.roboleague.domain.challenge;
 
+import com.dps.roboleague.domain.scoring.BonusPolicy;
 import static com.dps.roboleague.support.ShowcaseFixture.ACCURACY;
 import static com.dps.roboleague.support.ShowcaseFixture.CREATIVITY;
 import static com.dps.roboleague.support.ShowcaseFixture.EXECUTION;
@@ -36,14 +37,13 @@ import com.dps.roboleague.support.ShowcaseFixture;
 import com.dps.roboleague.support.ShowcaseFixture.ReadingRule;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class MixedChallengeSpecTest {
 
     private static final Set<JudgeId> PANEL = Set.of(J1, J2);
-    private static final Optional<MixedSources> MIXED = Optional.of(new MixedSources());
+    private static final CaptureMode MIXED = new MixedSources();
 
     private final ChallengeSpec mixed = ShowcaseFixture.mixedShowcase();
 
@@ -76,8 +76,8 @@ class MixedChallengeSpecTest {
         InvalidValueException error = assertThrows(InvalidValueException.class, () -> mixedWith(rules));
 
         assertTrue(error.getMessage().contains("CREATIVITY, TIME"));
-        assertDoesNotThrow(() -> ShowcaseFixture.showcase(rules, MetricRequirement.OPTIONAL, Optional.empty(),
-                Optional.empty()));
+        assertDoesNotThrow(() -> ShowcaseFixture.showcase(rules, MetricRequirement.OPTIONAL, BonusPolicy.uncapped(),
+                CaptureMode.single()));
     }
 
     @Test
@@ -186,7 +186,7 @@ class MixedChallengeSpecTest {
                         BonusPoints.of(10)),
                 new JudgePanelScoringRule(CREATIVITY, PointsRate.of(1)));
         ChallengeSpec capped = ShowcaseFixture.showcase(rules, MetricRequirement.REQUIRED,
-                Optional.of(BonusCap.of(15)), MIXED);
+                BonusCap.of(15), MIXED);
 
         SourcedScore score = capped.scoreBySource(ShowcaseFixture.exampleContext()).orElseThrow();
         ScoreBreakdown flat = capped.score(ShowcaseFixture.exampleContext());
@@ -212,7 +212,7 @@ class MixedChallengeSpecTest {
     }
 
     private static ChallengeSpec mixedWith(List<ScoringRule> rules) {
-        return ShowcaseFixture.showcase(rules, MetricRequirement.REQUIRED, Optional.empty(), MIXED);
+        return ShowcaseFixture.showcase(rules, MetricRequirement.REQUIRED, BonusPolicy.uncapped(), MIXED);
     }
 
     private static List<ScoringRuleCode> codesOf(ScoreBreakdown breakdown) {

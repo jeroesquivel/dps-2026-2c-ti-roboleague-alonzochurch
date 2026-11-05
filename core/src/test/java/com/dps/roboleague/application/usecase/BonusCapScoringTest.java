@@ -1,5 +1,6 @@
 package com.dps.roboleague.application.usecase;
 
+import com.dps.roboleague.domain.scoring.BonusPolicy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -35,7 +36,7 @@ class BonusCapScoringTest {
 
     @Test
     void theRunScoreExplainsEachBonusTheCapAndTheTrim() {
-        publishThreeBonuses(Optional.of(BonusCap.of(25)));
+        publishThreeBonuses(BonusCap.of(25));
         RunId run = captureAllBonuses(edition.scheduleRoundFor(RescueEditionFixture.CHALLENGE_ID, 1,
                 List.of(delta)));
 
@@ -56,10 +57,10 @@ class BonusCapScoringTest {
 
     @Test
     void theRunScoreReportsTheBonusesObtainedTheCapAndTheTrimAsData() {
-        RulebookVersion uncapped = publishThreeBonuses(Optional.empty());
+        RulebookVersion uncapped = publishThreeBonuses(BonusPolicy.uncapped());
         RunId earlier = captureAllBonuses(edition.scheduleRoundFor(RescueEditionFixture.CHALLENGE_ID, 1,
                 List.of(delta)));
-        publishThreeBonuses(Optional.of(BonusCap.of(25)));
+        publishThreeBonuses(BonusCap.of(25));
         RunId later = captureAllBonuses(edition.scheduleRoundFor(RescueEditionFixture.CHALLENGE_ID, 2,
                 List.of(delta)));
 
@@ -75,10 +76,10 @@ class BonusCapScoringTest {
 
     @Test
     void eachRunIsScoredWithTheCapOfTheRulebookPinnedInItsRound() {
-        RulebookVersion uncapped = publishThreeBonuses(Optional.empty());
+        RulebookVersion uncapped = publishThreeBonuses(BonusPolicy.uncapped());
         RunId earlier = captureAllBonuses(edition.scheduleRoundFor(RescueEditionFixture.CHALLENGE_ID, 1,
                 List.of(delta)));
-        RulebookVersion capped = publishThreeBonuses(Optional.of(BonusCap.of(25)));
+        RulebookVersion capped = publishThreeBonuses(BonusCap.of(25));
         RunId later = captureAllBonuses(edition.scheduleRoundFor(RescueEditionFixture.CHALLENGE_ID, 2,
                 List.of(delta)));
 
@@ -92,7 +93,7 @@ class BonusCapScoringTest {
 
     @Test
     void aCorrectionReappliesTheCapAndKeepsTheEarlierRevisionTrimmed() {
-        publishThreeBonuses(Optional.of(BonusCap.of(25)));
+        publishThreeBonuses(BonusCap.of(25));
         RunId run = captureAllBonuses(edition.scheduleRoundFor(RescueEditionFixture.CHALLENGE_ID, 1,
                 List.of(delta)));
         Standings first = generate();
@@ -114,9 +115,9 @@ class BonusCapScoringTest {
                 .totalPoints());
     }
 
-    private RulebookVersion publishThreeBonuses(Optional<BonusCap> bonusCap) {
+    private RulebookVersion publishThreeBonuses(BonusPolicy bonusPolicy) {
         return edition.publishRulebook(RescueEditionFixture.rulebook(RescueEditionFixture.challengeCappingBonuses(
-                RescueEditionFixture.scoringRulesWithThreeBonuses(), bonusCap)));
+                RescueEditionFixture.scoringRulesWithThreeBonuses(), bonusPolicy)));
     }
 
     private RunId captureAllBonuses(RoundId roundId) {

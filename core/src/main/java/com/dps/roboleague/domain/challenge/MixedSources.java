@@ -2,16 +2,29 @@ package com.dps.roboleague.domain.challenge;
 
 import com.dps.roboleague.domain.scoring.ScoringRule;
 import com.dps.roboleague.domain.shared.InvalidValueException;
+import com.dps.roboleague.domain.shared.RuleViolationException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public record MixedSources() {
+public record MixedSources() implements CaptureMode {
 
     public static final ResultSource INCIDENT_SOURCE = ResultSource.JUDGES;
 
-    void requireRulesOfEverySource(List<MetricDefinition> metrics, List<ScoringRule> rules, String challenge) {
+    @Override
+    public void requireSingleCapture(String challenge) {
+        throw new RuleViolationException("challenge " + challenge + " is mixed: its automatic measurements and"
+                + " its panel evaluations are registered separately");
+    }
+
+    @Override
+    public void requireMixedSources(String challenge) {
+        // es el modo esperado
+    }
+
+    @Override
+    public void requireRulesOfEverySource(List<MetricDefinition> metrics, List<ScoringRule> rules, String challenge) {
         Set<ResultSource> covered = rules.stream()
                 .map(rule -> sourceOf(rule, metrics, challenge))
                 .collect(Collectors.toUnmodifiableSet());
@@ -40,7 +53,8 @@ public record MixedSources() {
         return read.stream().findFirst().orElse(ResultSource.AUTOMATIC);
     }
 
-    List<MetricDefinition> measuredAmong(List<MetricDefinition> metrics) {
+    @Override
+    public List<MetricDefinition> measuredAmong(List<MetricDefinition> metrics) {
         return metrics.stream().filter(definition -> definition.isSuppliedBy(ResultSource.AUTOMATIC)).toList();
     }
 }

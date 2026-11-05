@@ -43,7 +43,6 @@ import com.dps.roboleague.domain.team.DocumentType;
 import com.dps.roboleague.domain.team.Weight;
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 final class DemoRulebook {
@@ -72,8 +71,13 @@ final class DemoRulebook {
                 MetricDefinition.required(OBJECTIVES, MetricKind.OBJECTIVE_COUNT, MetricUnit.of("objectives")),
                 MetricDefinition.required(ENERGY, MetricKind.RESOURCE_UNITS, MetricUnit.of("mAh")),
                 MetricDefinition.optional(DESIGN, MetricKind.JUDGE_CRITERION, MetricUnit.of("points")));
-        return new ChallengeSpec(CHALLENGE_ID, "Rescue mission", metrics, scoringRules(), penalties(),
-                AttemptLimit.of(2), Optional.empty(), Optional.of(BonusCap.of(25)));
+        return ChallengeSpec.builder(CHALLENGE_ID, "Rescue mission")
+                .metrics(metrics)
+                .scoringRules(scoringRules())
+                .penalties(penalties())
+                .maximumAttempts(AttemptLimit.of(2))
+                .bonusPolicy(BonusCap.of(25))
+                .build();
     }
 
     static List<ScoringRule> scoringRules() {
@@ -97,15 +101,22 @@ final class DemoRulebook {
         List<ScoringRule> scoringRules = List.of(
                 new TimeScoringRule(TIME, Duration.ofSeconds(60), PointsRate.of(1), PointsCap.of(20)),
                 new ObjectiveScoringRule(CHECKPOINTS, PointsRate.of(5), 4));
-        return new ChallengeSpec(SPRINT_ID, "Line sprint", metrics, scoringRules, List.of(), AttemptLimit.of(1));
+        return ChallengeSpec.builder(SPRINT_ID, "Line sprint")
+                .metrics(metrics)
+                .scoringRules(scoringRules)
+                .maximumAttempts(AttemptLimit.of(1))
+                .build();
     }
 
     static ChallengeSpec precisionChallenge() {
         List<MetricDefinition> metrics = List.of(
                 MetricDefinition.required(ACCURACY, MetricKind.PRECISION_RATIO, MetricUnit.of("ratio")));
-        return new ChallengeSpec(PRECISION_ID, "Precision shooting", metrics,
-                List.of(new PrecisionScoringRule(ACCURACY, PointsCap.of(40))), List.of(), AttemptLimit.of(1),
-                Optional.of(BestRounds.of(2, 3)));
+        return ChallengeSpec.builder(PRECISION_ID, "Precision shooting")
+                .metrics(metrics)
+                .scoringRules(List.of(new PrecisionScoringRule(ACCURACY, PointsCap.of(40))))
+                .maximumAttempts(AttemptLimit.of(1))
+                .roundSelection(BestRounds.of(2, 3))
+                .build();
     }
 
     static ChallengeSpec showcaseChallenge() {
@@ -119,8 +130,13 @@ final class DemoRulebook {
                 new PrecisionScoringRule(ACCURACY, PointsCap.of(30)),
                 new JudgePanelScoringRule(CREATIVITY, PointsRate.of(2)),
                 new JudgePanelScoringRule(EXECUTION, PointsRate.of("1.50")));
-        return new ChallengeSpec(SHOWCASE_ID, "Robot showcase", metrics, scoringRules, penalties(),
-                AttemptLimit.of(1), Optional.empty(), Optional.empty(), Optional.of(new MixedSources()));
+        return ChallengeSpec.builder(SHOWCASE_ID, "Robot showcase")
+                .metrics(metrics)
+                .scoringRules(scoringRules)
+                .penalties(penalties())
+                .maximumAttempts(AttemptLimit.of(1))
+                .captureMode(new MixedSources())
+                .build();
     }
 
     static List<PenaltyDefinition> penalties() {

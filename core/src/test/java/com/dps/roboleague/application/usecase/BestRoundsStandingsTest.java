@@ -1,5 +1,6 @@
 package com.dps.roboleague.application.usecase;
 
+import com.dps.roboleague.domain.challenge.RoundSelection;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -35,7 +36,6 @@ import com.dps.roboleague.domain.shared.TeamId;
 import com.dps.roboleague.support.RescueEditionFixture;
 import com.dps.roboleague.support.TestEdition;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
@@ -131,7 +131,7 @@ class BestRoundsStandingsTest {
 
         RunResult run = edition.runResult(discarded);
         assertEquals(RoundStatus.DISCARDED, statusesOf(selectionOf(standings, alpha)).get(2));
-        assertEquals(rescueChallenge(Optional.empty()).score(run.scoringContext()).contributions(),
+        assertEquals(rescueChallenge(RoundSelection.all()).score(run.scoringContext()).contributions(),
                 score.breakdown().contributions());
         assertEquals(Points.of(10), score.total());
     }
@@ -165,16 +165,16 @@ class BestRoundsStandingsTest {
 
     private RulebookVersion publishRescueCountingBestRounds(int counted, int outOf) {
         return edition.publishRulebook(RescueEditionFixture.rulebook(
-                List.of(rescueChallenge(Optional.of(BestRounds.of(counted, outOf))), sprintChallenge()),
+                List.of(rescueChallenge(BestRounds.of(counted, outOf)), sprintChallenge()),
                 new BestAttempt()));
     }
 
-    private static ChallengeSpec rescueChallenge(Optional<BestRounds> bestRounds) {
-        return RescueEditionFixture.challenge(RESCUE, "Rescue mission", TEN_PER_OBJECTIVE, bestRounds);
+    private static ChallengeSpec rescueChallenge(RoundSelection roundSelection) {
+        return RescueEditionFixture.challenge(RESCUE, "Rescue mission", TEN_PER_OBJECTIVE, roundSelection);
     }
 
     private static ChallengeSpec sprintChallenge() {
-        return RescueEditionFixture.challenge(SPRINT, "Sprint", TEN_PER_OBJECTIVE, Optional.empty());
+        return RescueEditionFixture.challenge(SPRINT, "Sprint", TEN_PER_OBJECTIVE, RoundSelection.all());
     }
 
     private List<List<RunId>> playRescueRounds(List<TeamId> teams, int[]... objectivesPerTeam) {
