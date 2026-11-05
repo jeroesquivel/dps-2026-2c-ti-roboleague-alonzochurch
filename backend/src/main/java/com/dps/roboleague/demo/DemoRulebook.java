@@ -2,7 +2,7 @@ package com.dps.roboleague.demo;
 
 import com.dps.roboleague.domain.appeal.AppealWindow;
 import com.dps.roboleague.domain.challenge.AttemptLimit;
-import com.dps.roboleague.domain.challenge.BestRounds;
+import com.dps.roboleague.domain.ranking.BestRounds;
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.challenge.MetricDefinition;
 import com.dps.roboleague.domain.challenge.MetricKey;

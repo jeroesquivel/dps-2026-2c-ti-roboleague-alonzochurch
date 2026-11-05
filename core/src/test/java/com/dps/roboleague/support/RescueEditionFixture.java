@@ -1,10 +1,10 @@
 package com.dps.roboleague.support;
 
 import com.dps.roboleague.domain.scoring.BonusPolicy;
-import com.dps.roboleague.domain.challenge.RoundSelection;
+import com.dps.roboleague.domain.ranking.RoundSelection;
 import com.dps.roboleague.domain.appeal.AppealWindow;
 import com.dps.roboleague.domain.challenge.AttemptLimit;
-import com.dps.roboleague.domain.challenge.BestRounds;
+import com.dps.roboleague.domain.ranking.BestRounds;
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.challenge.MetricDefinition;
 import com.dps.roboleague.domain.challenge.MetricKey;

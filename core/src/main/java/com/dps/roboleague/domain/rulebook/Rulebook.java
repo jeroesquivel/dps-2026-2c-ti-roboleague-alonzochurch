@@ -1,7 +1,7 @@
 package com.dps.roboleague.domain.rulebook;
 
 import com.dps.roboleague.domain.appeal.AppealWindow;
-import com.dps.roboleague.domain.challenge.RoundSelection;
+import com.dps.roboleague.domain.ranking.RoundSelection;
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.eligibility.EligibilityRequirements;
 import com.dps.roboleague.domain.ranking.AttemptAggregation;

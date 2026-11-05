@@ -1,5 +1,6 @@
 package com.dps.roboleague.domain.challenge;
 
+import com.dps.roboleague.domain.ranking.RoundSelection;
 import com.dps.roboleague.domain.scoring.BonusPolicy;
 import com.dps.roboleague.domain.scoring.BonusCapOutcome;
 import com.dps.roboleague.domain.scoring.IncidentReport;
@@ -7,7 +8,6 @@ import com.dps.roboleague.domain.scoring.JudgeEvaluations;
 import com.dps.roboleague.domain.scoring.PenaltyCode;
 import com.dps.roboleague.domain.scoring.PenaltyDefinition;
 import com.dps.roboleague.domain.scoring.ScoreBreakdown;
-import com.dps.roboleague.domain.scoring.ScoreContribution;
 import com.dps.roboleague.domain.scoring.ScoringContext;
 import com.dps.roboleague.domain.scoring.ScoringRule;
 import com.dps.roboleague.domain.scoring.rule.PenaltyScoringRule;
@@ -16,13 +16,9 @@ import com.dps.roboleague.domain.shared.ChallengeId;
 import com.dps.roboleague.domain.shared.InvalidValueException;
 import com.dps.roboleague.domain.shared.JudgeId;
 import com.dps.roboleague.domain.shared.RuleViolationException;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
-import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -134,10 +130,12 @@ public record ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> 
     }
 
     public Optional<SourcedScore> scoreBySource(ScoringContext context) {
-        return switch (captureMode) {
-            case SingleCapture single -> Optional.empty();
-            case MixedSources mixed -> Optional.of(sourcedScore(mixed, context));
-        };
+        return captureMode.scoreBySource(this, context);
+    }
+
+    /** Contribuciones con que el tope recorta las bonificaciones de una corrida; vacío si no hay tope. */
+    ScoreBreakdown bonusTrimOf(ScoringContext context) {
+        return new ScoreBreakdown(bonusPolicy.trimContributions(scoreByRules(context)));
     }
 
     public void requireAttemptWithinLimit(AttemptNumber attempt) {
@@ -155,16 +153,6 @@ public record ChallengeSpec(ChallengeId id, String name, List<MetricDefinition> 
         return new ScoreBreakdown(scoringRules.stream()
                 .flatMap(rule -> rule.apply(context).stream())
                 .toList());
-    }
-
-    private SourcedScore sourcedScore(MixedSources mixed, ScoringContext context) {
-        Map<ResultSource, List<ScoreContribution>> bySource = new EnumMap<>(ResultSource.class);
-        Arrays.stream(ResultSource.values()).forEach(source -> bySource.put(source, new ArrayList<>()));
-        scoringRules.forEach(rule -> bySource.get(mixed.sourceOf(rule, metrics, name)).addAll(rule.apply(context)));
-        bySource.get(MixedSources.INCIDENT_SOURCE).addAll(PenaltyScoringRule.of(penalties).apply(context));
-        return new SourcedScore(bySource.entrySet().stream()
-                .map(group -> new SourceBreakdown(group.getKey(), new ScoreBreakdown(group.getValue())))
-                .toList(), new ScoreBreakdown(bonusPolicy.trimContributions(scoreByRules(context))));
     }
 
     private List<MetricDefinition> measuredMetrics() {

@@ -1,11 +1,11 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.domain.challenge.RoundSelection;
+import com.dps.roboleague.domain.ranking.RoundSelection;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.dps.roboleague.domain.challenge.BestRounds;
+import com.dps.roboleague.domain.ranking.BestRounds;
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.port.in.AcceptAppeal;
 import com.dps.roboleague.domain.port.in.CalculateRunScore;

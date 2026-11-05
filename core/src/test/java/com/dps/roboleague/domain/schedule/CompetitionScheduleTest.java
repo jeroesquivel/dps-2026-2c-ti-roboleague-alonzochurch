@@ -3,7 +3,7 @@ package com.dps.roboleague.domain.schedule;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.dps.roboleague.domain.challenge.BestRounds;
+import com.dps.roboleague.domain.ranking.BestRounds;
 import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.shared.CategoryId;

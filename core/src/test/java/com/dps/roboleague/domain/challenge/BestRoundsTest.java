@@ -1,5 +1,7 @@
 package com.dps.roboleague.domain.challenge;
 
+import com.dps.roboleague.domain.ranking.RoundSelection;
+import com.dps.roboleague.domain.ranking.BestRounds;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -97,6 +99,14 @@ class BestRoundsTest {
     @Test
     void aChallengeWithoutBestRoundsHasNoRoundLimit() {
         assertDoesNotThrow(() -> RescueEditionFixture.rescueChallenge().requireRoomForAnotherRound(100, JUNIOR));
+    }
+
+    @Test
+    void countingEveryRoundHasNoRoundLimitAndDescribesItself() {
+        RoundSelection every = RoundSelection.all();
+
+        assertDoesNotThrow(() -> every.requireRoomForAnotherRound(100, "Rescue mission", JUNIOR));
+        assertEquals("all the rounds", every.description());
     }
 
     @Test

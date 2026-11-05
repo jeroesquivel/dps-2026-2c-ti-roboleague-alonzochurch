@@ -1,6 +1,5 @@
 package com.dps.roboleague.domain.ranking;
 
-import com.dps.roboleague.domain.challenge.BestRounds;
 import com.dps.roboleague.domain.schedule.RoundOrdinal;
 import com.dps.roboleague.domain.shared.ChallengeId;
 import com.dps.roboleague.domain.shared.InvalidValueException;

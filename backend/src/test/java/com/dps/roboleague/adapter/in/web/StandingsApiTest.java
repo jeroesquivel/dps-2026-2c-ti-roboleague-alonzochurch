@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.dps.roboleague.adapter.in.web.standings.RevisionsResponse;
 import com.dps.roboleague.adapter.in.web.standings.StandingsResponse;
 import com.dps.roboleague.domain.challenge.AttemptNumber;
-import com.dps.roboleague.domain.challenge.BestRounds;
+import com.dps.roboleague.domain.ranking.BestRounds;
 import com.dps.roboleague.domain.challenge.MeasurementSet;
 import com.dps.roboleague.domain.challenge.MetricValue;
 import com.dps.roboleague.domain.port.in.AcceptAppeal;

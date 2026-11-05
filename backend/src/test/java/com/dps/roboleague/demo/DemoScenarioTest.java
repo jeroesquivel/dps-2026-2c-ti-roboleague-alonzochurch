@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.dps.roboleague.Main;
 import com.dps.roboleague.domain.audit.AuditAction;
 import com.dps.roboleague.domain.challenge.AttemptNumber;
-import com.dps.roboleague.domain.challenge.BestRounds;
+import com.dps.roboleague.domain.ranking.BestRounds;
 import com.dps.roboleague.domain.challenge.ResultSource;
 import com.dps.roboleague.domain.challenge.SourceBreakdown;
 import com.dps.roboleague.domain.challenge.SourcedScore;

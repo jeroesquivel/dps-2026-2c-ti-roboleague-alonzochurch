@@ -1,10 +1,6 @@
 package com.dps.roboleague.domain.ranking;
 
-import com.dps.roboleague.domain.challenge.AllRounds;
-import com.dps.roboleague.domain.challenge.BestRounds;
-import com.dps.roboleague.domain.challenge.RoundSelection;
 import com.dps.roboleague.domain.shared.ChallengeId;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,33 +15,15 @@ public record TeamRounds(List<PlayedRound> rounds) {
     }
 
     public TeamRuns runs(AttemptAggregation aggregation) {
-        return new TeamRuns(attemptsOf(rounds), aggregation);
+        return new TeamRuns(PlayedRound.attemptsOf(rounds), aggregation);
     }
 
-    public ScoreExplanation explain(AttemptAggregation aggregation,
-            Function<ChallengeId, RoundSelection> selectionOf) {
+    public ScoreExplanation explain(AttemptAggregation aggregation, Function<ChallengeId, RoundSelection> selectionOf) {
         Map<ChallengeId, List<PlayedRound>> byChallenge = rounds.stream()
                 .collect(Collectors.groupingBy(PlayedRound::challengeId, LinkedHashMap::new, Collectors.toList()));
-        List<ScoredRun> pooled = new ArrayList<>();
-        List<ScoreSubtotal> selections = new ArrayList<>();
-        byChallenge.forEach((challengeId, played) -> {
-            switch (selectionOf.apply(challengeId)) {
-                case BestRounds rule -> selections.add(scoresOf(played, aggregation).bestOf(rule, challengeId));
-                case AllRounds all -> pooled.addAll(attemptsOf(played));
-            }
-        });
-
-        List<ScoreSubtotal> subtotals = new ArrayList<>();
-        subtotals.add(new TeamRuns(pooled, aggregation).subtotal());
-        subtotals.addAll(selections);
-        return new ScoreExplanation(subtotals);
-    }
-
-    private static RoundScores scoresOf(List<PlayedRound> played, AttemptAggregation aggregation) {
-        return new RoundScores(played.stream().map(round -> round.score(aggregation)).toList());
-    }
-
-    private static List<ScoredRun> attemptsOf(List<PlayedRound> played) {
-        return played.stream().flatMap(round -> round.attempts().stream()).toList();
+        ExplanationDraft draft = new ExplanationDraft(aggregation);
+        byChallenge.forEach((challengeId, played) ->
+                selectionOf.apply(challengeId).explain(new ChallengeRounds(challengeId, played), draft));
+        return draft.explanation();
     }
 }

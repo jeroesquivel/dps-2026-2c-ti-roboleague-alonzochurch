@@ -21,6 +21,10 @@ public record PlayedRound(RoundOrdinal ordinal, ChallengeId challengeId, List<Sc
         }
     }
 
+    public static List<ScoredRun> attemptsOf(List<PlayedRound> played) {
+        return played.stream().flatMap(round -> round.attempts().stream()).toList();
+    }
+
     public RoundScore score(AttemptAggregation aggregation) {
         return new RoundScore(ordinal, aggregation.aggregate(attempts));
     }

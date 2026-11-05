@@ -1,10 +1,18 @@
 package com.dps.roboleague.domain.challenge;
 
+import com.dps.roboleague.domain.scoring.ScoreBreakdown;
+import com.dps.roboleague.domain.scoring.ScoreContribution;
+import com.dps.roboleague.domain.scoring.ScoringContext;
 import com.dps.roboleague.domain.scoring.ScoringRule;
+import com.dps.roboleague.domain.scoring.rule.PenaltyScoringRule;
 import com.dps.roboleague.domain.shared.InvalidValueException;
 import com.dps.roboleague.domain.shared.RuleViolationException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -51,6 +59,19 @@ public record MixedSources() implements CaptureMode {
                     + ", which arrive from different sources");
         }
         return read.stream().findFirst().orElse(ResultSource.AUTOMATIC);
+    }
+
+    @Override
+    public Optional<SourcedScore> scoreBySource(ChallengeSpec challenge, ScoringContext context) {
+        Map<ResultSource, List<ScoreContribution>> bySource = new EnumMap<>(ResultSource.class);
+        Arrays.stream(ResultSource.values()).forEach(source -> bySource.put(source, new ArrayList<>()));
+        challenge.scoringRules().forEach(rule -> bySource
+                .get(sourceOf(rule, challenge.metrics(), challenge.name()))
+                .addAll(rule.apply(context)));
+        bySource.get(INCIDENT_SOURCE).addAll(PenaltyScoringRule.of(challenge.penalties()).apply(context));
+        return Optional.of(new SourcedScore(bySource.entrySet().stream()
+                .map(group -> new SourceBreakdown(group.getKey(), new ScoreBreakdown(group.getValue())))
+                .toList(), challenge.bonusTrimOf(context)));
     }
 
     @Override

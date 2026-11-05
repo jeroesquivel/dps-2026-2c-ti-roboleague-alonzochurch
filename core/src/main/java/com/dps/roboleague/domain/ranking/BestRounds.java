@@ -1,4 +1,4 @@
-package com.dps.roboleague.domain.challenge;
+package com.dps.roboleague.domain.ranking;
 
 import com.dps.roboleague.domain.shared.CategoryId;
 import com.dps.roboleague.domain.shared.ConflictException;
@@ -29,6 +29,11 @@ public record BestRounds(int counted, int outOf) implements RoundSelection {
             throw new ConflictException("challenge " + challenge + " counts " + description() + " and category "
                     + categoryId.value() + " already has " + outOf + " rounds of it scheduled");
         }
+    }
+
+    @Override
+    public void explain(ChallengeRounds rounds, ExplanationDraft draft) {
+        draft.select(rounds.scores(draft.aggregation()).bestOf(this, rounds.challengeId()));
     }
 
     public int countedOutOf(int playedRounds) {

@@ -3,7 +3,7 @@ package com.dps.roboleague.adapter.in.web;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.dps.roboleague.domain.challenge.BestRounds;
+import com.dps.roboleague.domain.ranking.BestRounds;
 import com.dps.roboleague.domain.port.in.CreateCompetition;
 import com.dps.roboleague.domain.port.in.CreateSeason;
 import com.dps.roboleague.domain.port.in.RegisterTeam;
