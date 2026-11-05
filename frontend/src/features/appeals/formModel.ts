@@ -1,5 +1,5 @@
 import { formatAmount } from './labels';
-import type { AcceptAppealRequest, Incident, RejectAppealRequest, Run, SubmitAppealRequest } from './types';
+import type { AcceptAppealRequest, Evaluation, Incident, RejectAppealRequest, Run, SubmitAppealRequest } from './types';
 
 export interface MeasurementRow {
   key: string;
@@ -11,11 +11,20 @@ export interface IncidentRow {
   occurrences: string;
 }
 
+/** Lo que evaluó un juez; `initial` permite saber si el revisor lo cambió. */
+export interface EvaluationRow {
+  judgeId: string;
+  criterion: string;
+  score: string;
+  initial: string;
+}
+
 export interface ResolutionDraft {
   reviewer: string;
   rationale: string;
   measurements: MeasurementRow[];
   incidents: IncidentRow[];
+  evaluations: EvaluationRow[];
 }
 
 /** Borrador inicial de una corrección: el resultado vigente de la corrida, listo para editar. */
@@ -30,6 +39,12 @@ export function draftOf(run: Run | null): ResolutionDraft {
     incidents: (run?.currentIncidents ?? []).map((incident) => ({
       code: incident.code,
       occurrences: String(incident.occurrences),
+    })),
+    evaluations: (run?.evaluations ?? []).map((evaluation) => ({
+      judgeId: evaluation.judgeId,
+      criterion: evaluation.criterion,
+      score: formatAmount(evaluation.score),
+      initial: formatAmount(evaluation.score),
     })),
   };
 }
@@ -56,6 +71,11 @@ export function acceptanceProblems(draft: ResolutionDraft): string[] {
       problems.push(`La medición ${row.key} debe ser un número no negativo.`);
     }
   }
+  for (const row of draft.evaluations) {
+    if (!AMOUNT.test(row.score.trim())) {
+      problems.push(`La evaluación de ${row.judgeId} para ${row.criterion} debe ser un número no negativo.`);
+    }
+  }
   draft.incidents.forEach((row, index) => {
     if (row.code.trim() === '') {
       problems.push(`El incidente ${index + 1} necesita un código.`);
@@ -72,12 +92,26 @@ export function toAcceptRequest(draft: ResolutionDraft): AcceptAppealRequest {
     code: row.code.trim(),
     occurrences: Number(row.occurrences),
   }));
-  return {
+  const request: AcceptAppealRequest = {
     rationale: draft.rationale.trim(),
     correctedMeasurements: Object.fromEntries(draft.measurements.map((row) => [row.key, Number(row.value.trim())])),
     correctedIncidents: incidents,
     reviewer: draft.reviewer.trim(),
   };
+  return evaluationsChanged(draft) ? { ...request, correctedEvaluations: correctedEvaluationsOf(draft) } : request;
+}
+
+/** Sólo si el revisor tocó alguna evaluación se envía el conjunto completo; si no, el backend las conserva. */
+function evaluationsChanged(draft: ResolutionDraft): boolean {
+  return draft.evaluations.some((row) => row.score.trim() !== row.initial);
+}
+
+function correctedEvaluationsOf(draft: ResolutionDraft): Evaluation[] {
+  return draft.evaluations.map((row) => ({
+    judgeId: row.judgeId,
+    criterion: row.criterion,
+    score: Number(row.score.trim()),
+  }));
 }
 
 export function toRejectRequest(draft: Pick<ResolutionDraft, 'reviewer' | 'rationale'>): RejectAppealRequest {

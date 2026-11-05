@@ -413,6 +413,89 @@ describe('AppealsPage', () => {
     });
   });
 
+  it('sends the complete evaluations only when the reviewer changed one', async () => {
+    const judged = run({
+      evaluations: [
+        { judgeId: 'J1', criterion: 'DESIGN', score: 8 },
+        { judgeId: 'J2', criterion: 'DESIGN', score: 9 },
+      ],
+    });
+    const fetchMock = mockFetch(
+      ...lookup(appeal(), judged),
+      jsonResponse(ROUND, 200),
+      jsonResponse({ revisions: [] }, 200),
+      jsonResponse(ACCEPTED, 200),
+      jsonResponse(CORRECTED_RUN, 200),
+      jsonResponse(score(), 200),
+      jsonResponse({ revisions: [] }, 200),
+    );
+    const user = userEvent.setup();
+    render(<AppealsPage />);
+    await consultAppeal(user);
+    await screen.findByRole('form', { name: 'Resolver apelación' });
+
+    await decide(user);
+    const j1 = screen.getByLabelText('Evaluación de J1 para DESIGN');
+    await user.clear(j1);
+    await user.type(j1, '10');
+    await user.click(screen.getByRole('button', { name: 'Aceptar apelación' }));
+
+    await screen.findByText(/La apelación APPEAL-1 fue aceptada/);
+    expect(bodyOf(fetchMock, 5)).toEqual({
+      rationale: 'video review',
+      correctedMeasurements: { ENERGY: 42, OBJECTIVES: 4, TIME: 95.5 },
+      correctedIncidents: [],
+      correctedEvaluations: [
+        { judgeId: 'J1', criterion: 'DESIGN', score: 10 },
+        { judgeId: 'J2', criterion: 'DESIGN', score: 9 },
+      ],
+      reviewer: 'reviewer',
+    });
+  });
+
+  it('does not send the evaluations when the reviewer left them as they were', async () => {
+    const judged = run({ evaluations: [{ judgeId: 'J1', criterion: 'DESIGN', score: 8 }] });
+    const fetchMock = mockFetch(
+      ...lookup(appeal(), judged),
+      jsonResponse(ROUND, 200),
+      jsonResponse({ revisions: [] }, 200),
+      jsonResponse(ACCEPTED, 200),
+      jsonResponse(CORRECTED_RUN, 200),
+      jsonResponse(score(), 200),
+      jsonResponse({ revisions: [] }, 200),
+    );
+    const user = userEvent.setup();
+    render(<AppealsPage />);
+    await consultAppeal(user);
+    await screen.findByRole('form', { name: 'Resolver apelación' });
+
+    await decide(user);
+    await user.click(screen.getByRole('button', { name: 'Aceptar apelación' }));
+
+    await screen.findByText(/La apelación APPEAL-1 fue aceptada/);
+    expect(bodyOf(fetchMock, 5)).not.toHaveProperty('correctedEvaluations');
+  });
+
+  it('asks for a valid number when an evaluation is not one', async () => {
+    mockFetch(
+      ...lookup(appeal(), run({ evaluations: [{ judgeId: 'J1', criterion: 'DESIGN', score: 8 }] })),
+      jsonResponse(ROUND, 200),
+      jsonResponse({ revisions: [] }, 200),
+    );
+    const user = userEvent.setup();
+    render(<AppealsPage />);
+    await consultAppeal(user);
+    await screen.findByRole('form', { name: 'Resolver apelación' });
+
+    await decide(user);
+    const j1 = screen.getByLabelText('Evaluación de J1 para DESIGN');
+    await user.clear(j1);
+    await user.type(j1, 'abc');
+    await user.click(screen.getByRole('button', { name: 'Aceptar apelación' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('La evaluación de J1 para DESIGN debe ser un número');
+  });
+
   it('keeps the appeal pending and shows the violation when the correction is refused', async () => {
     mockFetch(
       ...lookup(appeal()),

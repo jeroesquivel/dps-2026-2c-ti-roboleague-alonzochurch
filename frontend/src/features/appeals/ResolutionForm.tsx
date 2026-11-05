@@ -5,6 +5,7 @@ import {
   rejectionProblems,
   toAcceptRequest,
   toRejectRequest,
+  type EvaluationRow,
   type IncidentRow,
   type MeasurementRow,
 } from './formModel';
@@ -20,7 +21,8 @@ interface Props {
 /**
  * Resolución de una apelación pendiente. Aceptar y rechazar son dos acciones distintas; la
  * corrección se prepara a partir del resultado vigente que informa la API, y es el conjunto
- * completo de mediciones e incidentes que quedará en la corrida.
+ * completo de mediciones e incidentes que quedará en la corrida. Las evaluaciones de los jueces
+ * sólo se envían, completas, si el revisor modificó alguna.
  */
 export default function ResolutionForm({ run, busy, onAccept, onReject }: Props) {
   const [draft, setDraft] = useState(() => draftOf(run));
@@ -28,6 +30,8 @@ export default function ResolutionForm({ run, busy, onAccept, onReject }: Props)
 
   const setMeasurement = (index: number, value: string) =>
     setDraft({ ...draft, measurements: replaceAt<MeasurementRow>(draft.measurements, index, { value }) });
+  const setEvaluation = (index: number, score: string) =>
+    setDraft({ ...draft, evaluations: replaceAt<EvaluationRow>(draft.evaluations, index, { score }) });
   const setIncident = (index: number, change: Partial<IncidentRow>) =>
     setDraft({ ...draft, incidents: replaceAt<IncidentRow>(draft.incidents, index, change) });
 
@@ -70,13 +74,20 @@ export default function ResolutionForm({ run, busy, onAccept, onReject }: Props)
         ) : (
           <>
             <p className="meta">
-              Se envía el conjunto completo de mediciones e incidentes; parte del resultado vigente.
+              Se envía el conjunto completo de mediciones e incidentes; parte del resultado vigente. Las evaluaciones de los jueces se envían sólo si cambiás alguna.
             </p>
             {draft.measurements.map((row, index) => (
               <label key={row.key}>
                 {`Medición ${row.key}`}
                 <input type="text" inputMode="decimal" value={row.value}
                   onChange={(e) => setMeasurement(index, e.target.value)} />
+              </label>
+            ))}
+            {draft.evaluations.map((row, index) => (
+              <label key={`${row.judgeId}-${row.criterion}`}>
+                {`Evaluación de ${row.judgeId} para ${row.criterion}`}
+                <input type="text" inputMode="decimal" value={row.score}
+                  onChange={(e) => setEvaluation(index, e.target.value)} />
               </label>
             ))}
             {draft.incidents.map((row, index) => (

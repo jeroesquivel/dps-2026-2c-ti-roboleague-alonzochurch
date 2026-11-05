@@ -64,7 +64,7 @@ export interface CorrectionOrigin {
   description: string;
 }
 
-/** Evaluación de un juez para un criterio, tal como la recibió la corrida. */
+/** Evaluación vigente de un juez para un criterio (la última corregida, o la original si no hubo). */
 export interface Evaluation {
   judgeId: string;
   criterion: string;
