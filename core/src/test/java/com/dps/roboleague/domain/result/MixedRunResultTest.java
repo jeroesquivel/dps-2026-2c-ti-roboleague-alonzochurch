@@ -11,6 +11,7 @@ import com.dps.roboleague.domain.challenge.ChallengeSpec;
 import com.dps.roboleague.domain.challenge.MeasurementSet;
 import com.dps.roboleague.domain.challenge.MetricValue;
 import com.dps.roboleague.domain.challenge.ResultSource;
+import com.dps.roboleague.domain.result.AcceptedAppeal;
 import com.dps.roboleague.domain.schedule.Round;
 import com.dps.roboleague.domain.scoring.JudgeEvaluations;
 import com.dps.roboleague.domain.shared.Actor;
@@ -52,13 +53,14 @@ class MixedRunResultTest {
     @Test
     void aPendingRunHasNoScoreNoCompletionTimeAndNoCorrection() {
         ResultCorrection correction = new ResultCorrection(HALF_PAST_ELEVEN, HEAD_JUDGE, "video review",
-                ShowcaseFixture.exampleMeasurements(), List.of(), AppealId.of("APPEAL-1"));
+                ShowcaseFixture.exampleMeasurements(), List.of(), JudgeEvaluations.none(),
+                new AcceptedAppeal(AppealId.of("APPEAL-1")));
 
         RuleViolationException error = assertThrows(RuleViolationException.class, automaticOnly::scoringContext);
 
         assertTrue(error.getMessage().contains("JUDGES"));
         assertThrows(RuleViolationException.class, automaticOnly::requireCompletedAt);
-        assertThrows(RuleViolationException.class, () -> automaticOnly.applyCorrection(correction, SHOWCASE));
+        assertThrows(RuleViolationException.class, () -> automaticOnly.applyCorrection(correction, SHOWCASE, round));
     }
 
     @Test
@@ -138,12 +140,13 @@ class MixedRunResultTest {
                 .with(CREATIVITY, MetricValue.of(10)), HALF_PAST_ELEVEN.plusSeconds(60));
 
         RunResult corrected = complete.applyCorrection(correction(ShowcaseFixture.measurements("80", "0.80"),
-                HALF_PAST_ELEVEN.plusSeconds(60)), SHOWCASE);
+                HALF_PAST_ELEVEN.plusSeconds(60)), SHOWCASE, round);
 
-        assertThrows(RuleViolationException.class, () -> complete.applyCorrection(beforeCompletion, SHOWCASE));
-        assertThrows(RuleViolationException.class, () -> complete.applyCorrection(withCriterion, SHOWCASE));
+        assertThrows(RuleViolationException.class, () -> complete.applyCorrection(beforeCompletion, SHOWCASE, round));
+        assertThrows(RuleViolationException.class, () -> complete.applyCorrection(withCriterion, SHOWCASE, round));
         assertEquals(MetricValue.of(80), corrected.currentMeasurements().require(TIME));
         assertEquals(ShowcaseFixture.exampleEvaluations(), corrected.evaluations());
+        assertEquals(ShowcaseFixture.exampleEvaluations(), corrected.currentEvaluations());
         assertEquals(complete.completion(), corrected.completion());
     }
 
@@ -158,6 +161,6 @@ class MixedRunResultTest {
 
     private static ResultCorrection correction(MeasurementSet measurements, Instant at) {
         return new ResultCorrection(at, HEAD_JUDGE, "video review", measurements, List.of(),
-                AppealId.of("APPEAL-1"));
+                ShowcaseFixture.exampleEvaluations(), new AcceptedAppeal(AppealId.of("APPEAL-1")));
     }
 }

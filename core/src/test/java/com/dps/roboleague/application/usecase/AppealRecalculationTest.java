@@ -25,6 +25,8 @@ import com.dps.roboleague.domain.ranking.StandingEntry;
 import com.dps.roboleague.domain.ranking.Standings;
 import com.dps.roboleague.domain.ranking.rule.FastestMetricTiebreak;
 import com.dps.roboleague.domain.ranking.rule.FewestPenaltiesTiebreak;
+import com.dps.roboleague.domain.result.AcceptedAppeal;
+import com.dps.roboleague.domain.result.ResultAmendment;
 import com.dps.roboleague.domain.result.ResultCorrection;
 import com.dps.roboleague.domain.result.RunResult;
 import com.dps.roboleague.domain.result.RunStatus;
@@ -94,7 +96,7 @@ class AppealRecalculationTest {
         assertEquals(RunStatus.CORRECTED, run.status());
         assertEquals(MetricValue.of(4), run.originalMeasurements().require(RescueEditionFixture.OBJECTIVES));
         assertEquals(MetricValue.of(5), run.currentMeasurements().require(RescueEditionFixture.OBJECTIVES));
-        assertEquals(appealId, correction.sourceAppeal());
+        assertEquals(new AcceptedAppeal(appealId), correction.origin());
         assertEquals(HEAD_JUDGE, correction.actor());
         assertEquals(List.of(AuditAction.RESULT_CAPTURED, AuditAction.RESULT_CORRECTED),
                 edition.auditActionsFor(deltaRun));
@@ -315,7 +317,7 @@ class AppealRecalculationTest {
                 .execute(new SubmitAppeal.Command(run, team, "objective missed by the scorer", Actor.of("captain")));
 
         fresh.module().acceptAppealUseCase().execute(new AcceptAppeal.Command(appealId, "video review",
-                fresh.measurements("95.5", 5, "42"), List.of(), HEAD_JUDGE));
+                ResultAmendment.of(fresh.measurements("95.5", 5, "42"), List.of()), HEAD_JUDGE));
 
         assertEquals(RunStatus.CORRECTED, fresh.runResult(run).status());
         assertThrows(NotFoundException.class, () -> fresh.module().getStandingsUseCase()
@@ -330,7 +332,7 @@ class AppealRecalculationTest {
 
     private Appeal accept(AppealId appealId, MeasurementSet measurements, List<IncidentReport> incidents) {
         return edition.module().acceptAppealUseCase().execute(new AcceptAppeal.Command(appealId,
-                "decision based on the video review", measurements, incidents, HEAD_JUDGE));
+                "decision based on the video review", ResultAmendment.of(measurements, incidents), HEAD_JUDGE));
     }
 
     private static Standings generate(TestEdition target) {

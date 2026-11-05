@@ -72,6 +72,18 @@ class AppealApiTest {
             {"rationale":"%s","correctedMeasurements":{"TIME":80,"OBJECTIVES":5,"ENERGY":30},\
             "correctedIncidents":[],"reviewer":"reviewer"}""".formatted(RATIONALE);
 
+    /** El mismo resultado medido, con las evaluaciones de los dos jueces corregidas a 10. */
+    private static final String SAME_RESULT_BETTER_JUDGES = """
+            {"rationale":"the sheets were mistyped","correctedMeasurements":{"TIME":95.5,"OBJECTIVES":4,"ENERGY":42},\
+            "correctedIncidents":[],"correctedEvaluations":[\
+            {"judgeId":"J1","criterion":"DESIGN","score":10},{"judgeId":"J2","criterion":"DESIGN","score":10}],\
+            "reviewer":"reviewer"}""";
+    private static final String DATA_ENTRY_FIX = """
+            {"reason":"a judge typed 8 instead of 10","measurements":{"TIME":95.5,"OBJECTIVES":4,"ENERGY":42},\
+            "incidents":[],"evaluations":[\
+            {"judgeId":"J1","criterion":"DESIGN","score":10},{"judgeId":"J2","criterion":"DESIGN","score":9}],\
+            "actor":"organizer"}""";
+
     @Autowired CreateSeason createSeason;
     @Autowired CreateCompetition createCompetition;
     @Autowired RegisterTeam registerTeam;
@@ -230,7 +242,8 @@ class AppealApiTest {
         assertAmount("95.5", run.originalMeasurements().get("TIME"));
         assertEquals(1, run.corrections().size());
         RunResponse.CorrectionResponse correction = run.corrections().getFirst();
-        assertEquals(appealId, correction.sourceAppeal());
+        assertEquals("APPEAL", correction.origin().kind());
+        assertEquals("appeal " + appealId + " accepted", correction.origin().description());
         assertEquals("reviewer", correction.actor());
         assertAmount("80", correction.measurements().get("TIME"));
         assertTrue(get(runPath + "/score", RunScoreResponse.class).getBody().total()
@@ -242,6 +255,52 @@ class AppealApiTest {
         assertTrue(onAppeal.contains(AuditAction.APPEAL_SUBMITTED), onAppeal.toString());
         assertTrue(onAppeal.contains(AuditAction.APPEAL_RESOLVED), onAppeal.toString());
         assertTrue(onRun.contains(AuditAction.RESULT_CORRECTED), onRun.toString());
+    }
+
+    @Test
+    void acceptsAnAppealThatCorrectsWhatTheJudgesEvaluated() {
+        Scenario scenario = scenario(RescueEditionFixture.rulebook());
+        String appealId = submitOk(scenario);
+        String runPath = "/runs/" + scenario.run().value();
+
+        ResponseEntity<AppealResponse> accepted = post("/appeals/" + appealId + "/acceptance", SAME_RESULT_BETTER_JUDGES,
+                AppealResponse.class);
+
+        assertEquals(HttpStatus.OK, accepted.getStatusCode());
+        RunResponse run = get(runPath, RunResponse.class).getBody();
+        assertEquals("CORRECTED", run.status());
+        assertEquals(List.of(8, 9),
+                run.originalEvaluations().stream().map(e -> e.score().intValue()).toList());
+        assertEquals(List.of(10, 10), run.evaluations().stream().map(e -> e.score().intValue()).toList());
+        assertEquals(10, run.corrections().getFirst().evaluations().getFirst().score().intValue());
+        assertTrue(get(runPath + "/score", RunScoreResponse.class).getBody().total()
+                .compareTo(new BigDecimal("60.75")) > 0);
+    }
+
+    @Test
+    void correctsADataEntryErrorWithoutAnAppeal() {
+        Scenario scenario = scenario(RescueEditionFixture.rulebook());
+        String runPath = "/runs/" + scenario.run().value();
+
+        ResponseEntity<RunResponse> corrected = post(runPath + "/corrections", DATA_ENTRY_FIX, RunResponse.class);
+
+        assertEquals(HttpStatus.OK, corrected.getStatusCode());
+        RunResponse run = corrected.getBody();
+        assertEquals("CORRECTED", run.status());
+        RunResponse.CorrectionResponse correction = run.corrections().getFirst();
+        assertEquals("DATA_ENTRY_ERROR", correction.origin().kind());
+        assertEquals("a judge typed 8 instead of 10", correction.reason());
+        assertEquals(List.of(10, 9), run.evaluations().stream().map(e -> e.score().intValue()).toList());
+        assertEquals(List.of(8, 9), run.originalEvaluations().stream().map(e -> e.score().intValue()).toList());
+        assertTrue(auditLog.findBySubject(scenario.run()).stream().map(AuditEvent::action).toList()
+                .contains(AuditAction.RESULT_CORRECTED));
+    }
+
+    @Test
+    void refusesToCorrectADataEntryErrorOfAnUnknownRun() {
+        ResponseEntity<String> response = post("/runs/RUN-UNKNOWN/corrections", DATA_ENTRY_FIX, String.class);
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
 
     // ---- AC-5: recálculo automático -------------------------------------------------------------------

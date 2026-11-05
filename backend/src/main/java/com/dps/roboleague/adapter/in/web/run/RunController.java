@@ -2,6 +2,7 @@ package com.dps.roboleague.adapter.in.web.run;
 
 import com.dps.roboleague.domain.port.in.CalculateRunScore;
 import com.dps.roboleague.domain.port.in.CaptureRunResult;
+import com.dps.roboleague.domain.port.in.CorrectResult;
 import com.dps.roboleague.domain.port.in.FindRunResult;
 import com.dps.roboleague.domain.port.in.RegisterAutomaticMeasurements;
 import com.dps.roboleague.domain.port.in.RegisterPanelEvaluations;
@@ -20,7 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
  * Captura y consulta de corridas. Un desafío común se captura en una sola operación; uno mixto recibe
  * sus fuentes (mediciones automáticas y evaluaciones del panel) por separado, en cualquier orden, y la
  * primera crea una corrida pendiente que la segunda completa. La consulta sirve también para
- * identificar el resultado que se apelará. Las correcciones entran únicamente por {@code AcceptAppeal}.
+ * identificar el resultado que se apelará. Las correcciones entran por {@code AcceptAppeal} o, mientras la tabla no
+ * es final, por {@code CorrectResult} cuando se detecta un error de carga.
  */
 @RestController
 @RequestMapping("/runs")
@@ -31,15 +33,17 @@ public final class RunController {
     private final RegisterPanelEvaluations registerPanel;
     private final FindRunResult findRunResult;
     private final CalculateRunScore calculateRunScore;
+    private final CorrectResult correctResult;
 
     public RunController(CaptureRunResult captureRunResult, RegisterAutomaticMeasurements registerAutomatic,
             RegisterPanelEvaluations registerPanel, FindRunResult findRunResult,
-            CalculateRunScore calculateRunScore) {
+            CalculateRunScore calculateRunScore, CorrectResult correctResult) {
         this.captureRunResult = captureRunResult;
         this.registerAutomatic = registerAutomatic;
         this.registerPanel = registerPanel;
         this.findRunResult = findRunResult;
         this.calculateRunScore = calculateRunScore;
+        this.correctResult = correctResult;
     }
 
     /** Captura completa de un desafío no mixto: siempre crea la corrida ({@code 201}). */
@@ -64,6 +68,12 @@ public final class RunController {
     public ResponseEntity<RunResponse> registerPanel(@RequestBody PanelEvaluationsRequest request) {
         RunId runId = registerPanel.execute(RunWebMapper.toCommand(request));
         return source(findRunResult.execute(runId));
+    }
+
+    /** Corrige por un error de carga lo que se cargó de la corrida, incluidas las evaluaciones de los jueces. */
+    @PostMapping("/{runId}/corrections")
+    public RunResponse correct(@PathVariable("runId") String runId, @RequestBody CorrectResultRequest request) {
+        return RunWebMapper.toResponse(correctResult.execute(RunWebMapper.toCommand(runId, request)));
     }
 
     @GetMapping("/{runId}")

@@ -1,6 +1,8 @@
 package com.dps.roboleague.infrastructure.config;
 
 import com.dps.roboleague.application.usecase.AcceptAppealUseCase;
+import com.dps.roboleague.application.usecase.CorrectResultUseCase;
+import com.dps.roboleague.application.usecase.ResultCorrector;
 import com.dps.roboleague.application.usecase.CalculateRunScoreUseCase;
 import com.dps.roboleague.application.usecase.CaptureRunResultUseCase;
 import com.dps.roboleague.application.usecase.CreateCompetitionUseCase;
@@ -27,6 +29,7 @@ import com.dps.roboleague.domain.audit.AuditLog;
 import com.dps.roboleague.domain.competition.CompetitionRepository;
 import com.dps.roboleague.domain.competition.SeasonRepository;
 import com.dps.roboleague.domain.port.in.AcceptAppeal;
+import com.dps.roboleague.domain.port.in.CorrectResult;
 import com.dps.roboleague.domain.port.in.CalculateRunScore;
 import com.dps.roboleague.domain.port.in.CaptureRunResult;
 import com.dps.roboleague.domain.port.in.CreateCompetition;
@@ -159,12 +162,20 @@ public final class RoboLeagueCompositionRoot {
     }
 
     public AcceptAppeal acceptAppealUseCase() {
-        return new AcceptAppealUseCase(appeals, runResults, rounds, rulebooks, standings,
-                recalculateStandingsUseCase(), auditLog, clock);
+        return new AcceptAppealUseCase(appeals, runResults, resultCorrector(), auditLog, clock);
     }
 
     public RejectAppeal rejectAppealUseCase() {
         return new RejectAppealUseCase(appeals, auditLog, clock);
+    }
+
+    public CorrectResult correctResultUseCase() {
+        return new CorrectResultUseCase(runResults, standings, resultCorrector());
+    }
+
+    private ResultCorrector resultCorrector() {
+        return new ResultCorrector(rounds, rulebooks, runResults, standings, recalculateStandingsUseCase(), auditLog,
+                clock);
     }
 
     public RecalculateStandings recalculateStandingsUseCase() {

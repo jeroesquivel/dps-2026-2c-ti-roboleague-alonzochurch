@@ -1,5 +1,6 @@
 package com.dps.roboleague.adapter.in.web.appeal;
 
+import com.dps.roboleague.adapter.in.web.run.JudgeEvaluationsRequestMapper;
 import com.dps.roboleague.domain.appeal.Appeal;
 import com.dps.roboleague.domain.appeal.AppealDecision;
 import com.dps.roboleague.domain.challenge.MeasurementSet;
@@ -8,6 +9,7 @@ import com.dps.roboleague.domain.challenge.MetricValue;
 import com.dps.roboleague.domain.port.in.AcceptAppeal;
 import com.dps.roboleague.domain.port.in.RejectAppeal;
 import com.dps.roboleague.domain.port.in.SubmitAppeal;
+import com.dps.roboleague.domain.result.ResultAmendment;
 import com.dps.roboleague.domain.scoring.IncidentReport;
 import com.dps.roboleague.domain.scoring.PenaltyCode;
 import com.dps.roboleague.domain.shared.Actor;
@@ -34,8 +36,11 @@ final class AppealWebMapper {
     }
 
     static AcceptAppeal.Command toAcceptCommand(String appealId, AcceptAppealRequest request) {
+        ResultAmendment amendment = ResultAmendment.of(measurementsOf(request.correctedMeasurements()),
+                incidentsOf(request.correctedIncidents()));
         return new AcceptAppeal.Command(AppealId.of(appealId), request.rationale(),
-                measurementsOf(request.correctedMeasurements()), incidentsOf(request.correctedIncidents()),
+                request.correctedEvaluations() == null ? amendment : amendment.replacingEvaluations(
+                        JudgeEvaluationsRequestMapper.toDomain(request.correctedEvaluations())),
                 Actor.of(request.reviewer()));
     }
 

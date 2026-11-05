@@ -12,6 +12,7 @@ public enum AuditDetail {
     ORIGINAL,
     CORRECTED,
     REASON,
+    ORIGIN,
     REVISION,
     RUN,
     STATUS,

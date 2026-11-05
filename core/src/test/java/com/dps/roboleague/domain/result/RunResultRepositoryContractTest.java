@@ -14,6 +14,7 @@ import com.dps.roboleague.domain.challenge.MetricKind;
 import com.dps.roboleague.domain.challenge.MetricUnit;
 import com.dps.roboleague.domain.challenge.MetricValue;
 import com.dps.roboleague.domain.challenge.ResultSource;
+import com.dps.roboleague.domain.result.AcceptedAppeal;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.schedule.Round;
 import com.dps.roboleague.domain.scoring.JudgeEvaluations;
@@ -78,7 +79,7 @@ public abstract class RunResultRepositoryContractTest {
 
         repository.save(run.applyCorrection(new ResultCorrection(NOW.plusSeconds(60), Actor.of("head-judge"),
                 "video review", MeasurementSet.empty().with(OBJECTIVES, MetricValue.of(5)), List.of(),
-                AppealId.of("APPEAL-1")), challenge));
+                JudgeEvaluations.none(), new AcceptedAppeal(AppealId.of("APPEAL-1"))), challenge, ROUND));
 
         assertEquals(RunStatus.CORRECTED, repository.findById(RunId.of("RUN-1")).orElseThrow().status());
     }

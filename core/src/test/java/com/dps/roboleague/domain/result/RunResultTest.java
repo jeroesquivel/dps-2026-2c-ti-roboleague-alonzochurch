@@ -15,6 +15,7 @@ import com.dps.roboleague.domain.challenge.MetricKind;
 import com.dps.roboleague.domain.challenge.MetricUnit;
 import com.dps.roboleague.domain.challenge.MetricValue;
 import com.dps.roboleague.domain.eligibility.EligibilityVerdict;
+import com.dps.roboleague.domain.result.AcceptedAppeal;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.schedule.Heat;
 import com.dps.roboleague.domain.schedule.Round;
@@ -72,7 +73,7 @@ class RunResultTest {
 
     @Test
     void keepsTheOriginalValuesWhenACorrectionIsApplied() {
-        RunResult corrected = run.applyCorrection(correction(5, CAPTURED_AT.plusSeconds(3600)), CHALLENGE);
+        RunResult corrected = run.applyCorrection(correction(5, CAPTURED_AT.plusSeconds(3600)), CHALLENGE, scheduledRound());
 
         assertEquals(MetricValue.of(4), corrected.originalMeasurements().require(OBJECTIVES));
         assertEquals(MetricValue.of(5), corrected.currentMeasurements().require(OBJECTIVES));
@@ -83,8 +84,8 @@ class RunResultTest {
 
     @Test
     void scoresWithTheLastCorrectionAndKeepsTheWholeHistory() {
-        RunResult corrected = run.applyCorrection(correction(5, CAPTURED_AT.plusSeconds(3600)), CHALLENGE)
-                .applyCorrection(correction(3, CAPTURED_AT.plusSeconds(7200)), CHALLENGE);
+        RunResult corrected = run.applyCorrection(correction(5, CAPTURED_AT.plusSeconds(3600)), CHALLENGE, scheduledRound())
+                .applyCorrection(correction(3, CAPTURED_AT.plusSeconds(7200)), CHALLENGE, scheduledRound());
 
         assertEquals(2, corrected.corrections().entries().size());
         assertEquals(MetricValue.of(3), corrected.scoringContext().measurements().require(OBJECTIVES));
@@ -94,15 +95,15 @@ class RunResultTest {
     void rejectsCorrectionsThatPredateTheCapture() {
         ResultCorrection early = correction(5, CAPTURED_AT.minusSeconds(60));
 
-        assertThrows(RuleViolationException.class, () -> run.applyCorrection(early, CHALLENGE));
+        assertThrows(RuleViolationException.class, () -> run.applyCorrection(early, CHALLENGE, scheduledRound()));
     }
 
     @Test
     void rejectsCorrectionsThatPredateThePreviousCorrection() {
-        RunResult corrected = run.applyCorrection(correction(5, CAPTURED_AT.plusSeconds(7200)), CHALLENGE);
+        RunResult corrected = run.applyCorrection(correction(5, CAPTURED_AT.plusSeconds(7200)), CHALLENGE, scheduledRound());
         ResultCorrection outOfOrder = correction(3, CAPTURED_AT.plusSeconds(3600));
 
-        assertThrows(InvalidValueException.class, () -> corrected.applyCorrection(outOfOrder, CHALLENGE));
+        assertThrows(InvalidValueException.class, () -> corrected.applyCorrection(outOfOrder, CHALLENGE, scheduledRound()));
         assertEquals(MetricValue.of(5), corrected.currentMeasurements().require(OBJECTIVES));
     }
 
@@ -110,13 +111,13 @@ class RunResultTest {
     void rejectsCorrectedMeasurementsThatTheChallengeWouldRejectWithoutTouchingTheHistory() {
         ResultCorrection unknownMetric = new ResultCorrection(CAPTURED_AT.plusSeconds(60), Actor.of("head-judge"),
                 "video review", measurements(5).with(MetricKey.of("BATTERY"), MetricValue.of(1)), List.of(),
-                AppealId.of("APPEAL-1"));
+                JudgeEvaluations.none(), new AcceptedAppeal(AppealId.of("APPEAL-1")));
         ResultCorrection unknownIncident = new ResultCorrection(CAPTURED_AT.plusSeconds(60), Actor.of("head-judge"),
                 "video review", measurements(5), List.of(IncidentReport.once(PenaltyCode.of("SABOTAGE"))),
-                AppealId.of("APPEAL-1"));
+                JudgeEvaluations.none(), new AcceptedAppeal(AppealId.of("APPEAL-1")));
 
-        assertThrows(RuleViolationException.class, () -> run.applyCorrection(unknownMetric, CHALLENGE));
-        assertThrows(RuleViolationException.class, () -> run.applyCorrection(unknownIncident, CHALLENGE));
+        assertThrows(RuleViolationException.class, () -> run.applyCorrection(unknownMetric, CHALLENGE, scheduledRound()));
+        assertThrows(RuleViolationException.class, () -> run.applyCorrection(unknownIncident, CHALLENGE, scheduledRound()));
         assertTrue(run.corrections().isEmpty());
     }
 
@@ -124,7 +125,7 @@ class RunResultTest {
     void rejectsTheRulesOfAChallengeThatDoesNotGovernTheRun() {
         ResultCorrection correction = correction(5, CAPTURED_AT.plusSeconds(60));
 
-        assertThrows(RuleViolationException.class, () -> run.applyCorrection(correction, challenge("SUMO")));
+        assertThrows(RuleViolationException.class, () -> run.applyCorrection(correction, challenge("SUMO"), scheduledRound()));
         assertTrue(run.corrections().latest().isEmpty());
     }
 
@@ -210,7 +211,7 @@ class RunResultTest {
 
     private ResultCorrection correction(int objectives, Instant appliedAt) {
         return new ResultCorrection(appliedAt, Actor.of("head-judge"), "video review", measurements(objectives),
-                List.of(), AppealId.of("APPEAL-1"));
+                List.of(), JudgeEvaluations.none(), new AcceptedAppeal(AppealId.of("APPEAL-1")));
     }
 
     private static MeasurementSet measurements(int objectives) {

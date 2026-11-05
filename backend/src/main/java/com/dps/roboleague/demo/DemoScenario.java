@@ -23,6 +23,7 @@ import com.dps.roboleague.domain.port.in.SubmitAppeal;
 import com.dps.roboleague.domain.ranking.AppliedTiebreak;
 import com.dps.roboleague.domain.ranking.StandingEntry;
 import com.dps.roboleague.domain.ranking.Standings;
+import com.dps.roboleague.domain.result.ResultAmendment;
 import com.dps.roboleague.domain.result.RunCompletion;
 import com.dps.roboleague.domain.result.SourceReceipt;
 import com.dps.roboleague.domain.schedule.RoundOrdinal;
@@ -286,7 +287,7 @@ public final class DemoScenario {
         AppealId appealId = submitAppeal.execute(new SubmitAppeal.Command(runId, teamId,
                 "the target sensor misread two hits", Actor.of("sigma-captain")));
         acceptAppeal.execute(new AcceptAppeal.Command(appealId,
-                "the video review confirms the hits", accuracy("0.98"), List.of(), HEAD_JUDGE));
+                "the video review confirms the hits", ResultAmendment.of(accuracy("0.98"), List.of()), HEAD_JUDGE));
     }
 
     private void printScore(CalculateRunScore.RunScore score) {

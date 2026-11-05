@@ -10,6 +10,7 @@ import com.dps.roboleague.domain.audit.AuditDetail;
 import com.dps.roboleague.domain.audit.AuditEvent;
 import com.dps.roboleague.domain.challenge.AttemptNumber;
 import com.dps.roboleague.domain.challenge.MeasurementSet;
+import com.dps.roboleague.domain.challenge.MetricKey;
 import com.dps.roboleague.domain.challenge.MetricValue;
 import com.dps.roboleague.domain.challenge.ResultSource;
 import com.dps.roboleague.domain.challenge.SourceBreakdown;
@@ -17,6 +18,7 @@ import com.dps.roboleague.domain.challenge.SourcedScore;
 import com.dps.roboleague.domain.port.in.AcceptAppeal;
 import com.dps.roboleague.domain.port.in.CalculateRunScore;
 import com.dps.roboleague.domain.port.in.CaptureRunResult;
+import com.dps.roboleague.domain.port.in.CorrectResult;
 import com.dps.roboleague.domain.port.in.FindAuditTrail;
 import com.dps.roboleague.domain.port.in.GenerateStandings;
 import com.dps.roboleague.domain.port.in.PublishStandings;
@@ -28,7 +30,10 @@ import com.dps.roboleague.domain.ranking.PendingRun;
 import com.dps.roboleague.domain.ranking.PublicationStatus;
 import com.dps.roboleague.domain.ranking.Standings;
 import com.dps.roboleague.domain.result.CompletionStatus;
+import com.dps.roboleague.domain.result.DataEntryError;
+import com.dps.roboleague.domain.result.ResultAmendment;
 import com.dps.roboleague.domain.result.RunResult;
+import com.dps.roboleague.domain.result.RunStatus;
 import com.dps.roboleague.domain.result.SourceReceipt;
 import com.dps.roboleague.domain.scoring.ContributionKind;
 import com.dps.roboleague.domain.scoring.IncidentReport;
@@ -40,6 +45,7 @@ import com.dps.roboleague.domain.scoring.rule.TimeScoringRule;
 import com.dps.roboleague.domain.shared.Actor;
 import com.dps.roboleague.domain.shared.AppealId;
 import com.dps.roboleague.domain.shared.ConflictException;
+import com.dps.roboleague.domain.shared.InvalidValueException;
 import com.dps.roboleague.domain.shared.JudgeId;
 import com.dps.roboleague.domain.shared.NotFoundException;
 import com.dps.roboleague.domain.shared.Points;
@@ -294,7 +300,7 @@ class MixedChallengeTest {
 
         AppealId appeal = appeal(run, delta);
         edition.module().acceptAppealUseCase().execute(new AcceptAppeal.Command(appeal, "the timer started late",
-                ShowcaseFixture.measurements("80", "0.80"), ShowcaseFixture.exampleIncidents(), HEAD_JUDGE));
+                ResultAmendment.of(ShowcaseFixture.measurements("80", "0.80"), ShowcaseFixture.exampleIncidents()), HEAD_JUDGE));
 
         SourcedScore bySource = score(run).bySource().orElseThrow();
         assertEquals(Points.of(29), bySource.sources().get(0).subtotal());
@@ -304,6 +310,111 @@ class MixedChallengeTest {
         assertEquals(Points.of(52), edition.latestStandings().entryFor(delta).orElseThrow().totalPoints());
         assertEquals(Points.of(57), first.entryFor(delta).orElseThrow().totalPoints());
         assertEquals(ShowcaseFixture.exampleEvaluations(), edition.runResult(run).evaluations());
+    }
+
+    @Test
+    void anAcceptedAppealCanCorrectWhatTheJudgesEvaluated() {
+        RoundId round = mixedRound(1);
+        RunId run = completeExampleRun(round, delta, 1);
+        Standings first = generate();
+        JudgeEvaluations corrected = ShowcaseFixture.evaluations(10, 10, 10, 10);
+
+        edition.module().acceptAppealUseCase().execute(new AcceptAppeal.Command(appeal(run, delta),
+                "the head judge mistyped the sheet", ResultAmendment
+                        .of(ShowcaseFixture.exampleMeasurements(), ShowcaseFixture.exampleIncidents())
+                        .replacingEvaluations(corrected), HEAD_JUDGE));
+
+        RunResult stored = edition.runResult(run);
+        assertEquals(ShowcaseFixture.exampleEvaluations(), stored.evaluations());
+        assertEquals(corrected, stored.currentEvaluations());
+        assertEquals(Points.of(66), score(run).total());
+        assertEquals(Points.of(66), edition.latestStandings().entryFor(delta).orElseThrow().totalPoints());
+        assertEquals(Points.of(57), first.entryFor(delta).orElseThrow().totalPoints());
+    }
+
+    @Test
+    void aDataEntryErrorOfThePanelIsCorrectedWithoutAnAppealWhileTheStandingsAreProvisional() {
+        RoundId round = mixedRound(1);
+        RunId run = completeExampleRun(round, delta, 1);
+        generate();
+
+        RunResult corrected = edition.module().correctResultUseCase().execute(new CorrectResult.Command(run,
+                "a judge typed 6 instead of 9", ResultAmendment
+                        .of(ShowcaseFixture.exampleMeasurements(), ShowcaseFixture.exampleIncidents())
+                        .replacingEvaluations(ShowcaseFixture.evaluations(8, 9, 9, 7)), HEAD_JUDGE));
+
+        assertEquals(new DataEntryError(), corrected.corrections().latest().orElseThrow().origin());
+        assertEquals(RunStatus.CORRECTED, edition.runResult(run).status());
+        assertEquals(ShowcaseFixture.exampleEvaluations(), edition.runResult(run).evaluations());
+        assertEquals(Points.of(60), score(run).total());
+        assertEquals(Points.of(60), edition.latestStandings().entryFor(delta).orElseThrow().totalPoints());
+        assertTrue(edition.auditActionsFor(run).contains(AuditAction.RESULT_CORRECTED));
+    }
+
+    @Test
+    void aCorrectionKeepsTheEvaluationsWhenItOnlyAmendsMeasurements() {
+        RoundId round = mixedRound(1);
+        RunId run = completeExampleRun(round, delta, 1);
+
+        edition.module().correctResultUseCase().execute(new CorrectResult.Command(run, "timer typo",
+                ResultAmendment.of(ShowcaseFixture.measurements("80", "0.80"), ShowcaseFixture.exampleIncidents()),
+                HEAD_JUDGE));
+
+        assertEquals(ShowcaseFixture.exampleEvaluations(), edition.runResult(run).currentEvaluations());
+        assertEquals(Points.of(52), score(run).total());
+    }
+
+    @Test
+    void aCorrectionOnlyAcceptsJudgesOfTheHeatAndCriteriaOfTheChallenge() {
+        RoundId round = mixedRound(1);
+        RunId run = completeExampleRun(round, delta, 1);
+        ResultAmendment base = ResultAmendment.of(ShowcaseFixture.exampleMeasurements(),
+                ShowcaseFixture.exampleIncidents());
+        JudgeEvaluations outsider = JudgeEvaluations.of(
+                ShowcaseFixture.evaluation(JudgeId.of("J9"), ShowcaseFixture.CREATIVITY, 5));
+        JudgeEvaluations unknownCriterion = JudgeEvaluations.of(
+                ShowcaseFixture.evaluation(ShowcaseFixture.J1, MetricKey.of("BOGUS"), 5));
+
+        assertThrows(RuleViolationException.class, () -> edition.module().correctResultUseCase().execute(
+                new CorrectResult.Command(run, "wrong judge", base.replacingEvaluations(outsider), HEAD_JUDGE)));
+        assertThrows(RuleViolationException.class, () -> edition.module().correctResultUseCase().execute(
+                new CorrectResult.Command(run, "wrong criterion", base.replacingEvaluations(unknownCriterion),
+                        HEAD_JUDGE)));
+
+        assertEquals(RunStatus.CAPTURED, edition.runResult(run).status());
+    }
+
+    @Test
+    void onceTheStandingsAreFinalAResultCanOnlyChangeThroughAnAppeal() {
+        RoundId round = mixedRound(1);
+        RunId run = completeExampleRun(round, delta, 1);
+        generate();
+        publish();
+        ResultAmendment amendment = ResultAmendment
+                .of(ShowcaseFixture.exampleMeasurements(), ShowcaseFixture.exampleIncidents())
+                .replacingEvaluations(ShowcaseFixture.evaluations(10, 10, 10, 10));
+
+        ConflictException refused = assertThrows(ConflictException.class, () -> edition.module()
+                .correctResultUseCase().execute(new CorrectResult.Command(run, "late typo", amendment, HEAD_JUDGE)));
+        assertTrue(refused.getMessage().contains("final"));
+        assertEquals(RunStatus.CAPTURED, edition.runResult(run).status());
+
+        edition.module().acceptAppealUseCase().execute(new AcceptAppeal.Command(appeal(run, delta),
+                "the head judge mistyped the sheet", amendment, HEAD_JUDGE));
+        assertEquals(RunStatus.CORRECTED, edition.runResult(run).status());
+    }
+
+    @Test
+    void aCorrectionNeedsAnExistingRunAndAReason() {
+        RoundId round = mixedRound(1);
+        RunId run = completeExampleRun(round, delta, 1);
+        ResultAmendment amendment = ResultAmendment.of(ShowcaseFixture.exampleMeasurements(),
+                ShowcaseFixture.exampleIncidents());
+
+        assertThrows(NotFoundException.class, () -> edition.module().correctResultUseCase()
+                .execute(new CorrectResult.Command(RunId.of("RUN-NOPE"), "typo", amendment, HEAD_JUDGE)));
+        assertThrows(InvalidValueException.class, () -> edition.module().correctResultUseCase()
+                .execute(new CorrectResult.Command(run, " ", amendment, HEAD_JUDGE)));
     }
 
     @Test

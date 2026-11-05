@@ -1,5 +1,6 @@
 package com.dps.roboleague.application.usecase;
 
+import com.dps.roboleague.domain.result.ResultAmendment;
 import com.dps.roboleague.domain.scoring.BonusPolicy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -101,7 +102,7 @@ class BonusCapScoringTest {
         AppealId appeal = edition.module().submitAppealUseCase().execute(new SubmitAppeal.Command(run, delta,
                 "the fifth objective was not completed", Actor.of("delta-captain")));
         edition.module().acceptAppealUseCase().execute(new AcceptAppeal.Command(appeal,
-                "video review shows four objectives", edition.measurements("55", 4, "35"), List.of(),
+                "video review shows four objectives", ResultAmendment.of(edition.measurements("55", 4, "35"), List.of()),
                 Actor.of("head-judge")));
 
         Standings recalculated = edition.latestStandings();

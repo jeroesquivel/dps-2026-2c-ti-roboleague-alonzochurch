@@ -70,10 +70,18 @@ public class UseCasesConfig {
             CategoryScoringService scoring, AuditLog audit, Clock clock) {
         return new RecalculateStandingsUseCase(standings, rulebooks, scoring, audit, clock);
     }
-    @Bean AcceptAppeal acceptAppeal(AppealRepository appeals, RunResultRepository results, RoundRepository rounds,
-            RulebookRepository rulebooks, StandingsRepository standings, RecalculateStandings recalculate,
+    @Bean ResultCorrector resultCorrector(RoundRepository rounds, RulebookRepository rulebooks,
+            RunResultRepository results, StandingsRepository standings, RecalculateStandings recalculate,
             AuditLog audit, Clock clock) {
-        return new AcceptAppealUseCase(appeals, results, rounds, rulebooks, standings, recalculate, audit, clock);
+        return new ResultCorrector(rounds, rulebooks, results, standings, recalculate, audit, clock);
+    }
+    @Bean AcceptAppeal acceptAppeal(AppealRepository appeals, RunResultRepository results,
+            ResultCorrector corrector, AuditLog audit, Clock clock) {
+        return new AcceptAppealUseCase(appeals, results, corrector, audit, clock);
+    }
+    @Bean CorrectResult correctResult(RunResultRepository results, StandingsRepository standings,
+            ResultCorrector corrector) {
+        return new CorrectResultUseCase(results, standings, corrector);
     }
     @Bean RejectAppeal rejectAppeal(AppealRepository appeals, AuditLog audit, Clock clock) {
         return new RejectAppealUseCase(appeals, audit, clock);

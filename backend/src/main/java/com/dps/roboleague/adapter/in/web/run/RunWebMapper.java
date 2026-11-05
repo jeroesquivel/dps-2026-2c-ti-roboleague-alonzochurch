@@ -8,24 +8,24 @@ import com.dps.roboleague.domain.challenge.SourceBreakdown;
 import com.dps.roboleague.domain.challenge.SourcedScore;
 import com.dps.roboleague.domain.port.in.CalculateRunScore;
 import com.dps.roboleague.domain.port.in.CaptureRunResult;
+import com.dps.roboleague.domain.port.in.CorrectResult;
 import com.dps.roboleague.domain.port.in.RegisterAutomaticMeasurements;
 import com.dps.roboleague.domain.port.in.RegisterPanelEvaluations;
+import com.dps.roboleague.domain.result.ResultAmendment;
 import com.dps.roboleague.domain.result.ResultCorrection;
 import com.dps.roboleague.domain.result.RunCompletion;
 import com.dps.roboleague.domain.result.RunResult;
 import com.dps.roboleague.domain.result.SourceReceipt;
 import com.dps.roboleague.domain.scoring.BonusCapOutcome;
 import com.dps.roboleague.domain.scoring.IncidentReport;
-import com.dps.roboleague.domain.scoring.JudgeEvaluation;
 import com.dps.roboleague.domain.scoring.JudgeEvaluations;
-import com.dps.roboleague.domain.scoring.JudgeScore;
 import com.dps.roboleague.domain.scoring.PenaltyCode;
 import com.dps.roboleague.domain.scoring.ScoreBreakdown;
 import com.dps.roboleague.domain.scoring.ScoreContribution;
 import com.dps.roboleague.domain.shared.Actor;
 import com.dps.roboleague.domain.shared.InvalidValueException;
-import com.dps.roboleague.domain.shared.JudgeId;
 import com.dps.roboleague.domain.shared.RoundId;
+import com.dps.roboleague.domain.shared.RunId;
 import com.dps.roboleague.domain.shared.TeamId;
 import java.math.BigDecimal;
 import java.util.List;
@@ -58,6 +58,15 @@ final class RunWebMapper {
                 incidentsOf(request.incidents()), actorOf(request.actor()));
     }
 
+    static CorrectResult.Command toCommand(String runId, CorrectResultRequest request) {
+        ResultAmendment amendment = ResultAmendment.of(measurementsOf(request.measurements()),
+                incidentsOf(request.incidents()));
+        return new CorrectResult.Command(RunId.of(runId), required(request.reason(), "reason"),
+                request.evaluations() == null ? amendment : amendment.replacingEvaluations(
+                        evaluationsOf(request.evaluations())),
+                actorOf(request.actor()));
+    }
+
     private static RoundId roundOf(String id) {
         return RoundId.of(required(id, "roundId"));
     }
@@ -84,14 +93,7 @@ final class RunWebMapper {
     }
 
     private static JudgeEvaluations evaluationsOf(List<EvaluationRequest> values) {
-        return new JudgeEvaluations(required(values, "evaluations (an empty list if there are none)").stream()
-                .map(value -> {
-                    EvaluationRequest evaluation = required(value, "evaluation");
-                    return new JudgeEvaluation(JudgeId.of(required(evaluation.judgeId(), "evaluation judgeId")),
-                            MetricKey.of(required(evaluation.criterion(), "evaluation criterion")),
-                            new JudgeScore(required(evaluation.score(), "evaluation score")));
-                })
-                .toList());
+        return JudgeEvaluationsRequestMapper.toDomain(values);
     }
 
     private static List<IncidentReport> incidentsOf(List<IncidentRequest> values) {
@@ -117,8 +119,8 @@ final class RunWebMapper {
         return new RunResponse(run.id().value(), run.roundId().value(), run.heatId().value(), run.teamId().value(),
                 run.challengeId().value(), run.rulebookVersion().toString(), run.attemptNumber().value(),
                 run.capturedAt().toString(), run.status().name(), measurementsOf(run.currentMeasurements()),
-                incidentReportsOf(run.currentIncidents()), evaluationsOf(run.evaluations()),
-                measurementsOf(run.originalMeasurements()), incidentReportsOf(run.originalIncidents()),
+                incidentReportsOf(run.currentIncidents()), evaluationsResponseOf(run.currentEvaluations()),
+                evaluationsResponseOf(run.evaluations()), measurementsOf(run.originalMeasurements()), incidentReportsOf(run.originalIncidents()),
                 run.corrections().entries().stream().map(RunWebMapper::correctionOf).toList(),
                 completionOf(run.completion()));
     }
@@ -145,7 +147,7 @@ final class RunWebMapper {
         return sorted;
     }
 
-    private static List<RunResponse.EvaluationResponse> evaluationsOf(JudgeEvaluations evaluations) {
+    private static List<RunResponse.EvaluationResponse> evaluationsResponseOf(JudgeEvaluations evaluations) {
         return evaluations.evaluations().stream()
                 .map(evaluation -> new RunResponse.EvaluationResponse(evaluation.judge().value(),
                         evaluation.criterion().value(), evaluation.score().value()))
@@ -161,7 +163,8 @@ final class RunWebMapper {
     private static RunResponse.CorrectionResponse correctionOf(ResultCorrection correction) {
         return new RunResponse.CorrectionResponse(correction.appliedAt().toString(), correction.actor().name(),
                 correction.reason(), measurementsOf(correction.measurements()), incidentReportsOf(correction.incidents()),
-                correction.sourceAppeal().value());
+                evaluationsResponseOf(correction.evaluations()),
+                new RunResponse.OriginResponse(correction.origin().kind(), correction.origin().description()));
     }
 
     private static RunResponse.CompletionResponse completionOf(RunCompletion completion) {

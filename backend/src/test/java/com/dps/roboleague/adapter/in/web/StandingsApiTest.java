@@ -20,6 +20,7 @@ import com.dps.roboleague.domain.port.in.RegisterPanelEvaluations;
 import com.dps.roboleague.domain.port.in.RegisterTeam;
 import com.dps.roboleague.domain.port.in.ScheduleRound;
 import com.dps.roboleague.domain.port.in.SubmitAppeal;
+import com.dps.roboleague.domain.result.ResultAmendment;
 import com.dps.roboleague.domain.rulebook.RulebookDraft;
 import com.dps.roboleague.domain.schedule.RoundOrdinal;
 import com.dps.roboleague.domain.schedule.TimeSlot;
@@ -298,7 +299,7 @@ class StandingsApiTest {
         AppealId appeal = submitAppeal.execute(new SubmitAppeal.Command(run, delta, "the timer started late", ACTOR));
 
         acceptAppeal.execute(new AcceptAppeal.Command(appeal, "the video review confirms it",
-                rescueMeasurements("80", 5, "30"), List.of(), ACTOR));
+                ResultAmendment.of(rescueMeasurements("80", 5, "30"), List.of()), ACTOR));
 
         List<StandingsResponse> history = get(edition.path() + "/revisions", RevisionsResponse.class).getBody()
                 .revisions();

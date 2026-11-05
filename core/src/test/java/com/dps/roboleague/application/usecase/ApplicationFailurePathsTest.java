@@ -25,6 +25,7 @@ import com.dps.roboleague.domain.ranking.CategoryScoringService;
 import com.dps.roboleague.domain.ranking.PendingRuns;
 import com.dps.roboleague.domain.ranking.RankingService;
 import com.dps.roboleague.domain.ranking.Standings;
+import com.dps.roboleague.domain.result.ResultAmendment;
 import com.dps.roboleague.domain.result.RunResult;
 import com.dps.roboleague.domain.rulebook.Rulebook;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
@@ -246,8 +247,10 @@ class ApplicationFailurePathsTest {
     void appealResolutionReportsEachMissingCorrectionDependency() {
         Appeal appeal = new Appeal(APPEAL_ID, RUN_ID, TEAM_ID, "claim", NOW);
         appeals.save(appeal);
-        AcceptAppealUseCase accept = new AcceptAppealUseCase(appeals, runResults, rounds, rulebooks, standings,
-                new RecalculateStandingsUseCase(standings, rulebooks, scoring, auditLog, CLOCK), auditLog, CLOCK);
+        AcceptAppealUseCase accept = new AcceptAppealUseCase(appeals, runResults,
+                new ResultCorrector(rounds, rulebooks, runResults, standings,
+                        new RecalculateStandingsUseCase(standings, rulebooks, scoring, auditLog, CLOCK), auditLog,
+                        CLOCK), auditLog, CLOCK);
 
         assertThrows(NotFoundException.class, () -> accept.execute(acceptCommand()));
         runResults.save(run());
@@ -307,6 +310,6 @@ class ApplicationFailurePathsTest {
     }
 
     private AcceptAppeal.Command acceptCommand() {
-        return new AcceptAppeal.Command(APPEAL_ID, "rationale", MeasurementSet.empty(), List.of(), ACTOR);
+        return new AcceptAppeal.Command(APPEAL_ID, "rationale", ResultAmendment.of(MeasurementSet.empty(), List.of()), ACTOR);
     }
 }

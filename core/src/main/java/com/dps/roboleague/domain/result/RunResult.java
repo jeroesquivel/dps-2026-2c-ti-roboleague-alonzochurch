@@ -91,10 +91,7 @@ public final class RunResult {
 
     public RunResult receive(Round round, ChallengeSpec challenge, SourceSubmission submission) {
         requireSameChallenge(challengeId, challenge, "run " + id.value());
-        Heat heat = round.heatFor(teamId);
-        if (!heat.id().equals(heatId)) {
-            throw new RuleViolationException("run " + id.value() + " was not played in heat " + heat.id().value());
-        }
+        Heat heat = heatOf(round);
         RunCompletion received = completion.receive(submission.receipt());
         submission.validateAgainst(challenge, heat.judges());
         ScoringContext merged = submission.addTo(new ScoringContext(originalMeasurements, evaluations,
@@ -103,16 +100,26 @@ public final class RunResult {
                 merged.measurements(), merged.evaluations(), merged.incidents(), corrections, received);
     }
 
-    public RunResult applyCorrection(ResultCorrection correction, ChallengeSpec challenge) {
+    public RunResult applyCorrection(ResultCorrection correction, ChallengeSpec challenge, Round round) {
         Objects.requireNonNull(correction, "correction is required");
         requireSameChallenge(challengeId, challenge, "run " + id.value());
+        Heat heat = heatOf(round);
         if (correction.appliedAt().isBefore(requireCompletedAt())) {
             throw new RuleViolationException("a correction cannot predate the completion of run " + id.value());
         }
         challenge.validate(correction.measurements());
         challenge.validateIncidents(correction.incidents());
+        challenge.validateEvaluations(correction.evaluations(), heat.judges());
         return new RunResult(id, roundId, heatId, teamId, challengeId, rulebookVersion, attemptNumber, capturedAt,
                 originalMeasurements, evaluations, originalIncidents, corrections.append(correction), completion);
+    }
+
+    private Heat heatOf(Round round) {
+        Heat heat = round.heatFor(teamId);
+        if (!heat.id().equals(heatId)) {
+            throw new RuleViolationException("run " + id.value() + " was not played in heat " + heat.id().value());
+        }
+        return heat;
     }
 
     public Instant requireCompletedAt() {
@@ -138,9 +145,14 @@ public final class RunResult {
         return corrections.latest().map(ResultCorrection::incidents).orElse(originalIncidents);
     }
 
+    /** Las evaluaciones de los jueces vigentes: las de la última corrección, o las originales si no hubo. */
+    public JudgeEvaluations currentEvaluations() {
+        return corrections.latest().map(ResultCorrection::evaluations).orElse(evaluations);
+    }
+
     public ScoringContext scoringContext() {
         requireCompletedAt();
-        return new ScoringContext(currentMeasurements(), evaluations, currentIncidents());
+        return new ScoringContext(currentMeasurements(), currentEvaluations(), currentIncidents());
     }
 
     public RunStatus status() {

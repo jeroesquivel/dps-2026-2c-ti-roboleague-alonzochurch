@@ -20,6 +20,7 @@ import com.dps.roboleague.domain.ranking.ScoreSubtotal;
 import com.dps.roboleague.domain.ranking.StandingEntry;
 import com.dps.roboleague.domain.ranking.Standings;
 import com.dps.roboleague.domain.ranking.aggregation.BestAttempt;
+import com.dps.roboleague.domain.result.ResultAmendment;
 import com.dps.roboleague.domain.result.RunResult;
 import com.dps.roboleague.domain.rulebook.RulebookVersion;
 import com.dps.roboleague.domain.scoring.PointsRate;
@@ -90,7 +91,7 @@ class BestRoundsStandingsTest {
                 beta, "five more objectives were completed", Actor.of("beta-captain")));
 
         edition.module().acceptAppealUseCase().execute(new AcceptAppeal.Command(appealId, "video review",
-                edition.measurements("95.5", 7, "42"), List.of(), Actor.of("head-judge")));
+                ResultAmendment.of(edition.measurements("95.5", 7, "42"), List.of()), Actor.of("head-judge")));
 
         Standings recalculated = edition.latestStandings();
         assertEquals(Revision.of(2), recalculated.revision());

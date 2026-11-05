@@ -70,7 +70,7 @@ export default function RunView({ run, score }: { run: Run; score: RunScore | nu
           <ol>
             {run.corrections.map((correction) => (
               <li key={correction.appliedAt}>
-                {`${formatInstant(correction.appliedAt)} · ${correction.actor} · apelación ${correction.sourceAppeal}`}
+                {`${formatInstant(correction.appliedAt)} · ${correction.actor} · ${correction.origin.description}`}
                 <span className="code"> — {correction.reason}</span>
               </li>
             ))}

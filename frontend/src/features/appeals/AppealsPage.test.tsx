@@ -107,7 +107,8 @@ const CORRECTED_RUN = run({
       reason: 'appeal APPEAL-1 accepted',
       measurements: { ENERGY: 42, OBJECTIVES: 4, TIME: 80 },
       incidents: [],
-      sourceAppeal: 'APPEAL-1',
+      evaluations: [],
+      origin: { kind: 'APPEAL', description: 'appeal APPEAL-1 accepted' },
     },
   ],
 });

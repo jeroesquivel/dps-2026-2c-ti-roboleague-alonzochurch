@@ -103,6 +103,7 @@ final class AuditWebMapper {
             case ORIGINAL -> "original";
             case CORRECTED -> "corrected";
             case REASON -> "reason";
+            case ORIGIN -> "origin";
             case REVISION -> "revision";
             case RUN -> "run";
             case STATUS -> "status";

@@ -36,6 +36,8 @@ export interface AcceptAppealRequest {
   rationale: string;
   correctedMeasurements: Record<string, number>;
   correctedIncidents: Incident[];
+  /** Opcional: si no viene, las evaluaciones de los jueces se conservan. */
+  correctedEvaluations?: Evaluation[];
   reviewer: string;
 }
 
@@ -52,7 +54,14 @@ export interface Correction {
   reason: string;
   measurements: Record<string, number>;
   incidents: Incident[];
-  sourceAppeal: string;
+  evaluations: Evaluation[];
+  origin: CorrectionOrigin;
+}
+
+/** Por qué se corrigió el resultado: una apelación aceptada o un error de carga. */
+export interface CorrectionOrigin {
+  kind: 'APPEAL' | 'DATA_ENTRY_ERROR';
+  description: string;
 }
 
 /** Evaluación de un juez para un criterio, tal como la recibió la corrida. */

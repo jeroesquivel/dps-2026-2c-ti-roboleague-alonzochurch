@@ -32,6 +32,7 @@ import com.dps.roboleague.domain.eligibility.rule.TeamCompositionRule;
 import com.dps.roboleague.domain.ranking.AppliedTiebreak;
 import com.dps.roboleague.domain.ranking.Revision;
 import com.dps.roboleague.domain.ranking.StandingEntry;
+import com.dps.roboleague.domain.result.AcceptedAppeal;
 import com.dps.roboleague.domain.result.ResultCorrection;
 import com.dps.roboleague.domain.result.RunResult;
 import com.dps.roboleague.domain.rulebook.Rulebook;
@@ -471,9 +472,11 @@ class DomainEdgeCasesTest {
         MeasurementSet measurements = MeasurementSet.empty();
         Actor actor = Actor.of("actor");
         assertThrows(InvalidValueException.class,
-                () -> new ResultCorrection(NOW, actor, null, measurements, List.of(), AppealId.of("A1")));
+                () -> new ResultCorrection(NOW, actor, null, measurements, List.of(), JudgeEvaluations.none(),
+                        new AcceptedAppeal(AppealId.of("A1"))));
         assertThrows(InvalidValueException.class,
-                () -> new ResultCorrection(NOW, actor, " ", measurements, List.of(), AppealId.of("A1")));
+                () -> new ResultCorrection(NOW, actor, " ", measurements, List.of(), JudgeEvaluations.none(),
+                        new AcceptedAppeal(AppealId.of("A1"))));
         RunResult run = run();
         assertEquals(HeatId.of("HEAT-1"), run.heatId());
         assertEquals(NOW, run.capturedAt());
