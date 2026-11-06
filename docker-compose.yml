@@ -1,0 +1,18 @@
+# Base de datos para correr RoboLeague con persistencia real (perfil `postgres` del backend).
+#
+#   docker compose up -d db
+#   java -jar backend/target/roboleague-backend-1.0-SNAPSHOT.jar --spring.profiles.active=postgres
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: roboleague
+      POSTGRES_USER: roboleague
+      POSTGRES_PASSWORD: roboleague
+    ports:
+      - "5432:5432"
+    volumes:
+      - roboleague-data:/var/lib/postgresql/data
+
+volumes:
+  roboleague-data:

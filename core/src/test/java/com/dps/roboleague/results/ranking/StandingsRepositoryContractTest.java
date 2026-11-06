@@ -62,7 +62,7 @@ public abstract class StandingsRepositoryContractTest {
 
         assertEquals(List.of(Revision.of(1), Revision.of(2)), repository.findHistory(COMPETITION, CATEGORY).stream()
                 .map(Standings::revision).toList());
-        assertEquals(second, repository.findLatest(COMPETITION, CATEGORY).orElseThrow());
+        assertEquals(summary(second), summary(repository.findLatest(COMPETITION, CATEGORY).orElseThrow()));
     }
 
     @Test
@@ -87,11 +87,26 @@ public abstract class StandingsRepositoryContractTest {
         repository.save(secondCompetition);
         repository.save(recalculatedSecond);
 
-        assertEquals(List.of(firstCompetition), repository.findHistory(COMPETITION, CATEGORY));
-        assertEquals(firstCompetition, repository.findLatest(COMPETITION, CATEGORY).orElseThrow());
-        assertEquals(List.of(secondCompetition, recalculatedSecond),
-                repository.findHistory(otherCompetition, CATEGORY));
-        assertEquals(recalculatedSecond, repository.findLatest(otherCompetition, CATEGORY).orElseThrow());
+        assertEquals(List.of(summary(firstCompetition)), summaries(repository.findHistory(COMPETITION, CATEGORY)));
+        assertEquals(summary(firstCompetition), summary(repository.findLatest(COMPETITION, CATEGORY).orElseThrow()));
+        assertEquals(List.of(summary(secondCompetition), summary(recalculatedSecond)),
+                summaries(repository.findHistory(otherCompetition, CATEGORY)));
+        assertEquals(summary(recalculatedSecond),
+                summary(repository.findLatest(otherCompetition, CATEGORY).orElseThrow()));
+    }
+
+    /** Una tabla se identifica por competencia, categoría, revisión y estado: un repositorio puede devolver otra copia. */
+    private record Summary(CompetitionId competition, CategoryId category, Revision revision,
+            PublicationStatus status) {
+    }
+
+    private static Summary summary(Standings standings) {
+        return new Summary(standings.competitionId(), standings.categoryId(), standings.revision(),
+                standings.status());
+    }
+
+    private static List<Summary> summaries(List<Standings> history) {
+        return history.stream().map(StandingsRepositoryContractTest::summary).toList();
     }
 
     private Standings provisional() {

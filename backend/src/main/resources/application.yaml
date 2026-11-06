@@ -1,9 +1,23 @@
-# Configuración común del backend. El perfil `dev` (application-dev.yaml) agrega datos de demostración.
+# Configuración común del backend. El perfil `dev` (application-dev.yaml) agrega datos de demostración y el perfil
+# `postgres` (application-postgres.yaml) guarda los datos en PostgreSQL.
 #
 #   java -jar backend/target/roboleague-backend-1.0-SNAPSHOT.jar --spring.profiles.active=dev
 spring:
   application:
     name: roboleague
+  # Sin otra configuración, la base es una H2 en memoria: sólo la usan Flyway y JPA cuando `persistence` es `jpa`.
+  # El esquema lo crea Flyway (db/migration); Hibernate no lo toca.
+  datasource:
+    url: jdbc:h2:mem:roboleague;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
 
 server:
   port: 8080
+
+roboleague:
+  # Dónde se guardan los datos. Con `memory` (por defecto) cada arranque parte de cero y no hace falta ninguna base.
+  # Con `jpa` se guardan en la base de `spring.datasource`; el perfil `postgres` ya lo activa.
+  persistence: memory

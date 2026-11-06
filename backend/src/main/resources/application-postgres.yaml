@@ -1,0 +1,15 @@
+# Persistencia real sobre PostgreSQL. Levantar la base con `docker compose up -d db` (docker-compose.yml en la raíz)
+# y arrancar con:
+#
+#   java -jar backend/target/roboleague-backend-1.0-SNAPSHOT.jar --spring.profiles.active=postgres
+#
+# Los datos de conexión se pueden cambiar con las variables ROBOLEAGUE_DB_URL, ROBOLEAGUE_DB_USER y
+# ROBOLEAGUE_DB_PASSWORD. El esquema lo crea Flyway al arrancar.
+roboleague:
+  persistence: jpa
+
+spring:
+  datasource:
+    url: ${ROBOLEAGUE_DB_URL:jdbc:postgresql://localhost:5432/roboleague}
+    username: ${ROBOLEAGUE_DB_USER:roboleague}
+    password: ${ROBOLEAGUE_DB_PASSWORD:roboleague}

@@ -452,3 +452,32 @@ Los paquetes que aparecen como `domain/...` en `DESIGN.md` son los de antes de e
 `domain/challenge`, `domain/scoring` pasaron a `rules`; `domain/competition`, `domain/team` y `domain/eligibility` a
 `enrollment`; `domain/schedule` a `scheduling`; `domain/result` y `domain/ranking` a `results` (las políticas de
 `ranking` a `rules.ranking`); `domain/appeal` a `appeals`; `domain/shared` y `domain/audit` a `shared`.
+
+## Persistencia
+
+Los repositorios, la bitácora y el generador de ids son puertos del dominio (`*Repository`, `AuditLog`,
+`IdGenerator`). El backend los implementa de dos maneras y se elige por configuración con
+`roboleague.persistence`:
+
+| Valor | Qué usa | Cuándo |
+|---|---|---|
+| `memory` (por defecto) | `infrastructure.memory.*`, en memoria | desarrollo, demos y la mayoría de los tests |
+| `jpa` | `infrastructure.persistence.jpa.*` sobre la base de datos de `spring.datasource` | el perfil `postgres` lo activa y apunta a PostgreSQL |
+
+- **El dominio no tiene anotaciones.** Cada agregado se guarda como un documento JSON (`AggregateJson`, con Gson, que
+  lo reconstruye por sus campos) en la columna `payload` de su tabla, junto con las columnas por las que se lo busca
+  (`competition_id`, `round_id`, `revision`…). Las entidades JPA (`*Row`) y los repositorios de Spring Data
+  (`*Rows`) son un detalle del paquete `infrastructure.persistence.jpa`; los adaptadores (`Jpa*Repository`) traducen
+  entre el dominio y las filas.
+- **El esquema lo crea Flyway** (`db/migration/V1__initial_schema.sql`), en SQL estándar que corre igual en
+  PostgreSQL y en H2. Hibernate no toca el esquema (`ddl-auto: none`).
+- **Cada caso de uso es una transacción.** `TransactionalUseCases` es un decorador de los puertos de entrada: si el
+  caso de uso lanza una excepción del dominio se deshace todo lo guardado hasta ahí. El núcleo no conoce
+  `@Transactional`.
+- **Los ids sobreviven a un reinicio:** `JdbcIdGenerator` lleva los contadores en la tabla `id_counter`.
+- **Las reglas de los repositorios son las mismas.** `JpaRunResultRepository` repite lo que hace la versión en
+  memoria (un intento por equipo y ronda, no pisar una corrida desactualizada) y pasa los mismos tests de contrato
+  (`RunResultRepositoryContractTest`, `StandingsRepositoryContractTest`).
+
+Para correr con PostgreSQL: `docker compose up -d db` y arrancar el backend con `--spring.profiles.active=postgres`.
+Los tests usan H2 en modo PostgreSQL, así que no necesitan Docker.
