@@ -1,8 +1,8 @@
 package com.dps.roboleague.adapter.in.web.round;
 
-import com.dps.roboleague.domain.port.in.FindRound;
-import com.dps.roboleague.domain.port.in.ScheduleRound;
-import com.dps.roboleague.domain.shared.RoundId;
+import com.dps.roboleague.scheduling.port.in.FindRound;
+import com.dps.roboleague.scheduling.port.in.ScheduleRound;
+import com.dps.roboleague.shared.RoundId;
 import java.net.URI;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

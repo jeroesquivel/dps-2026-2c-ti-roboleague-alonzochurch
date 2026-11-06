@@ -1,22 +1,40 @@
 package com.dps.roboleague;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
-
-import com.dps.roboleague.domain.port.in.*;
-import com.dps.roboleague.domain.appeal.AppealRepository;
-import com.dps.roboleague.domain.audit.AuditLog;
-import com.dps.roboleague.domain.competition.CompetitionRepository;
-import com.dps.roboleague.domain.competition.SeasonRepository;
-import com.dps.roboleague.domain.ranking.CategoryScoringService;
-import com.dps.roboleague.domain.ranking.RankingService;
-import com.dps.roboleague.domain.ranking.StandingsRepository;
-import com.dps.roboleague.domain.result.RunResultRepository;
-import com.dps.roboleague.domain.rulebook.RulebookRepository;
-import com.dps.roboleague.domain.schedule.RoundRepository;
-import com.dps.roboleague.domain.schedule.ScheduleConflictDetector;
-import com.dps.roboleague.domain.shared.IdGenerator;
-import com.dps.roboleague.domain.team.TeamRegistrationRepository;
+import com.dps.roboleague.appeals.AppealRepository;
+import com.dps.roboleague.appeals.port.in.AcceptAppeal;
+import com.dps.roboleague.appeals.port.in.FindAppeal;
+import com.dps.roboleague.appeals.port.in.RejectAppeal;
+import com.dps.roboleague.appeals.port.in.SubmitAppeal;
+import com.dps.roboleague.enrollment.competition.CompetitionRepository;
+import com.dps.roboleague.enrollment.competition.SeasonRepository;
+import com.dps.roboleague.enrollment.port.in.CreateSeason;
+import com.dps.roboleague.enrollment.port.in.FindCompetition;
+import com.dps.roboleague.enrollment.port.in.FindTeamRegistration;
+import com.dps.roboleague.enrollment.port.in.RegisterTeam;
+import com.dps.roboleague.enrollment.team.TeamRegistrationRepository;
+import com.dps.roboleague.results.port.in.CalculateRunScore;
+import com.dps.roboleague.results.port.in.CaptureRunResult;
+import com.dps.roboleague.results.port.in.FindRunResult;
+import com.dps.roboleague.results.port.in.GenerateStandings;
+import com.dps.roboleague.results.port.in.GetStandings;
+import com.dps.roboleague.results.port.in.PublishStandings;
+import com.dps.roboleague.results.port.in.RecalculateStandings;
+import com.dps.roboleague.results.port.in.RegisterAutomaticMeasurements;
+import com.dps.roboleague.results.port.in.RegisterPanelEvaluations;
+import com.dps.roboleague.results.ranking.CategoryScoringService;
+import com.dps.roboleague.results.ranking.RankingService;
+import com.dps.roboleague.results.ranking.StandingsRepository;
+import com.dps.roboleague.results.result.RunResultRepository;
+import com.dps.roboleague.rules.port.in.CreateCompetition;
+import com.dps.roboleague.rules.port.in.PublishRulebook;
+import com.dps.roboleague.rules.rulebook.RulebookRepository;
+import com.dps.roboleague.scheduling.RoundRepository;
+import com.dps.roboleague.scheduling.ScheduleConflictDetector;
+import com.dps.roboleague.scheduling.port.in.FindRound;
+import com.dps.roboleague.scheduling.port.in.ScheduleRound;
+import com.dps.roboleague.shared.IdGenerator;
+import com.dps.roboleague.shared.audit.AuditLog;
+import com.dps.roboleague.shared.port.in.FindAuditTrail;
 import java.time.Clock;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -27,6 +45,9 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class RoboLeagueApplicationTest {

@@ -1,0 +1,32 @@
+package com.dps.roboleague.shared;
+
+
+public record RulebookVersion(int number) {
+
+    public RulebookVersion {
+        if (number < 1) {
+            throw new InvalidValueException("rulebook version must be positive");
+        }
+    }
+
+    public static RulebookVersion first() {
+        return new RulebookVersion(1);
+    }
+
+    public static RulebookVersion of(int number) {
+        return new RulebookVersion(number);
+    }
+
+    public RulebookVersion next() {
+        return new RulebookVersion(number + 1);
+    }
+
+    public boolean isNewerThan(RulebookVersion other) {
+        return number > other.number;
+    }
+
+    @Override
+    public String toString() {
+        return "v" + number;
+    }
+}

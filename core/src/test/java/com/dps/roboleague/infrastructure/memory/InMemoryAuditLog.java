@@ -1,8 +1,8 @@
 package com.dps.roboleague.infrastructure.memory;
 
-import com.dps.roboleague.domain.audit.AuditEvent;
-import com.dps.roboleague.domain.audit.AuditLog;
-import com.dps.roboleague.domain.shared.Identifier;
+import com.dps.roboleague.shared.audit.AuditEvent;
+import com.dps.roboleague.shared.audit.AuditLog;
+import com.dps.roboleague.shared.Identifier;
 import java.util.ArrayList;
 import java.util.List;
 

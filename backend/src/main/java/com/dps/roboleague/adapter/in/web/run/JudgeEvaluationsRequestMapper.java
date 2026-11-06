@@ -1,11 +1,11 @@
 package com.dps.roboleague.adapter.in.web.run;
 
-import com.dps.roboleague.domain.challenge.MetricKey;
-import com.dps.roboleague.domain.scoring.JudgeEvaluation;
-import com.dps.roboleague.domain.scoring.JudgeEvaluations;
-import com.dps.roboleague.domain.scoring.JudgeScore;
-import com.dps.roboleague.domain.shared.InvalidValueException;
-import com.dps.roboleague.domain.shared.JudgeId;
+import com.dps.roboleague.rules.challenge.MetricKey;
+import com.dps.roboleague.rules.scoring.JudgeEvaluation;
+import com.dps.roboleague.rules.scoring.JudgeEvaluations;
+import com.dps.roboleague.rules.scoring.JudgeScore;
+import com.dps.roboleague.shared.InvalidValueException;
+import com.dps.roboleague.shared.JudgeId;
 import java.util.List;
 
 /** Traduce las evaluaciones de los jueces de un pedido web; lo comparten la captura y las correcciones. */

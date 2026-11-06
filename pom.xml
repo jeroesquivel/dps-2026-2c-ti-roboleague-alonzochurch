@@ -6,11 +6,12 @@
   <modules><module>core</module><module>backend</module></modules>
   <properties>
     <maven.compiler.release>21</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding><project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <junit.version>5.11.4</junit.version><jacoco.version>0.8.15</jacoco.version><spring-boot.version>4.1.1</spring-boot.version>
+    <junit.version>5.11.4</junit.version><jacoco.version>0.8.15</jacoco.version><spring-boot.version>4.1.1</spring-boot.version><archunit.version>1.4.1</archunit.version>
   </properties>
   <dependencyManagement><dependencies>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-dependencies</artifactId><version>${spring-boot.version}</version><type>pom</type><scope>import</scope></dependency>
     <dependency><groupId>org.junit</groupId><artifactId>junit-bom</artifactId><version>${junit.version}</version><type>pom</type><scope>import</scope></dependency>
+    <dependency><groupId>com.tngtech.archunit</groupId><artifactId>archunit-junit5</artifactId><version>${archunit.version}</version></dependency>
   </dependencies></dependencyManagement>
   <build>
     <pluginManagement><plugins>

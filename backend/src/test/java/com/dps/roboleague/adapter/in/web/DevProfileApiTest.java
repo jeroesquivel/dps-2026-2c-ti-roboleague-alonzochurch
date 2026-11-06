@@ -1,8 +1,5 @@
 package com.dps.roboleague.adapter.in.web;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import com.dps.roboleague.adapter.in.web.standings.StandingsResponse;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -14,6 +11,9 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.RestClient;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Verifica que el perfil {@code dev} carga los datos de application-dev.yaml. Es un contexto de Spring

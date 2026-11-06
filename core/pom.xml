@@ -2,11 +2,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion><parent><groupId>com.dps</groupId><artifactId>roboleague</artifactId><version>1.0-SNAPSHOT</version></parent>
   <artifactId>roboleague-core</artifactId><name>RoboLeague Core</name>
-  <dependencies><dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency></dependencies>
+  <dependencies><dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency><dependency><groupId>com.tngtech.archunit</groupId><artifactId>archunit-junit5</artifactId><scope>test</scope></dependency></dependencies>
   <build><plugins>
     <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId></plugin>
     <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId></plugin>
-    <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-jar-plugin</artifactId><executions><execution><goals><goal>test-jar</goal></goals><configuration><excludes><exclude>com/dps/roboleague/application/**</exclude><exclude>com/dps/roboleague/infrastructure/**</exclude><exclude>com/dps/roboleague/support/AdjustableClock.class</exclude><exclude>com/dps/roboleague/support/TestEdition.class</exclude></excludes></configuration></execution></executions></plugin>
+    <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-jar-plugin</artifactId><executions><execution><goals><goal>test-jar</goal></goals><configuration><excludes><exclude>com/dps/roboleague/application/**</exclude><exclude>com/dps/roboleague/architecture/**</exclude><exclude>com/dps/roboleague/infrastructure/**</exclude><exclude>com/dps/roboleague/support/AdjustableClock.class</exclude><exclude>com/dps/roboleague/support/TestEdition.class</exclude></excludes></configuration></execution></executions></plugin>
     <plugin><groupId>org.jacoco</groupId><artifactId>jacoco-maven-plugin</artifactId><executions>
       <execution><goals><goal>prepare-agent</goal></goals></execution><execution><id>report</id><phase>verify</phase><goals><goal>report</goal></goals></execution>
       <execution><id>check</id><phase>verify</phase><goals><goal>check</goal></goals><configuration><rules><rule><element>BUNDLE</element><limits>

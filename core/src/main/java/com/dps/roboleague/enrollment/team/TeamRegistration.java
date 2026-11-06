@@ -1,0 +1,110 @@
+package com.dps.roboleague.enrollment.team;
+
+import com.dps.roboleague.enrollment.eligibility.EligibilityVerdict;
+import com.dps.roboleague.enrollment.eligibility.EligibilityViolation;
+import com.dps.roboleague.shared.CategoryId;
+import com.dps.roboleague.shared.CompetitionId;
+import com.dps.roboleague.shared.ConflictException;
+import com.dps.roboleague.shared.InvalidValueException;
+import com.dps.roboleague.shared.RuleViolationException;
+import com.dps.roboleague.shared.TeamId;
+import java.util.Collection;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
+public final class TeamRegistration {
+
+    private final TeamId id;
+    private final CompetitionId competitionId;
+    private final CategoryId categoryId;
+    private final String name;
+    private final TeamMembers members;
+    private final Robot robot;
+    private final Map<DocumentType, TeamDocument> documents = new EnumMap<>(DocumentType.class);
+    private final RegistrationStatus status;
+    private final List<EligibilityViolation> rejectionReasons;
+
+    public TeamRegistration(TeamId id, CompetitionId competitionId, CategoryId categoryId, String name,
+            TeamMembers members, Robot robot, Collection<TeamDocument> documents) {
+        this(id, competitionId, categoryId, name, members, robot, documents, RegistrationStatus.SUBMITTED, List.of());
+    }
+
+    private TeamRegistration(TeamId id, CompetitionId competitionId, CategoryId categoryId, String name,
+            TeamMembers members, Robot robot, Collection<TeamDocument> documents, RegistrationStatus status,
+            List<EligibilityViolation> rejectionReasons) {
+        this.id = Objects.requireNonNull(id, "team id is required");
+        this.competitionId = Objects.requireNonNull(competitionId, "competition id is required");
+        this.categoryId = Objects.requireNonNull(categoryId, "category id is required");
+        this.members = Objects.requireNonNull(members, "team members are required");
+        this.robot = Objects.requireNonNull(robot, "robot is required");
+        if (name == null || name.isBlank()) {
+            throw new InvalidValueException("team requires a name");
+        }
+        this.name = name;
+        documents.forEach(document -> this.documents.put(document.type(), document));
+        this.status = status;
+        this.rejectionReasons = List.copyOf(rejectionReasons);
+    }
+
+    public TeamRegistration resolveWith(EligibilityVerdict verdict) {
+        Objects.requireNonNull(verdict, "eligibility verdict is required");
+        if (status != RegistrationStatus.SUBMITTED) {
+            throw new ConflictException("registration of team " + name + " was already resolved as " + status);
+        }
+        RegistrationStatus resolved = verdict.isEligible() ? RegistrationStatus.ACCEPTED : RegistrationStatus.REJECTED;
+        return new TeamRegistration(id, competitionId, categoryId, name, members, robot, documents.values(), resolved,
+                verdict.violations());
+    }
+
+    public void requireAcceptedIn(CompetitionId competition, CategoryId category) {
+        if (!isAccepted()) {
+            throw new RuleViolationException("team " + name + " is not accepted in the competition");
+        }
+        if (!competitionId.equals(competition) || !categoryId.equals(category)) {
+            throw new RuleViolationException("team " + name + " does not compete in the scheduled category");
+        }
+    }
+
+    public boolean isAccepted() {
+        return status == RegistrationStatus.ACCEPTED;
+    }
+
+    public Set<DocumentType> documentTypes() {
+        return Set.copyOf(documents.keySet());
+    }
+
+    public TeamId id() {
+        return id;
+    }
+
+    public CompetitionId competitionId() {
+        return competitionId;
+    }
+
+    public CategoryId categoryId() {
+        return categoryId;
+    }
+
+    public String name() {
+        return name;
+    }
+
+    public TeamMembers members() {
+        return members;
+    }
+
+    public Robot robot() {
+        return robot;
+    }
+
+    public RegistrationStatus status() {
+        return status;
+    }
+
+    public List<EligibilityViolation> rejectionReasons() {
+        return rejectionReasons;
+    }
+}

@@ -1,34 +1,34 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.domain.result.ResultAmendment;
-import com.dps.roboleague.domain.scoring.BonusPolicy;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import com.dps.roboleague.domain.port.in.AcceptAppeal;
-import com.dps.roboleague.domain.port.in.CalculateRunScore;
-import com.dps.roboleague.domain.port.in.GenerateStandings;
-import com.dps.roboleague.domain.port.in.SubmitAppeal;
-import com.dps.roboleague.domain.ranking.Revision;
-import com.dps.roboleague.domain.ranking.Standings;
-import com.dps.roboleague.domain.rulebook.RulebookVersion;
-import com.dps.roboleague.domain.scoring.BonusCap;
-import com.dps.roboleague.domain.scoring.BonusCapOutcome;
-import com.dps.roboleague.domain.scoring.ContributionKind;
-import com.dps.roboleague.domain.scoring.ScoreBreakdown;
-import com.dps.roboleague.domain.scoring.ScoreContribution;
-import com.dps.roboleague.domain.scoring.rule.ThresholdBonusRule;
-import com.dps.roboleague.domain.shared.Actor;
-import com.dps.roboleague.domain.shared.AppealId;
-import com.dps.roboleague.domain.shared.Points;
-import com.dps.roboleague.domain.shared.RoundId;
-import com.dps.roboleague.domain.shared.RunId;
-import com.dps.roboleague.domain.shared.TeamId;
+import com.dps.roboleague.appeals.port.in.AcceptAppeal;
+import com.dps.roboleague.appeals.port.in.SubmitAppeal;
+import com.dps.roboleague.results.port.in.CalculateRunScore;
+import com.dps.roboleague.results.port.in.GenerateStandings;
+import com.dps.roboleague.results.ranking.Revision;
+import com.dps.roboleague.results.ranking.Standings;
+import com.dps.roboleague.results.result.ResultAmendment;
+import com.dps.roboleague.rules.scoring.BonusCap;
+import com.dps.roboleague.rules.scoring.BonusCapOutcome;
+import com.dps.roboleague.rules.scoring.BonusPolicy;
+import com.dps.roboleague.rules.scoring.ContributionKind;
+import com.dps.roboleague.rules.scoring.ScoreBreakdown;
+import com.dps.roboleague.rules.scoring.ScoreContribution;
+import com.dps.roboleague.rules.scoring.rule.ThresholdBonusRule;
+import com.dps.roboleague.shared.Actor;
+import com.dps.roboleague.shared.AppealId;
+import com.dps.roboleague.shared.Points;
+import com.dps.roboleague.shared.RoundId;
+import com.dps.roboleague.shared.RulebookVersion;
+import com.dps.roboleague.shared.RunId;
+import com.dps.roboleague.shared.TeamId;
 import com.dps.roboleague.support.RescueEditionFixture;
 import com.dps.roboleague.support.TestEdition;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BonusCapScoringTest {
 

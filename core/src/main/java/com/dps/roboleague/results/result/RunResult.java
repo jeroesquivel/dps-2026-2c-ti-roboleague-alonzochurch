@@ -1,0 +1,213 @@
+package com.dps.roboleague.results.result;
+
+import com.dps.roboleague.rules.challenge.AttemptNumber;
+import com.dps.roboleague.rules.challenge.ChallengeSpec;
+import com.dps.roboleague.rules.challenge.MeasurementSet;
+import com.dps.roboleague.rules.scoring.IncidentReport;
+import com.dps.roboleague.rules.scoring.JudgeEvaluations;
+import com.dps.roboleague.rules.scoring.ScoringContext;
+import com.dps.roboleague.scheduling.Heat;
+import com.dps.roboleague.scheduling.Round;
+import com.dps.roboleague.shared.ChallengeId;
+import com.dps.roboleague.shared.HeatId;
+import com.dps.roboleague.shared.RoundId;
+import com.dps.roboleague.shared.RuleViolationException;
+import com.dps.roboleague.shared.RulebookVersion;
+import com.dps.roboleague.shared.RunId;
+import com.dps.roboleague.shared.TeamId;
+import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
+
+public final class RunResult {
+
+    private final RunId id;
+    private final RoundId roundId;
+    private final HeatId heatId;
+    private final TeamId teamId;
+    private final ChallengeId challengeId;
+    private final RulebookVersion rulebookVersion;
+    private final AttemptNumber attemptNumber;
+    private final Instant capturedAt;
+    private final MeasurementSet originalMeasurements;
+    private final List<IncidentReport> originalIncidents;
+    private final JudgeEvaluations evaluations;
+    private final CorrectionHistory corrections;
+    private final RunCompletion completion;
+
+    public RunResult(RunId id, RoundId roundId, HeatId heatId, TeamId teamId, ChallengeId challengeId,
+            RulebookVersion rulebookVersion, AttemptNumber attemptNumber, Instant capturedAt,
+            MeasurementSet measurements, JudgeEvaluations evaluations, Collection<IncidentReport> incidents) {
+        this(id, roundId, heatId, teamId, challengeId, rulebookVersion, attemptNumber, capturedAt, measurements,
+                evaluations, incidents, CorrectionHistory.empty(), RunCompletion.immediate());
+    }
+
+    private RunResult(RunId id, RoundId roundId, HeatId heatId, TeamId teamId, ChallengeId challengeId,
+            RulebookVersion rulebookVersion, AttemptNumber attemptNumber, Instant capturedAt,
+            MeasurementSet measurements, JudgeEvaluations evaluations, Collection<IncidentReport> incidents,
+            CorrectionHistory corrections, RunCompletion completion) {
+        this.id = Objects.requireNonNull(id, "run id is required");
+        this.roundId = Objects.requireNonNull(roundId, "round id is required");
+        this.heatId = Objects.requireNonNull(heatId, "heat id is required");
+        this.teamId = Objects.requireNonNull(teamId, "team id is required");
+        this.challengeId = Objects.requireNonNull(challengeId, "challenge id is required");
+        this.rulebookVersion = Objects.requireNonNull(rulebookVersion, "rulebook version is required");
+        this.attemptNumber = Objects.requireNonNull(attemptNumber, "attempt number is required");
+        this.capturedAt = Objects.requireNonNull(capturedAt, "capture timestamp is required");
+        this.originalMeasurements = Objects.requireNonNull(measurements, "measurements are required");
+        this.evaluations = Objects.requireNonNull(evaluations, "evaluations are required");
+        this.originalIncidents = List.copyOf(incidents);
+        this.corrections = corrections;
+        this.completion = completion;
+    }
+
+    public static RunResult capture(RunId id, Round round, TeamId teamId, ChallengeSpec challenge,
+            AttemptNumber attemptNumber, Instant capturedAt, MeasurementSet measurements,
+            JudgeEvaluations evaluations, List<IncidentReport> incidents) {
+        Heat heat = round.heatFor(teamId);
+        requireSameChallenge(round.challengeId(), challenge, "round " + round.id().value());
+        challenge.requireSingleCapture();
+        challenge.requireAttemptWithinLimit(attemptNumber);
+        challenge.validate(measurements);
+        challenge.validateIncidents(incidents);
+        challenge.validateEvaluations(evaluations, heat.judges());
+        return new RunResult(id, round.id(), heat.id(), teamId, round.challengeId(), round.rulebookVersion(),
+                attemptNumber, capturedAt, measurements, evaluations, incidents);
+    }
+
+    public static RunResult open(RunId id, Round round, TeamId teamId, ChallengeSpec challenge,
+            AttemptNumber attemptNumber, SourceSubmission submission) {
+        Heat heat = round.heatFor(teamId);
+        requireSameChallenge(round.challengeId(), challenge, "round " + round.id().value());
+        challenge.requireAttemptWithinLimit(attemptNumber);
+        submission.validateAgainst(challenge, heat.judges());
+        ScoringContext received = submission.addTo(ScoringContext.of(MeasurementSet.empty()));
+        return new RunResult(id, round.id(), heat.id(), teamId, round.challengeId(), round.rulebookVersion(),
+                attemptNumber, submission.receipt().receivedAt(), received.measurements(), received.evaluations(),
+                received.incidents(), CorrectionHistory.empty(),
+                RunCompletion.awaitingSources().receive(submission.receipt()));
+    }
+
+    public RunResult receive(Round round, ChallengeSpec challenge, SourceSubmission submission) {
+        requireSameChallenge(challengeId, challenge, "run " + id.value());
+        Heat heat = heatOf(round);
+        RunCompletion received = completion.receive(submission.receipt());
+        submission.validateAgainst(challenge, heat.judges());
+        ScoringContext merged = submission.addTo(new ScoringContext(originalMeasurements, evaluations,
+                originalIncidents));
+        return new RunResult(id, roundId, heatId, teamId, challengeId, rulebookVersion, attemptNumber, capturedAt,
+                merged.measurements(), merged.evaluations(), merged.incidents(), corrections, received);
+    }
+
+    public RunResult applyCorrection(ResultCorrection correction, ChallengeSpec challenge, Round round) {
+        Objects.requireNonNull(correction, "correction is required");
+        requireSameChallenge(challengeId, challenge, "run " + id.value());
+        Heat heat = heatOf(round);
+        if (correction.appliedAt().isBefore(requireCompletedAt())) {
+            throw new RuleViolationException("a correction cannot predate the completion of run " + id.value());
+        }
+        challenge.validate(correction.measurements());
+        challenge.validateIncidents(correction.incidents());
+        challenge.validateEvaluations(correction.evaluations(), heat.judges());
+        return new RunResult(id, roundId, heatId, teamId, challengeId, rulebookVersion, attemptNumber, capturedAt,
+                originalMeasurements, evaluations, originalIncidents, corrections.append(correction), completion);
+    }
+
+    private Heat heatOf(Round round) {
+        Heat heat = round.heatFor(teamId);
+        if (!heat.id().equals(heatId)) {
+            throw new RuleViolationException("run " + id.value() + " was not played in heat " + heat.id().value());
+        }
+        return heat;
+    }
+
+    public Instant requireCompletedAt() {
+        if (!completion.isComplete()) {
+            throw new RuleViolationException("run " + id.value() + " is pending: it still waits for the "
+                    + completion.missing() + " source and has no score yet");
+        }
+        return completion.lastReceivedAt().orElse(capturedAt);
+    }
+
+    private static void requireSameChallenge(ChallengeId expected, ChallengeSpec challenge, String owner) {
+        if (!challenge.id().equals(expected)) {
+            throw new RuleViolationException(owner + " belongs to challenge " + expected.value()
+                    + " and cannot use the rules of challenge " + challenge.id().value());
+        }
+    }
+
+    public MeasurementSet currentMeasurements() {
+        return corrections.latest().map(ResultCorrection::measurements).orElse(originalMeasurements);
+    }
+
+    public List<IncidentReport> currentIncidents() {
+        return corrections.latest().map(ResultCorrection::incidents).orElse(originalIncidents);
+    }
+
+    /** Las evaluaciones de los jueces vigentes: las de la última corrección, o las originales si no hubo. */
+    public JudgeEvaluations currentEvaluations() {
+        return corrections.latest().map(ResultCorrection::evaluations).orElse(evaluations);
+    }
+
+    public ScoringContext scoringContext() {
+        requireCompletedAt();
+        return new ScoringContext(currentMeasurements(), currentEvaluations(), currentIncidents());
+    }
+
+    public RunStatus status() {
+        return corrections.isEmpty() ? RunStatus.CAPTURED : RunStatus.CORRECTED;
+    }
+
+    public RunId id() {
+        return id;
+    }
+
+    public RoundId roundId() {
+        return roundId;
+    }
+
+    public HeatId heatId() {
+        return heatId;
+    }
+
+    public TeamId teamId() {
+        return teamId;
+    }
+
+    public ChallengeId challengeId() {
+        return challengeId;
+    }
+
+    public RulebookVersion rulebookVersion() {
+        return rulebookVersion;
+    }
+
+    public AttemptNumber attemptNumber() {
+        return attemptNumber;
+    }
+
+    public Instant capturedAt() {
+        return capturedAt;
+    }
+
+    public MeasurementSet originalMeasurements() {
+        return originalMeasurements;
+    }
+
+    public List<IncidentReport> originalIncidents() {
+        return originalIncidents;
+    }
+
+    public JudgeEvaluations evaluations() {
+        return evaluations;
+    }
+
+    public CorrectionHistory corrections() {
+        return corrections;
+    }
+
+    public RunCompletion completion() {
+        return completion;
+    }
+}

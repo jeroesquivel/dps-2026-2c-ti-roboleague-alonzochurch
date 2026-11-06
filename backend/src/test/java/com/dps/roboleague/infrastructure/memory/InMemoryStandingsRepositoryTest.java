@@ -1,7 +1,7 @@
 package com.dps.roboleague.infrastructure.memory;
 
-import com.dps.roboleague.domain.ranking.StandingsRepository;
-import com.dps.roboleague.domain.ranking.StandingsRepositoryContractTest;
+import com.dps.roboleague.results.ranking.StandingsRepository;
+import com.dps.roboleague.results.ranking.StandingsRepositoryContractTest;
 
 class InMemoryStandingsRepositoryTest extends StandingsRepositoryContractTest {
 

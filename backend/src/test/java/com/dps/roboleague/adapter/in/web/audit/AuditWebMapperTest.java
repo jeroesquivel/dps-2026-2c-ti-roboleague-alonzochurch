@@ -1,29 +1,29 @@
 package com.dps.roboleague.adapter.in.web.audit;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import com.dps.roboleague.domain.audit.AuditAction;
-import com.dps.roboleague.domain.audit.AuditDetail;
-import com.dps.roboleague.domain.audit.AuditEvent;
-import com.dps.roboleague.domain.shared.Actor;
-import com.dps.roboleague.domain.shared.AppealId;
-import com.dps.roboleague.domain.shared.CategoryId;
-import com.dps.roboleague.domain.shared.CompetitionId;
-import com.dps.roboleague.domain.shared.InvalidValueException;
-import com.dps.roboleague.domain.shared.RoundId;
-import com.dps.roboleague.domain.shared.RunId;
-import com.dps.roboleague.domain.shared.SeasonId;
-import com.dps.roboleague.domain.shared.TeamId;
+import com.dps.roboleague.shared.Actor;
+import com.dps.roboleague.shared.AppealId;
+import com.dps.roboleague.shared.CategoryId;
+import com.dps.roboleague.shared.CompetitionId;
+import com.dps.roboleague.shared.InvalidValueException;
+import com.dps.roboleague.shared.RoundId;
+import com.dps.roboleague.shared.RunId;
+import com.dps.roboleague.shared.SeasonId;
+import com.dps.roboleague.shared.TeamId;
+import com.dps.roboleague.shared.audit.AuditAction;
+import com.dps.roboleague.shared.audit.AuditDetail;
+import com.dps.roboleague.shared.audit.AuditEvent;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AuditWebMapperTest {
 

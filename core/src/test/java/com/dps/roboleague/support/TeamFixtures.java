@@ -1,15 +1,15 @@
 package com.dps.roboleague.support;
 
-import com.dps.roboleague.domain.competition.RobotClass;
-import com.dps.roboleague.domain.shared.MemberId;
-import com.dps.roboleague.domain.team.Dimensions;
-import com.dps.roboleague.domain.team.DocumentType;
-import com.dps.roboleague.domain.team.Member;
-import com.dps.roboleague.domain.team.MemberRole;
-import com.dps.roboleague.domain.team.Robot;
-import com.dps.roboleague.domain.team.TeamDocument;
-import com.dps.roboleague.domain.team.TeamMembers;
-import com.dps.roboleague.domain.team.Weight;
+import com.dps.roboleague.enrollment.competition.RobotClass;
+import com.dps.roboleague.enrollment.team.Dimensions;
+import com.dps.roboleague.enrollment.team.DocumentType;
+import com.dps.roboleague.enrollment.team.Member;
+import com.dps.roboleague.enrollment.team.MemberRole;
+import com.dps.roboleague.enrollment.team.Robot;
+import com.dps.roboleague.enrollment.team.TeamDocument;
+import com.dps.roboleague.enrollment.team.TeamMembers;
+import com.dps.roboleague.enrollment.team.Weight;
+import com.dps.roboleague.shared.MemberId;
 import java.time.LocalDate;
 import java.util.List;
 

@@ -1,14 +1,14 @@
 package com.dps.roboleague.adapter.in.web.standings;
 
-import com.dps.roboleague.domain.port.in.FindTeamRegistration;
-import com.dps.roboleague.domain.port.in.GenerateStandings;
-import com.dps.roboleague.domain.port.in.GetStandings;
-import com.dps.roboleague.domain.port.in.PublishStandings;
-import com.dps.roboleague.domain.port.in.RecalculateStandings;
-import com.dps.roboleague.domain.ranking.Standings;
-import com.dps.roboleague.domain.shared.CategoryId;
-import com.dps.roboleague.domain.shared.CompetitionId;
-import com.dps.roboleague.domain.shared.TeamId;
+import com.dps.roboleague.enrollment.port.in.FindTeamRegistration;
+import com.dps.roboleague.results.port.in.GenerateStandings;
+import com.dps.roboleague.results.port.in.GetStandings;
+import com.dps.roboleague.results.port.in.PublishStandings;
+import com.dps.roboleague.results.port.in.RecalculateStandings;
+import com.dps.roboleague.results.ranking.Standings;
+import com.dps.roboleague.shared.CategoryId;
+import com.dps.roboleague.shared.CompetitionId;
+import com.dps.roboleague.shared.TeamId;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;

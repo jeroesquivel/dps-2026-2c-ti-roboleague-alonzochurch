@@ -1,19 +1,19 @@
 package com.dps.roboleague.adapter.in.web.standings;
 
-import com.dps.roboleague.domain.port.in.GenerateStandings;
-import com.dps.roboleague.domain.port.in.PublishStandings;
-import com.dps.roboleague.domain.port.in.RecalculateStandings;
-import com.dps.roboleague.domain.ranking.AppliedTiebreak;
-import com.dps.roboleague.domain.ranking.PendingRun;
-import com.dps.roboleague.domain.ranking.RoundOutcome;
-import com.dps.roboleague.domain.ranking.ScoreExplanation;
-import com.dps.roboleague.domain.ranking.ScoreSubtotal;
-import com.dps.roboleague.domain.ranking.StandingEntry;
-import com.dps.roboleague.domain.ranking.Standings;
-import com.dps.roboleague.domain.shared.Actor;
-import com.dps.roboleague.domain.shared.CategoryId;
-import com.dps.roboleague.domain.shared.CompetitionId;
-import com.dps.roboleague.domain.shared.TeamId;
+import com.dps.roboleague.results.port.in.GenerateStandings;
+import com.dps.roboleague.results.port.in.PublishStandings;
+import com.dps.roboleague.results.port.in.RecalculateStandings;
+import com.dps.roboleague.results.ranking.AppliedTiebreak;
+import com.dps.roboleague.results.ranking.PendingRun;
+import com.dps.roboleague.results.ranking.StandingEntry;
+import com.dps.roboleague.results.ranking.Standings;
+import com.dps.roboleague.rules.ranking.RoundOutcome;
+import com.dps.roboleague.rules.ranking.ScoreExplanation;
+import com.dps.roboleague.rules.ranking.ScoreSubtotal;
+import com.dps.roboleague.shared.Actor;
+import com.dps.roboleague.shared.CategoryId;
+import com.dps.roboleague.shared.CompetitionId;
+import com.dps.roboleague.shared.TeamId;
 import java.util.List;
 import java.util.function.Function;
 

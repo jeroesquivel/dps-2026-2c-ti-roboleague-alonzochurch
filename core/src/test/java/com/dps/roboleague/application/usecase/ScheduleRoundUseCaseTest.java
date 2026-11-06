@@ -1,22 +1,18 @@
 package com.dps.roboleague.application.usecase;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import com.dps.roboleague.domain.port.in.ScheduleRound;
-import com.dps.roboleague.domain.rulebook.RulebookVersion;
-import com.dps.roboleague.domain.schedule.Round;
-import com.dps.roboleague.domain.schedule.ScheduleConflict;
-import com.dps.roboleague.domain.schedule.ScheduleConflictException;
-import com.dps.roboleague.domain.schedule.ScheduleConflictType;
-import com.dps.roboleague.domain.schedule.TimeSlot;
-import com.dps.roboleague.domain.shared.ArenaId;
-import com.dps.roboleague.domain.shared.ConflictException;
-import com.dps.roboleague.domain.shared.JudgeId;
-import com.dps.roboleague.domain.shared.RoundId;
-import com.dps.roboleague.domain.shared.RuleViolationException;
-import com.dps.roboleague.domain.shared.TeamId;
+import com.dps.roboleague.scheduling.Round;
+import com.dps.roboleague.scheduling.ScheduleConflict;
+import com.dps.roboleague.scheduling.ScheduleConflictException;
+import com.dps.roboleague.scheduling.ScheduleConflictType;
+import com.dps.roboleague.scheduling.port.in.ScheduleRound;
+import com.dps.roboleague.shared.ArenaId;
+import com.dps.roboleague.shared.ConflictException;
+import com.dps.roboleague.shared.JudgeId;
+import com.dps.roboleague.shared.RoundId;
+import com.dps.roboleague.shared.RuleViolationException;
+import com.dps.roboleague.shared.RulebookVersion;
+import com.dps.roboleague.shared.TeamId;
+import com.dps.roboleague.shared.TimeSlot;
 import com.dps.roboleague.support.TeamFixtures;
 import com.dps.roboleague.support.TestEdition;
 import java.time.Duration;
@@ -24,6 +20,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ScheduleRoundUseCaseTest {
 

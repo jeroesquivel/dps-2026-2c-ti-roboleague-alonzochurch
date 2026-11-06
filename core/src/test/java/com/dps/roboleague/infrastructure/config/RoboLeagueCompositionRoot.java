@@ -1,65 +1,26 @@
 package com.dps.roboleague.infrastructure.config;
 
-import com.dps.roboleague.application.usecase.AcceptAppealUseCase;
-import com.dps.roboleague.application.usecase.CorrectResultUseCase;
-import com.dps.roboleague.application.usecase.ResultCorrector;
-import com.dps.roboleague.application.usecase.CalculateRunScoreUseCase;
-import com.dps.roboleague.application.usecase.CaptureRunResultUseCase;
-import com.dps.roboleague.application.usecase.CreateCompetitionUseCase;
-import com.dps.roboleague.application.usecase.CreateSeasonUseCase;
-import com.dps.roboleague.application.usecase.FindAppealUseCase;
-import com.dps.roboleague.application.usecase.FindAuditTrailUseCase;
-import com.dps.roboleague.application.usecase.FindCompetitionUseCase;
-import com.dps.roboleague.application.usecase.FindRoundUseCase;
-import com.dps.roboleague.application.usecase.FindRunResultUseCase;
-import com.dps.roboleague.application.usecase.FindTeamRegistrationUseCase;
-import com.dps.roboleague.application.usecase.GenerateStandingsUseCase;
-import com.dps.roboleague.application.usecase.GetStandingsUseCase;
-import com.dps.roboleague.application.usecase.PublishRulebookUseCase;
-import com.dps.roboleague.application.usecase.PublishStandingsUseCase;
-import com.dps.roboleague.application.usecase.RecalculateStandingsUseCase;
-import com.dps.roboleague.application.usecase.RegisterAutomaticMeasurementsUseCase;
-import com.dps.roboleague.application.usecase.RegisterPanelEvaluationsUseCase;
-import com.dps.roboleague.application.usecase.RegisterTeamUseCase;
-import com.dps.roboleague.application.usecase.RejectAppealUseCase;
-import com.dps.roboleague.application.usecase.ScheduleRoundUseCase;
-import com.dps.roboleague.application.usecase.SubmitAppealUseCase;
-import com.dps.roboleague.domain.appeal.AppealRepository;
-import com.dps.roboleague.domain.audit.AuditLog;
-import com.dps.roboleague.domain.competition.CompetitionRepository;
-import com.dps.roboleague.domain.competition.SeasonRepository;
-import com.dps.roboleague.domain.port.in.AcceptAppeal;
-import com.dps.roboleague.domain.port.in.CorrectResult;
-import com.dps.roboleague.domain.port.in.CalculateRunScore;
-import com.dps.roboleague.domain.port.in.CaptureRunResult;
-import com.dps.roboleague.domain.port.in.CreateCompetition;
-import com.dps.roboleague.domain.port.in.CreateSeason;
-import com.dps.roboleague.domain.port.in.FindAppeal;
-import com.dps.roboleague.domain.port.in.FindAuditTrail;
-import com.dps.roboleague.domain.port.in.FindCompetition;
-import com.dps.roboleague.domain.port.in.FindRound;
-import com.dps.roboleague.domain.port.in.FindRunResult;
-import com.dps.roboleague.domain.port.in.FindTeamRegistration;
-import com.dps.roboleague.domain.port.in.GenerateStandings;
-import com.dps.roboleague.domain.port.in.GetStandings;
-import com.dps.roboleague.domain.port.in.PublishRulebook;
-import com.dps.roboleague.domain.port.in.PublishStandings;
-import com.dps.roboleague.domain.port.in.RecalculateStandings;
-import com.dps.roboleague.domain.port.in.RegisterAutomaticMeasurements;
-import com.dps.roboleague.domain.port.in.RegisterPanelEvaluations;
-import com.dps.roboleague.domain.port.in.RegisterTeam;
-import com.dps.roboleague.domain.port.in.RejectAppeal;
-import com.dps.roboleague.domain.port.in.ScheduleRound;
-import com.dps.roboleague.domain.port.in.SubmitAppeal;
-import com.dps.roboleague.domain.ranking.CategoryScoringService;
-import com.dps.roboleague.domain.ranking.RankingService;
-import com.dps.roboleague.domain.ranking.StandingsRepository;
-import com.dps.roboleague.domain.result.RunResultRepository;
-import com.dps.roboleague.domain.rulebook.RulebookRepository;
-import com.dps.roboleague.domain.schedule.RoundRepository;
-import com.dps.roboleague.domain.schedule.ScheduleConflictDetector;
-import com.dps.roboleague.domain.shared.IdGenerator;
-import com.dps.roboleague.domain.team.TeamRegistrationRepository;
+import com.dps.roboleague.appeals.AppealRepository;
+import com.dps.roboleague.appeals.application.AcceptAppealUseCase;
+import com.dps.roboleague.appeals.application.AppealsPendingOnRuns;
+import com.dps.roboleague.appeals.application.FindAppealUseCase;
+import com.dps.roboleague.appeals.application.RejectAppealUseCase;
+import com.dps.roboleague.appeals.application.SubmitAppealUseCase;
+import com.dps.roboleague.appeals.port.in.AcceptAppeal;
+import com.dps.roboleague.appeals.port.in.FindAppeal;
+import com.dps.roboleague.appeals.port.in.RejectAppeal;
+import com.dps.roboleague.appeals.port.in.SubmitAppeal;
+import com.dps.roboleague.enrollment.application.CreateSeasonUseCase;
+import com.dps.roboleague.enrollment.application.FindCompetitionUseCase;
+import com.dps.roboleague.enrollment.application.FindTeamRegistrationUseCase;
+import com.dps.roboleague.enrollment.application.RegisterTeamUseCase;
+import com.dps.roboleague.enrollment.competition.CompetitionRepository;
+import com.dps.roboleague.enrollment.competition.SeasonRepository;
+import com.dps.roboleague.enrollment.port.in.CreateSeason;
+import com.dps.roboleague.enrollment.port.in.FindCompetition;
+import com.dps.roboleague.enrollment.port.in.FindTeamRegistration;
+import com.dps.roboleague.enrollment.port.in.RegisterTeam;
+import com.dps.roboleague.enrollment.team.TeamRegistrationRepository;
 import com.dps.roboleague.infrastructure.id.SequentialIdGenerator;
 import com.dps.roboleague.infrastructure.memory.InMemoryAppealRepository;
 import com.dps.roboleague.infrastructure.memory.InMemoryAuditLog;
@@ -70,6 +31,47 @@ import com.dps.roboleague.infrastructure.memory.InMemoryRunResultRepository;
 import com.dps.roboleague.infrastructure.memory.InMemorySeasonRepository;
 import com.dps.roboleague.infrastructure.memory.InMemoryStandingsRepository;
 import com.dps.roboleague.infrastructure.memory.InMemoryTeamRegistrationRepository;
+import com.dps.roboleague.results.application.CalculateRunScoreUseCase;
+import com.dps.roboleague.results.application.CaptureRunResultUseCase;
+import com.dps.roboleague.results.application.CorrectResultUseCase;
+import com.dps.roboleague.results.application.FindRunResultUseCase;
+import com.dps.roboleague.results.application.GenerateStandingsUseCase;
+import com.dps.roboleague.results.application.GetStandingsUseCase;
+import com.dps.roboleague.results.application.PublishStandingsUseCase;
+import com.dps.roboleague.results.application.RecalculateStandingsUseCase;
+import com.dps.roboleague.results.application.RegisterAutomaticMeasurementsUseCase;
+import com.dps.roboleague.results.application.RegisterPanelEvaluationsUseCase;
+import com.dps.roboleague.results.application.ResultCorrector;
+import com.dps.roboleague.results.port.in.CalculateRunScore;
+import com.dps.roboleague.results.port.in.CaptureRunResult;
+import com.dps.roboleague.results.port.in.CorrectResult;
+import com.dps.roboleague.results.port.in.FindRunResult;
+import com.dps.roboleague.results.port.in.GenerateStandings;
+import com.dps.roboleague.results.port.in.GetStandings;
+import com.dps.roboleague.results.port.in.PublishStandings;
+import com.dps.roboleague.results.port.in.RecalculateStandings;
+import com.dps.roboleague.results.port.in.RegisterAutomaticMeasurements;
+import com.dps.roboleague.results.port.in.RegisterPanelEvaluations;
+import com.dps.roboleague.results.ranking.CategoryScoringService;
+import com.dps.roboleague.results.ranking.RankingService;
+import com.dps.roboleague.results.ranking.StandingsRepository;
+import com.dps.roboleague.results.result.RunResultRepository;
+import com.dps.roboleague.rules.application.CreateCompetitionUseCase;
+import com.dps.roboleague.rules.application.PublishRulebookUseCase;
+import com.dps.roboleague.rules.application.RulebookEligibilityRequirements;
+import com.dps.roboleague.rules.port.in.CreateCompetition;
+import com.dps.roboleague.rules.port.in.PublishRulebook;
+import com.dps.roboleague.rules.rulebook.RulebookRepository;
+import com.dps.roboleague.scheduling.RoundRepository;
+import com.dps.roboleague.scheduling.ScheduleConflictDetector;
+import com.dps.roboleague.scheduling.application.FindRoundUseCase;
+import com.dps.roboleague.scheduling.application.ScheduleRoundUseCase;
+import com.dps.roboleague.scheduling.port.in.FindRound;
+import com.dps.roboleague.scheduling.port.in.ScheduleRound;
+import com.dps.roboleague.shared.IdGenerator;
+import com.dps.roboleague.shared.application.FindAuditTrailUseCase;
+import com.dps.roboleague.shared.audit.AuditLog;
+import com.dps.roboleague.shared.port.in.FindAuditTrail;
 import java.time.Clock;
 
 public final class RoboLeagueCompositionRoot {
@@ -127,7 +129,7 @@ public final class RoboLeagueCompositionRoot {
     }
 
     public RegisterTeam registerTeamUseCase() {
-        return new RegisterTeamUseCase(competitions, rulebooks, registrations, idGenerator, auditLog, clock);
+        return new RegisterTeamUseCase(competitions, new RulebookEligibilityRequirements(rulebooks), registrations, idGenerator, auditLog, clock);
     }
 
     public ScheduleRound scheduleRoundUseCase() {
@@ -154,7 +156,7 @@ public final class RoboLeagueCompositionRoot {
     }
 
     public PublishStandings publishStandingsUseCase() {
-        return new PublishStandingsUseCase(standings, scoringService, appeals, auditLog, clock);
+        return new PublishStandingsUseCase(standings, scoringService, new AppealsPendingOnRuns(appeals), auditLog, clock);
     }
 
     public SubmitAppeal submitAppealUseCase() {

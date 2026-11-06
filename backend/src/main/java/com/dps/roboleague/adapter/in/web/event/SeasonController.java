@@ -1,8 +1,8 @@
 package com.dps.roboleague.adapter.in.web.event;
 
-import com.dps.roboleague.domain.port.in.CreateCompetition;
-import com.dps.roboleague.domain.port.in.CreateSeason;
-import com.dps.roboleague.domain.shared.SeasonId;
+import com.dps.roboleague.enrollment.port.in.CreateSeason;
+import com.dps.roboleague.rules.port.in.CreateCompetition;
+import com.dps.roboleague.shared.SeasonId;
 import java.net.URI;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;

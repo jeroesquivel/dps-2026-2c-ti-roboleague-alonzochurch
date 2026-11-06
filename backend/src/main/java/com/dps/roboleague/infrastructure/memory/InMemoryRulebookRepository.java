@@ -1,9 +1,9 @@
 package com.dps.roboleague.infrastructure.memory;
 
-import com.dps.roboleague.domain.rulebook.Rulebook;
-import com.dps.roboleague.domain.rulebook.RulebookRepository;
-import com.dps.roboleague.domain.rulebook.RulebookVersion;
-import com.dps.roboleague.domain.shared.CompetitionId;
+import com.dps.roboleague.rules.rulebook.Rulebook;
+import com.dps.roboleague.rules.rulebook.RulebookRepository;
+import com.dps.roboleague.shared.CompetitionId;
+import com.dps.roboleague.shared.RulebookVersion;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;

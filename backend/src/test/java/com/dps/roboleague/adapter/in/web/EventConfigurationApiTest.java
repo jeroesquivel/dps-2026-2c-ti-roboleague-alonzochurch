@@ -1,11 +1,5 @@
 package com.dps.roboleague.adapter.in.web;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import com.dps.roboleague.adapter.in.web.audit.AuditEventResponse;
 import com.dps.roboleague.adapter.in.web.audit.AuditTrailResponse;
 import com.dps.roboleague.adapter.in.web.event.CompetitionCreatedResponse;
@@ -13,7 +7,7 @@ import com.dps.roboleague.adapter.in.web.event.CompetitionResponse;
 import com.dps.roboleague.adapter.in.web.event.RulebookPublishedResponse;
 import com.dps.roboleague.adapter.in.web.event.SeasonCreatedResponse;
 import com.dps.roboleague.adapter.in.web.round.RoundResponse;
-import com.dps.roboleague.domain.shared.DateRange;
+import com.dps.roboleague.shared.DateRange;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -28,6 +22,12 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Recorrido completo de la configuración del evento por HTTP con los adaptadores en memoria reales:

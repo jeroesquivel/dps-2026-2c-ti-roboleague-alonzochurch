@@ -1,0 +1,69 @@
+package com.dps.roboleague.results.application;
+
+import com.dps.roboleague.results.port.in.RegisterAutomaticMeasurements;
+import com.dps.roboleague.results.ranking.StandingsHistory;
+import com.dps.roboleague.results.ranking.StandingsRepository;
+import com.dps.roboleague.results.result.AutomaticSubmission;
+import com.dps.roboleague.results.result.RoundResults;
+import com.dps.roboleague.results.result.RunResult;
+import com.dps.roboleague.results.result.RunResultRepository;
+import com.dps.roboleague.rules.challenge.ChallengeSpec;
+import com.dps.roboleague.rules.rulebook.RulebookRepository;
+import com.dps.roboleague.scheduling.Round;
+import com.dps.roboleague.scheduling.RoundRepository;
+import com.dps.roboleague.shared.IdGenerator;
+import com.dps.roboleague.shared.NotFoundException;
+import com.dps.roboleague.shared.RunId;
+import com.dps.roboleague.shared.audit.AuditAction;
+import com.dps.roboleague.shared.audit.AuditDetail;
+import com.dps.roboleague.shared.audit.AuditEvent;
+import com.dps.roboleague.shared.audit.AuditLog;
+import java.time.Clock;
+import java.util.Map;
+
+public final class RegisterAutomaticMeasurementsUseCase implements RegisterAutomaticMeasurements {
+
+    private final RoundRepository rounds;
+    private final RulebookRepository rulebooks;
+    private final RunResultRepository runResults;
+    private final StandingsRepository standings;
+    private final IdGenerator idGenerator;
+    private final AuditLog auditLog;
+    private final Clock clock;
+
+    public RegisterAutomaticMeasurementsUseCase(RoundRepository rounds, RulebookRepository rulebooks,
+            RunResultRepository runResults, StandingsRepository standings, IdGenerator idGenerator,
+            AuditLog auditLog, Clock clock) {
+        this.rounds = rounds;
+        this.rulebooks = rulebooks;
+        this.runResults = runResults;
+        this.standings = standings;
+        this.idGenerator = idGenerator;
+        this.auditLog = auditLog;
+        this.clock = clock;
+    }
+
+    @Override
+    public RunId execute(Command command) {
+        Round round = rounds.findById(command.roundId())
+                .orElseThrow(() -> NotFoundException.of("Round", command.roundId().value()));
+        ChallengeSpec challenge = rulebooks.find(round.competitionId(), round.rulebookVersion())
+                .orElseThrow(() -> NotFoundException.of("Rulebook", round.rulebookVersion().toString()))
+                .challenge(round.challengeId());
+        new StandingsHistory(round.competitionId(), round.categoryId(),
+                standings.findHistory(round.competitionId(), round.categoryId())).requireOpenForResults();
+
+        AutomaticSubmission submission = new AutomaticSubmission(command.measurements(), command.actor(),
+                clock.instant());
+        RunResult result = new RoundResults(runResults.findByRound(round.id())).receive(idGenerator::nextRunId,
+                round, command.teamId(), command.attemptNumber(), challenge, submission);
+        runResults.save(result);
+
+        auditLog.record(new AuditEvent(submission.receivedAt(), AuditAction.RESULT_SOURCE_RECEIVED, result.id(),
+                command.actor(), Map.of(AuditDetail.SOURCE, submission.receipt().source().name(),
+                        AuditDetail.MEASUREMENTS, command.measurements().toString(),
+                        AuditDetail.STATUS, result.completion().status().name(),
+                        AuditDetail.RULEBOOK, round.rulebookVersion().toString())));
+        return result.id();
+    }
+}

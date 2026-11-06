@@ -1,29 +1,29 @@
 package com.dps.roboleague.application.usecase;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import com.dps.roboleague.domain.challenge.AttemptNumber;
-import com.dps.roboleague.domain.port.in.GenerateStandings;
-import com.dps.roboleague.domain.port.in.PublishStandings;
-import com.dps.roboleague.domain.port.in.RecalculateStandings;
-import com.dps.roboleague.domain.ranking.Revision;
-import com.dps.roboleague.domain.ranking.StandingEntry;
-import com.dps.roboleague.domain.ranking.Standings;
-import com.dps.roboleague.domain.ranking.aggregation.SumOfAttempts;
-import com.dps.roboleague.domain.scoring.IncidentReport;
-import com.dps.roboleague.domain.shared.ConflictException;
-import com.dps.roboleague.domain.shared.Points;
-import com.dps.roboleague.domain.shared.RoundId;
-import com.dps.roboleague.domain.shared.RunId;
-import com.dps.roboleague.domain.shared.TeamId;
+import com.dps.roboleague.results.port.in.GenerateStandings;
+import com.dps.roboleague.results.port.in.PublishStandings;
+import com.dps.roboleague.results.port.in.RecalculateStandings;
+import com.dps.roboleague.results.ranking.Revision;
+import com.dps.roboleague.results.ranking.StandingEntry;
+import com.dps.roboleague.results.ranking.Standings;
+import com.dps.roboleague.rules.challenge.AttemptNumber;
+import com.dps.roboleague.rules.ranking.aggregation.SumOfAttempts;
+import com.dps.roboleague.rules.scoring.IncidentReport;
+import com.dps.roboleague.shared.ConflictException;
+import com.dps.roboleague.shared.Points;
+import com.dps.roboleague.shared.RoundId;
+import com.dps.roboleague.shared.RunId;
+import com.dps.roboleague.shared.TeamId;
 import com.dps.roboleague.support.RescueEditionFixture;
 import com.dps.roboleague.support.TestEdition;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StandingsLifecycleTest {
 

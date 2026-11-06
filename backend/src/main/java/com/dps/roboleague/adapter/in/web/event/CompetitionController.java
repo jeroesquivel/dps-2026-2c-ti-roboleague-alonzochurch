@@ -1,9 +1,9 @@
 package com.dps.roboleague.adapter.in.web.event;
 
-import com.dps.roboleague.domain.port.in.FindCompetition;
-import com.dps.roboleague.domain.port.in.PublishRulebook;
-import com.dps.roboleague.domain.rulebook.RulebookVersion;
-import com.dps.roboleague.domain.shared.CompetitionId;
+import com.dps.roboleague.enrollment.port.in.FindCompetition;
+import com.dps.roboleague.rules.port.in.PublishRulebook;
+import com.dps.roboleague.shared.CompetitionId;
+import com.dps.roboleague.shared.RulebookVersion;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;

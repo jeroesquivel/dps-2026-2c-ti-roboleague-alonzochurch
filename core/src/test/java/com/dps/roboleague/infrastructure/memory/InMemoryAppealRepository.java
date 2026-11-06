@@ -1,9 +1,9 @@
 package com.dps.roboleague.infrastructure.memory;
 
-import com.dps.roboleague.domain.appeal.Appeal;
-import com.dps.roboleague.domain.appeal.AppealRepository;
-import com.dps.roboleague.domain.shared.AppealId;
-import com.dps.roboleague.domain.shared.RunId;
+import com.dps.roboleague.appeals.Appeal;
+import com.dps.roboleague.appeals.AppealRepository;
+import com.dps.roboleague.shared.AppealId;
+import com.dps.roboleague.shared.RunId;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

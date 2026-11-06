@@ -1,15 +1,15 @@
 package com.dps.roboleague.infrastructure.id;
 
-import com.dps.roboleague.domain.shared.AppealId;
-import com.dps.roboleague.domain.shared.CategoryId;
-import com.dps.roboleague.domain.shared.CompetitionId;
-import com.dps.roboleague.domain.shared.HeatId;
-import com.dps.roboleague.domain.shared.IdGenerator;
-import com.dps.roboleague.domain.shared.MemberId;
-import com.dps.roboleague.domain.shared.RoundId;
-import com.dps.roboleague.domain.shared.RunId;
-import com.dps.roboleague.domain.shared.SeasonId;
-import com.dps.roboleague.domain.shared.TeamId;
+import com.dps.roboleague.shared.AppealId;
+import com.dps.roboleague.shared.CategoryId;
+import com.dps.roboleague.shared.CompetitionId;
+import com.dps.roboleague.shared.HeatId;
+import com.dps.roboleague.shared.IdGenerator;
+import com.dps.roboleague.shared.MemberId;
+import com.dps.roboleague.shared.RoundId;
+import com.dps.roboleague.shared.RunId;
+import com.dps.roboleague.shared.SeasonId;
+import com.dps.roboleague.shared.TeamId;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;

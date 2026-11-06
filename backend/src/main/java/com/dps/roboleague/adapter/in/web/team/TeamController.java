@@ -1,8 +1,8 @@
 package com.dps.roboleague.adapter.in.web.team;
 
-import com.dps.roboleague.domain.port.in.FindTeamRegistration;
-import com.dps.roboleague.domain.port.in.RegisterTeam;
-import com.dps.roboleague.domain.shared.TeamId;
+import com.dps.roboleague.enrollment.port.in.FindTeamRegistration;
+import com.dps.roboleague.enrollment.port.in.RegisterTeam;
+import com.dps.roboleague.shared.TeamId;
 import java.net.URI;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

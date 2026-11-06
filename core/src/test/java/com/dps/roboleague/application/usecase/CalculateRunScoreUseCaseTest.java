@@ -1,20 +1,20 @@
 package com.dps.roboleague.application.usecase;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import com.dps.roboleague.domain.port.in.CalculateRunScore;
-import com.dps.roboleague.domain.scoring.ScoreBreakdown;
-import com.dps.roboleague.domain.scoring.ScoreContribution;
-import com.dps.roboleague.domain.scoring.rule.ObjectiveScoringRule;
-import com.dps.roboleague.domain.scoring.rule.TimeScoringRule;
-import com.dps.roboleague.domain.shared.Points;
-import com.dps.roboleague.domain.shared.RoundId;
-import com.dps.roboleague.domain.shared.RunId;
-import com.dps.roboleague.domain.shared.TeamId;
+import com.dps.roboleague.results.port.in.CalculateRunScore;
+import com.dps.roboleague.rules.scoring.ScoreBreakdown;
+import com.dps.roboleague.rules.scoring.ScoreContribution;
+import com.dps.roboleague.rules.scoring.rule.ObjectiveScoringRule;
+import com.dps.roboleague.rules.scoring.rule.TimeScoringRule;
+import com.dps.roboleague.shared.Points;
+import com.dps.roboleague.shared.RoundId;
+import com.dps.roboleague.shared.RunId;
+import com.dps.roboleague.shared.TeamId;
 import com.dps.roboleague.support.TestEdition;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CalculateRunScoreUseCaseTest {
 

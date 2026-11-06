@@ -1,13 +1,13 @@
 package com.dps.roboleague.adapter.in.web.run;
 
-import com.dps.roboleague.domain.port.in.CalculateRunScore;
-import com.dps.roboleague.domain.port.in.CaptureRunResult;
-import com.dps.roboleague.domain.port.in.CorrectResult;
-import com.dps.roboleague.domain.port.in.FindRunResult;
-import com.dps.roboleague.domain.port.in.RegisterAutomaticMeasurements;
-import com.dps.roboleague.domain.port.in.RegisterPanelEvaluations;
-import com.dps.roboleague.domain.result.RunResult;
-import com.dps.roboleague.domain.shared.RunId;
+import com.dps.roboleague.results.port.in.CalculateRunScore;
+import com.dps.roboleague.results.port.in.CaptureRunResult;
+import com.dps.roboleague.results.port.in.CorrectResult;
+import com.dps.roboleague.results.port.in.FindRunResult;
+import com.dps.roboleague.results.port.in.RegisterAutomaticMeasurements;
+import com.dps.roboleague.results.port.in.RegisterPanelEvaluations;
+import com.dps.roboleague.results.result.RunResult;
+import com.dps.roboleague.shared.RunId;
 import java.net.URI;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

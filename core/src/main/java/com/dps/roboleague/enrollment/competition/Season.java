@@ -1,0 +1,27 @@
+package com.dps.roboleague.enrollment.competition;
+
+import com.dps.roboleague.shared.DateRange;
+import com.dps.roboleague.shared.InvalidValueException;
+import com.dps.roboleague.shared.RuleViolationException;
+import com.dps.roboleague.shared.SeasonId;
+import java.util.Objects;
+
+public record Season(SeasonId id, String name, int year, DateRange period) {
+
+    public Season {
+        Objects.requireNonNull(id, "season id is required");
+        Objects.requireNonNull(period, "season period is required");
+        if (name == null || name.isBlank()) {
+            throw new InvalidValueException("season requires a name");
+        }
+        if (period.start().getYear() != year) {
+            throw new InvalidValueException("season period must start within the season year " + year);
+        }
+    }
+
+    public void requireCompetitionPeriodInside(DateRange competitionPeriod) {
+        if (!period.contains(competitionPeriod.start()) || !period.contains(competitionPeriod.end())) {
+            throw new RuleViolationException("competition period " + competitionPeriod + " is outside season " + name);
+        }
+    }
+}

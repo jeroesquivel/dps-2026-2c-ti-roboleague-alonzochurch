@@ -1,10 +1,10 @@
 package com.dps.roboleague.adapter.in.web.appeal;
 
-import com.dps.roboleague.domain.port.in.AcceptAppeal;
-import com.dps.roboleague.domain.port.in.FindAppeal;
-import com.dps.roboleague.domain.port.in.RejectAppeal;
-import com.dps.roboleague.domain.port.in.SubmitAppeal;
-import com.dps.roboleague.domain.shared.AppealId;
+import com.dps.roboleague.appeals.port.in.AcceptAppeal;
+import com.dps.roboleague.appeals.port.in.FindAppeal;
+import com.dps.roboleague.appeals.port.in.RejectAppeal;
+import com.dps.roboleague.appeals.port.in.SubmitAppeal;
+import com.dps.roboleague.shared.AppealId;
 import java.net.URI;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

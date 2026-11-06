@@ -1,21 +1,21 @@
 package com.dps.roboleague.application.usecase;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import com.dps.roboleague.domain.audit.AuditAction;
-import com.dps.roboleague.domain.eligibility.EligibilityVerdict;
-import com.dps.roboleague.domain.eligibility.rule.AgeRangeRule;
-import com.dps.roboleague.domain.port.in.RegisterTeam;
-import com.dps.roboleague.domain.shared.ConflictException;
-import com.dps.roboleague.domain.team.RegistrationStatus;
-import com.dps.roboleague.domain.team.TeamRegistration;
+import com.dps.roboleague.enrollment.eligibility.EligibilityVerdict;
+import com.dps.roboleague.enrollment.eligibility.rule.AgeRangeRule;
+import com.dps.roboleague.enrollment.port.in.RegisterTeam;
+import com.dps.roboleague.enrollment.team.RegistrationStatus;
+import com.dps.roboleague.enrollment.team.TeamRegistration;
+import com.dps.roboleague.shared.ConflictException;
+import com.dps.roboleague.shared.audit.AuditAction;
 import com.dps.roboleague.support.TeamFixtures;
 import com.dps.roboleague.support.TestEdition;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RegisterTeamUseCaseTest {
 

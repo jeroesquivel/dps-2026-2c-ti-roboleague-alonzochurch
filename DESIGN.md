@@ -14,7 +14,7 @@ aplicar junto con sus consecuencias.
 
 | Lado | Paquete | Contenido | Depende de |
 | --- | --- | --- | --- |
-| Núcleo: dominio | `domain.*` | Entidades, value objects, reglas, servicios de dominio y **todos los puertos**: los de entrada (`domain.port.in`) y los de salida (repositorios, `AuditLog` e `IdGenerator`, en el paquete de cada agregado) | Nada fuera del dominio y del JDK |
+| Núcleo: dominio | `<contexto>.*` (`shared`, `enrollment`, `rules`, `scheduling`, `results`, `appeals`) | Entidades, value objects, reglas, servicios de dominio y **todos los puertos**: los de entrada (`<contexto>.port.in`) y los de salida (repositorios, `AuditLog` e `IdGenerator`, en el paquete de cada agregado) | Nada fuera del dominio y del JDK |
 | Núcleo: aplicación | `application.usecase` | Interactors (`*UseCase`) que implementan los puertos de entrada y coordinan | Dominio |
 | Adaptadores de salida | `infrastructure.memory`, `infrastructure.id` | Repositorios y bitácora en memoria, generador de ids secuencial | Núcleo |
 | Adaptadores de entrada | `demo`, `Main` y los tests | Invocan los puertos de entrada | Núcleo |
@@ -43,10 +43,10 @@ lo determinante es el acoplamiento efectivo, no el nombre de las capas.
 
 **Patrón / principio:** Ports & Adapters, Interface Segregation (ISP), Single Responsibility (SRP).
 
-**Dónde:** `domain/port/in/*` (interfaces) y `application/usecase/*UseCase` (implementaciones).
+**Dónde:** `<contexto>/port/in/*` (interfaces) y `<contexto>/application/*UseCase` (implementaciones).
 
 Las interfaces de los casos de uso son parte del negocio: describen qué operaciones ofrece el
-módulo y con qué datos, así que viven en el dominio (`domain.port.in`). Los interactors de
+módulo y con qué datos, así que viven en el núcleo (`<contexto>.port.in`). Los interactors de
 `application` las implementan; un controller futuro depende de la interfaz, nunca del interactor.
 
 Cada caso de uso es una interfaz con un único método `execute`. Las operaciones con varias entradas
@@ -103,11 +103,11 @@ entrada, pero agregarle componentes también cambia su constructor y puede exigi
 
 **Patrón / principio:** Repository, DIP.
 
-**Dónde:** cada interfaz vive en el paquete de su agregado —`domain/competition/SeasonRepository`
-y `CompetitionRepository`, `domain/rulebook/RulebookRepository`, `domain/team/TeamRegistrationRepository`,
-`domain/schedule/RoundRepository`, `domain/result/RunResultRepository`,
-`domain/ranking/StandingsRepository`, `domain/appeal/AppealRepository`— igual que
-`domain/audit/AuditLog` y `domain/shared/IdGenerator`. Las implementaciones están en
+**Dónde:** cada interfaz vive en el paquete de su agregado —`enrollment/competition/SeasonRepository`
+y `CompetitionRepository`, `rules/rulebook/RulebookRepository`, `enrollment/team/TeamRegistrationRepository`,
+`scheduling/RoundRepository`, `results/result/RunResultRepository`,
+`results/ranking/StandingsRepository`, `appeals/AppealRepository`— igual que
+`shared/audit/AuditLog` y `shared/IdGenerator`. Las implementaciones están en
 `infrastructure/memory/*` e `infrastructure/id/*`.
 
 El gateway pertenece al negocio y sólo su implementación es un detalle: el dominio es dueño de sus
@@ -167,7 +167,7 @@ la configuración Spring; repositorios con estado mutable global o singletons fu
 
 **Patrón / principio:** Strategy, Open/Closed (OCP).
 
-**Dónde:** `domain/scoring/ScoringRule` y las implementaciones de `domain/scoring/rule`:
+**Dónde:** `rules/scoring/ScoringRule` y las implementaciones de `rules/scoring/rule`:
 `TimeScoringRule`, `ObjectiveScoringRule`, `PrecisionScoringRule`, `ResourceScoringRule`,
 `JudgePanelScoringRule`, `PenaltyScoringRule` y `ThresholdBonusRule`.
 
@@ -210,7 +210,7 @@ composición actual sólo requiere implementar `ScoringRule`.
 
 **Patrón / principio:** Liskov Substitution (LSP), diseño por contrato.
 
-**Dónde:** `domain/scoring/ScoringRule` y las siete implementaciones de `domain/scoring/rule`.
+**Dónde:** `rules/scoring/ScoringRule` y las siete implementaciones de `rules/scoring/rule`.
 
 `ScoringRule` declara sólo `apply(ScoringContext)` y `referencedMetrics()` (las métricas que la
 regla lee, ver 2.2); no incluye una especificación textual del contrato ni lo fuerza a nivel de
@@ -286,7 +286,7 @@ La lista directa deja un único punto de combinación, sin un wrapper intermedio
 
 **Patrón / principio:** Value Object, Tell Don't Ask.
 
-**Dónde:** `domain/scoring/ScoreContribution`, `ScoreBreakdown` y el retorno de
+**Dónde:** `rules/scoring/ScoreContribution`, `ScoreBreakdown` y el retorno de
 `CalculateRunScore.RunScore`.
 
 Cada regla devuelve una lista de `ScoreContribution` con código, explicación textual y puntos aportados;
@@ -312,7 +312,7 @@ desincroniza).
 
 **Patrón / principio:** desacoplamiento de implementaciones concretas, clasificación semántica tipada.
 
-**Dónde:** `domain/scoring/ContributionKind` (`EARNED`, `BONUS`, `PENALTY`), usado por
+**Dónde:** `rules/scoring/ContributionKind` (`EARNED`, `BONUS`, `PENALTY`), usado por
 `ScoreBreakdown.totalOf` y consultado por `TeamScoreSummary.penaltyPoints`.
 
 Cada contribución declara qué representa, con independencia de qué regla la produjo. El desempate por
@@ -364,7 +364,7 @@ una contribución más del desglose, en una posición fija.
 **Patrón / principio:** Value Object de configuración, Open/Closed sobre las reglas de puntaje,
 explicación como valor (2.3), clasificación semántica (2.3.1).
 
-**Dónde:** `domain/scoring/BonusCap` y `ChallengeSpec.bonusCap` / `score`.
+**Dónde:** `rules/scoring/BonusCap` y `ChallengeSpec.bonusCap` / `score`.
 
 **Configuración.** `BonusCap(maximum)` envuelve un `PointsCap`, que ya protege la única invariante
 (no negativo, `InvalidValueException`); un tope de cero es válido y anula toda bonificación. Es un
@@ -449,7 +449,7 @@ de las reglas y combinar tres partes en orden fijo.
 
 **Patrón / principio:** Value Object inmutable, fábrica estática.
 
-**Dónde:** `domain/rulebook/Rulebook`, `RulebookDraft`, `RulebookVersion` y `Rulebook.of`.
+**Dónde:** `rules/rulebook/Rulebook`, `RulebookDraft`, `RulebookVersion` y `Rulebook.of`.
 
 Un `Rulebook` reúne los desafíos, los requisitos de elegibilidad (4.1), la política de agregación de
 intentos (3.5), los criterios de desempate y el plazo de apelación (`AppealWindow`, ver 4.5) de una
@@ -487,7 +487,7 @@ verificar que ya se publicó uno.
 
 **Patrón / principio:** Snapshot de configuración.
 
-**Dónde:** `Round.rulebookVersion`, `RunResult.rulebookVersion`, `domain/ranking/CategoryScoringService`.
+**Dónde:** `Round.rulebookVersion`, `RunResult.rulebookVersion`, `results/ranking/CategoryScoringService`.
 
 Al programar una ronda se fija la versión vigente; al capturar un resultado esa versión se copia en
 el `RunResult`. Puntuar una corrida siempre carga el reglamento por esa versión, no por la vigente.
@@ -505,7 +505,7 @@ desincronizable y no explica de dónde salió).
 **Patrón / principio:** SRP, máquina de estados explícita.
 
 **Dónde:** `GenerateStandingsUseCase`, `PublishStandingsUseCase`, `RecalculateStandingsUseCase`,
-`domain/ranking/Standings` y `domain/ranking/StandingsHistory`.
+`results/ranking/Standings` y `results/ranking/StandingsHistory`.
 
 `Standings` es inmutable y lleva número de revisión (`Revision`) y estado (`PROVISIONAL` / `FINAL`).
 Su constructor es privado: las únicas formas de obtener una revisión son `Standings.provisional`
@@ -576,8 +576,8 @@ implementaciones del mismo puerto signifiquen cosas distintas; prohibir recalcul
 
 **Patrón / principio:** Strategy + composición de `Comparator`.
 
-**Dónde:** `domain/ranking/TiebreakRule` (extiende `Comparator<TeamScoreSummary>`), sus
-implementaciones en `domain/ranking/rule` y `RankingService`.
+**Dónde:** `rules/ranking/TiebreakRule` (extiende `Comparator<TeamScoreSummary>`), sus
+implementaciones en `rules/ranking/rule` y `RankingService`.
 
 `RankingService` arma el comparador final: puntaje total (según la agregación del reglamento, ver
 3.5) descendente y luego, en orden, cada regla de
@@ -605,7 +605,7 @@ que `Comparator.thenComparing` ya ofrece).
 
 **Patrón / principio:** Strategy, regla de negocio configurable por versión.
 
-**Dónde:** `domain/ranking/AttemptAggregation`, sus implementaciones en `domain/ranking/aggregation`
+**Dónde:** `rules/ranking/AttemptAggregation`, sus implementaciones en `rules/ranking/aggregation`
 (`BestAttempt`, `SumOfAttempts`), `Rulebook.attemptAggregation`, `TeamRuns.aggregatedPoints` /
 `TeamRuns.subtotal` y `PlayedRound.score`.
 
@@ -648,10 +648,10 @@ desempates sí consultan).
 **Patrón / principio:** Value Object de configuración, First-Class Collection, Open/Closed sobre las
 reglas de puntaje, explicación como valor (extiende 2.3 al total de la tabla).
 
-**Dónde:** `domain/challenge/BestRounds`, `ChallengeSpec.bestRounds` /
+**Dónde:** `rules/ranking/BestRounds`, `ChallengeSpec.bestRounds` /
 `requireRoomForAnotherRound`, `Rulebook.bestRoundsOf`, `CompetitionSchedule.requireRoomForRound`,
-`domain/ranking/{PlayedRound, TeamRounds, RoundScore, RoundScores, RoundOutcome, RoundStatus,
-ScoreSubtotal, ScoreExplanation}`, `TeamScoreSummary.explanation` y `StandingEntry.explanation`.
+`rules/ranking/{PlayedRound, RoundScore, RoundScores, RoundOutcome, RoundStatus, ScoreSubtotal,
+ScoreExplanation}`, `results/ranking/TeamRounds`, `TeamScoreSummary.explanation` y `StandingEntry.explanation`.
 
 **Configuración.** `BestRounds(counted, outOf)` es N y M; su única invariante es `1 ≤ N ≤ M`
 (`InvalidValueException`). Es un componente opcional de `ChallengeSpec`
@@ -762,7 +762,7 @@ su único cliente era un test (5.9), cuyo helper ahora arma la explicación con 
 
 **Patrón / principio:** Specification, OCP.
 
-**Dónde:** `domain/eligibility/EligibilityRule`, `EligibilityRequirements` y las reglas `AgeRangeRule`,
+**Dónde:** `enrollment/eligibility/EligibilityRule`, `EligibilityRequirements` y las reglas `AgeRangeRule`,
 `TeamCompositionRule`, `RobotClassRule`, `RobotSpecificationRule`, `RequiredDocumentsRule`.
 
 Cada restricción es una `EligibilityRule` que devuelve la lista de violaciones que encuentra.
@@ -809,7 +809,7 @@ reglas de dominio explícitas y componibles.
 
 **Patrón / principio:** Domain Service.
 
-**Dónde:** `domain/schedule/ScheduleConflictDetector` y `CompetitionSchedule`, usados por
+**Dónde:** `scheduling/ScheduleConflictDetector` y `CompetitionSchedule`, usados por
 `ScheduleRoundUseCase`.
 
 Detectar que una pista, un equipo o un juez ya están ocupados requiere mirar turnos de varias rondas,
@@ -851,7 +851,7 @@ agendar turnos en fechas ajenas al evento.
 
 **Patrón / principio:** historial de correcciones dentro del agregado.
 
-**Dónde:** `domain/result/RunResult`, `CorrectionHistory`, `ResultCorrection` y `RoundResults`.
+**Dónde:** `results/result/RunResult`, `CorrectionHistory`, `ResultCorrection` y `RoundResults`.
 
 `RunResult` guarda las mediciones e incidentes originales y un `CorrectionHistory`; las mediciones
 vigentes son las de la última corrección del historial. El historial exige orden cronológico: una
@@ -901,7 +901,7 @@ y la investigación puede reconstruir el camino completo.
 
 **Patrón / principio:** DIP, bitácora de auditoría mediante un puerto explícito.
 
-**Dónde:** `domain/audit/AuditLog`, `domain/audit/AuditEvent` y `AuditAction`.
+**Dónde:** `shared/audit/AuditLog`, `shared/audit/AuditEvent` y `AuditAction`.
 
 Cada caso de uso que modifica estado registra un `AuditEvent` tipado: la acción es un `AuditAction`,
 el sujeto es el `Identifier` del elemento afectado (`RunId`, `TeamId`, `CategoryId`…), el responsable
@@ -924,7 +924,7 @@ prematuro sin infraestructura asincrónica); registrar la auditoría en el adapt
 
 **Patrón / principio:** máquina de estados en la entidad, encapsulamiento de invariantes.
 
-**Dónde:** `domain/appeal/Appeal`, `AppealWindow`, `Appeals`, `SubmitAppealUseCase`,
+**Dónde:** `appeals/Appeal`, `AppealWindow`, `Appeals`, `SubmitAppealUseCase`,
 `AcceptAppealUseCase` y `RejectAppealUseCase`.
 
 **Presentar.** `Appeal.file(id, run, teamId, claim, submittedAt, window)` es la fábrica de una
@@ -984,12 +984,12 @@ recálculo (ver 5.3).
 
 **Patrón / principio:** Value Object, evitar Primitive Obsession.
 
-**Dónde:** `domain/shared` (`Points`, `DateRange`, `AgeRange`, `Actor`, e identificadores como
-`TeamId`, `RunId`, `MemberId`), `domain/challenge` (`MetricKey`, `MetricValue`, `MetricUnit`,
-`MeasurementSet`, `AttemptNumber`, `AttemptLimit`), `domain/scoring` (`JudgeScore`, `PointsRate`,
-`PointsCap`, `BonusPoints`, `PointsDeducted`), `domain/schedule/RoundOrdinal`, `domain/ranking/Revision`,
-`domain/team/Weight` y
-`domain/eligibility/EligibilityRuleCode`.
+**Dónde:** `shared` (`Points`, `DateRange`, `AgeRange`, `Actor`, e identificadores como
+`TeamId`, `RunId`, `MemberId`), `rules/challenge` (`MetricKey`, `MetricValue`, `MetricUnit`,
+`MeasurementSet`, `AttemptNumber`, `AttemptLimit`), `rules/scoring` (`JudgeScore`, `PointsRate`,
+`PointsCap`, `BonusPoints`, `PointsDeducted`), `shared/RoundOrdinal`, `results/ranking/Revision`,
+`enrollment/team/Weight` y
+`enrollment/eligibility/EligibilityRuleCode`.
 
 Los identificadores son records distintos que implementan `Identifier`, de modo que pasar un
 `CategoryId` donde se espera un `TeamId` no compila. `Points` normaliza la escala decimal y `MetricValue`
@@ -1083,7 +1083,7 @@ determinísticos.
 
 **Patrón / principio:** DRY, servicio de dominio.
 
-**Dónde:** `domain/ranking/CategoryScoringService`.
+**Dónde:** `results/ranking/CategoryScoringService`.
 
 Cómo se puntúa una corrida y cómo se arma la tabla de una categoría es lógica de negocio, así que el
 servicio vive en el dominio. Antes estaba en `application/service` con el argumento de que en el
@@ -1115,7 +1115,7 @@ corridas y reglamentos por versión).
 
 **Patrón / principio:** excepciones por categoría de falla, Open/Closed.
 
-**Dónde:** `domain/shared/DomainException` (abstracta) y sus subclases `InvalidValueException`,
+**Dónde:** `shared/DomainException` (abstracta) y sus subclases `InvalidValueException`,
 `RuleViolationException`, `ConflictException` y `NotFoundException`; `ScheduleConflictException`
 extiende `ConflictException`.
 
@@ -1143,12 +1143,12 @@ decidir el tratamiento).
 
 **Patrón / principio:** First-Class Collection, lenguaje ubicuo.
 
-**Dónde:** `domain/scoring/JudgeEvaluations`, `domain/ranking/TeamRuns`, `domain/ranking/TeamRounds`,
-`domain/ranking/RoundScores`, `domain/result/CorrectionHistory`, `domain/result/RunCompletion`,
-`domain/ranking/PendingRuns`,
-`domain/schedule/Heats`, `domain/team/TeamMembers` y las colecciones que concentran reglas que antes
-decidían los casos de uso: `domain/competition/SeasonCalendar`, `domain/schedule/CompetitionSchedule`,
-`domain/result/RoundResults`, `domain/ranking/StandingsHistory` y `domain/appeal/Appeals`.
+**Dónde:** `rules/scoring/JudgeEvaluations`, `rules/ranking/TeamRuns`, `results/ranking/TeamRounds`,
+`rules/ranking/RoundScores`, `results/result/CorrectionHistory`, `results/result/RunCompletion`,
+`results/ranking/PendingRuns`,
+`scheduling/Heats`, `enrollment/team/TeamMembers` y las colecciones que concentran reglas que antes
+decidían los casos de uso: `enrollment/competition/SeasonCalendar`, `scheduling/CompetitionSchedule`,
+`results/result/RoundResults`, `results/ranking/StandingsHistory` y `appeals/Appeals`.
 
 | Colección | Reemplaza a | Invariante que concentra |
 | --- | --- | --- |
@@ -1277,12 +1277,12 @@ cada fuente (`SourceSubmission`), First-Class Collection (`RunCompletion`, `Pend
 inmutable con transiciones (4.11), Open/Closed sobre las reglas de puntaje y casos de uso que
 coordinan (4.12).
 
-**Dónde:** `domain/challenge/{ResultSource, MixedSources, SourceBreakdown, SourcedScore}`,
+**Dónde:** `rules/challenge/{ResultSource, MixedSources, SourceBreakdown, SourcedScore}`,
 `MetricKind.source`, `MetricDefinition.isSuppliedBy`, `ChallengeSpec.{mixedSources,
 requireSingleCapture, validateAutomaticSource, validatePanelSource, scoreBySource}`,
-`JudgeEvaluations.requireComplete`, `domain/result/{SourceReceipt, RunCompletion,
+`JudgeEvaluations.requireComplete`, `results/result/{SourceReceipt, RunCompletion,
 CompletionStatus, SourceSubmission, AutomaticSubmission, PanelSubmission}`, `RunResult.{open, receive,
-completion, requireCompletedAt}`, `RoundResults.receive`, `domain/ranking/{PendingRun, PendingRuns}`,
+completion, requireCompletedAt}`, `RoundResults.receive`, `results/ranking/{PendingRun, PendingRuns}`,
 `Standings.pendingRuns`, los puertos `RegisterAutomaticMeasurements` y `RegisterPanelEvaluations` con
 sus interactors, y la spec `.docs/specs/SPEC_mixed_challenge.md`.
 
@@ -1600,13 +1600,13 @@ sublista, sin cambiar la interfaz. El mismo criterio se aplicó a la elegibilida
 | --- | --- |
 | Configuración del evento | `CreateSeasonUseCase`, `CreateCompetitionUseCase`, `Season`, `SeasonCalendar`, `Competition`, `Category`, `RulebookDraft` |
 | Registro de equipos | `RegisterTeamUseCase`, `TeamRegistration`, `TeamMembers`, `Member`, `Robot`, `Weight`, `TeamDocument` |
-| Elegibilidad | `EligibilityRequirements` y las reglas de `domain/eligibility/rule` |
-| Configuración de desafíos | `ChallengeSpec`, `MetricDefinition`, `domain/scoring/rule/*`, `PenaltyDefinition`, `PointsRate`, `PointsCap`, `BonusPoints`, `BonusCap`, `PointsDeducted` |
+| Elegibilidad | `EligibilityRequirements` y las reglas de `enrollment/eligibility/rule` |
+| Configuración de desafíos | `ChallengeSpec`, `MetricDefinition`, `rules/scoring/rule/*`, `PenaltyDefinition`, `PointsRate`, `PointsCap`, `BonusPoints`, `BonusCap`, `PointsDeducted` |
 | Programación | `ScheduleRoundUseCase`, `Round`, `Heat`, `TimeSlot`, `CompetitionSchedule`, `ScheduleConflictDetector`, `Competition.requireSlotWithinPeriod`, `TeamRegistration.requireAcceptedIn` |
 | Captura de resultados | `CaptureRunResultUseCase`, `RunResult.capture`, `RoundResults`, `StandingsHistory.requireOpenForResults`, `MeasurementSet`, `JudgeEvaluations`, `JudgeScore`, `IncidentReport`; por fuente, `RegisterAutomaticMeasurementsUseCase` y `RegisterPanelEvaluationsUseCase` |
 | Desafío mixto (F3) | `MixedSources`, `ResultSource`, `MetricKind.source`, `ChallengeSpec.validateAutomaticSource` / `validatePanelSource` / `scoreBySource`, `SourceSubmission`, `RunCompletion`, `RunResult.open` / `receive`, `RoundResults.receive`, `SourcedScore`, `PendingRuns`, `RegisterAutomaticMeasurements`, `RegisterPanelEvaluations` |
 | Cálculo explicable | `CalculateRunScoreUseCase`, `ScoreBreakdown`, `ScoreContribution`, `ContributionKind` |
-| Ranking | `CategoryScoringService`, `RankingService`, `TeamRuns`, `TeamRounds`, `AttemptAggregation`, `domain/ranking/aggregation/*`, `TiebreakRule`, `domain/ranking/rule/*` y `AppliedTiebreak` |
+| Ranking | `CategoryScoringService`, `RankingService`, `TeamRuns`, `TeamRounds`, `AttemptAggregation`, `rules/ranking/aggregation/*`, `TiebreakRule`, `rules/ranking/rule/*` y `AppliedTiebreak` |
 | Tope global de bonificaciones (F2) | `BonusCap`, `ChallengeSpec.bonusCap`, `ChallengeSpec.score` |
 | Mejores N de M rondas (F1) | `BestRounds`, `ChallengeSpec.bestRounds`, `CompetitionSchedule.requireRoomForRound`, `PlayedRound`, `RoundScores`, `ScoreExplanation`, `ScoreSubtotal`, `RoundOutcome`, `StandingEntry.explanation` |
 | Publicación | `Standings`, `StandingsHistory`, `PublicationStatus`, `PendingRuns`, `GenerateStandingsUseCase`, `PublishStandingsUseCase`, `GetStandingsUseCase` |

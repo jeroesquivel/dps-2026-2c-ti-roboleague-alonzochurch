@@ -1,56 +1,17 @@
 package com.dps.roboleague.application.usecase;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
-import com.dps.roboleague.domain.appeal.Appeal;
-import com.dps.roboleague.domain.challenge.AttemptNumber;
-import com.dps.roboleague.domain.challenge.MeasurementSet;
-import com.dps.roboleague.domain.competition.Category;
-import com.dps.roboleague.domain.competition.Competition;
-import com.dps.roboleague.domain.eligibility.EligibilityVerdict;
-import com.dps.roboleague.domain.port.in.AcceptAppeal;
-import com.dps.roboleague.domain.port.in.CalculateRunScore;
-import com.dps.roboleague.domain.port.in.CaptureRunResult;
-import com.dps.roboleague.domain.port.in.GenerateStandings;
-import com.dps.roboleague.domain.port.in.GetStandings;
-import com.dps.roboleague.domain.port.in.RecalculateStandings;
-import com.dps.roboleague.domain.port.in.RegisterTeam;
-import com.dps.roboleague.domain.port.in.RegisterAutomaticMeasurements;
-import com.dps.roboleague.domain.port.in.RegisterPanelEvaluations;
-import com.dps.roboleague.domain.port.in.RejectAppeal;
-import com.dps.roboleague.domain.port.in.ScheduleRound;
-import com.dps.roboleague.domain.port.in.SubmitAppeal;
-import com.dps.roboleague.domain.ranking.CategoryScoringService;
-import com.dps.roboleague.domain.ranking.PendingRuns;
-import com.dps.roboleague.domain.ranking.RankingService;
-import com.dps.roboleague.domain.ranking.Standings;
-import com.dps.roboleague.domain.result.ResultAmendment;
-import com.dps.roboleague.domain.result.RunResult;
-import com.dps.roboleague.domain.rulebook.Rulebook;
-import com.dps.roboleague.domain.rulebook.RulebookVersion;
-import com.dps.roboleague.domain.schedule.Heat;
-import com.dps.roboleague.domain.schedule.Round;
-import com.dps.roboleague.domain.schedule.RoundOrdinal;
-import com.dps.roboleague.domain.schedule.ScheduleConflictDetector;
-import com.dps.roboleague.domain.schedule.TimeSlot;
-import com.dps.roboleague.domain.scoring.JudgeEvaluations;
-import com.dps.roboleague.domain.shared.Actor;
-import com.dps.roboleague.domain.shared.AgeRange;
-import com.dps.roboleague.domain.shared.AppealId;
-import com.dps.roboleague.domain.shared.ArenaId;
-import com.dps.roboleague.domain.shared.CategoryId;
-import com.dps.roboleague.domain.shared.CompetitionId;
-import com.dps.roboleague.domain.shared.DateRange;
-import com.dps.roboleague.domain.shared.HeatId;
-import com.dps.roboleague.domain.shared.JudgeId;
-import com.dps.roboleague.domain.shared.NotFoundException;
-import com.dps.roboleague.domain.shared.RoundId;
-import com.dps.roboleague.domain.shared.RuleViolationException;
-import com.dps.roboleague.domain.shared.RunId;
-import com.dps.roboleague.domain.shared.SeasonId;
-import com.dps.roboleague.domain.shared.TeamId;
-import com.dps.roboleague.domain.team.TeamRegistration;
+import com.dps.roboleague.appeals.Appeal;
+import com.dps.roboleague.appeals.application.AcceptAppealUseCase;
+import com.dps.roboleague.appeals.application.SubmitAppealUseCase;
+import com.dps.roboleague.appeals.port.in.AcceptAppeal;
+import com.dps.roboleague.appeals.port.in.RejectAppeal;
+import com.dps.roboleague.appeals.port.in.SubmitAppeal;
+import com.dps.roboleague.enrollment.application.RegisterTeamUseCase;
+import com.dps.roboleague.enrollment.competition.Category;
+import com.dps.roboleague.enrollment.competition.Competition;
+import com.dps.roboleague.enrollment.eligibility.EligibilityVerdict;
+import com.dps.roboleague.enrollment.port.in.RegisterTeam;
+import com.dps.roboleague.enrollment.team.TeamRegistration;
 import com.dps.roboleague.infrastructure.config.RoboLeagueCompositionRoot;
 import com.dps.roboleague.infrastructure.id.SequentialIdGenerator;
 import com.dps.roboleague.infrastructure.memory.InMemoryAppealRepository;
@@ -61,6 +22,54 @@ import com.dps.roboleague.infrastructure.memory.InMemoryRulebookRepository;
 import com.dps.roboleague.infrastructure.memory.InMemoryRunResultRepository;
 import com.dps.roboleague.infrastructure.memory.InMemoryStandingsRepository;
 import com.dps.roboleague.infrastructure.memory.InMemoryTeamRegistrationRepository;
+import com.dps.roboleague.results.application.CalculateRunScoreUseCase;
+import com.dps.roboleague.results.application.CaptureRunResultUseCase;
+import com.dps.roboleague.results.application.GenerateStandingsUseCase;
+import com.dps.roboleague.results.application.RecalculateStandingsUseCase;
+import com.dps.roboleague.results.application.RegisterAutomaticMeasurementsUseCase;
+import com.dps.roboleague.results.application.RegisterPanelEvaluationsUseCase;
+import com.dps.roboleague.results.application.ResultCorrector;
+import com.dps.roboleague.results.port.in.CalculateRunScore;
+import com.dps.roboleague.results.port.in.CaptureRunResult;
+import com.dps.roboleague.results.port.in.GenerateStandings;
+import com.dps.roboleague.results.port.in.GetStandings;
+import com.dps.roboleague.results.port.in.RecalculateStandings;
+import com.dps.roboleague.results.port.in.RegisterAutomaticMeasurements;
+import com.dps.roboleague.results.port.in.RegisterPanelEvaluations;
+import com.dps.roboleague.results.ranking.CategoryScoringService;
+import com.dps.roboleague.results.ranking.PendingRuns;
+import com.dps.roboleague.results.ranking.RankingService;
+import com.dps.roboleague.results.ranking.Standings;
+import com.dps.roboleague.results.result.ResultAmendment;
+import com.dps.roboleague.results.result.RunResult;
+import com.dps.roboleague.rules.application.RulebookEligibilityRequirements;
+import com.dps.roboleague.rules.challenge.AttemptNumber;
+import com.dps.roboleague.rules.challenge.MeasurementSet;
+import com.dps.roboleague.rules.rulebook.Rulebook;
+import com.dps.roboleague.rules.scoring.JudgeEvaluations;
+import com.dps.roboleague.scheduling.Heat;
+import com.dps.roboleague.scheduling.Round;
+import com.dps.roboleague.scheduling.ScheduleConflictDetector;
+import com.dps.roboleague.scheduling.application.ScheduleRoundUseCase;
+import com.dps.roboleague.scheduling.port.in.ScheduleRound;
+import com.dps.roboleague.shared.Actor;
+import com.dps.roboleague.shared.AgeRange;
+import com.dps.roboleague.shared.AppealId;
+import com.dps.roboleague.shared.ArenaId;
+import com.dps.roboleague.shared.CategoryId;
+import com.dps.roboleague.shared.CompetitionId;
+import com.dps.roboleague.shared.DateRange;
+import com.dps.roboleague.shared.HeatId;
+import com.dps.roboleague.shared.JudgeId;
+import com.dps.roboleague.shared.NotFoundException;
+import com.dps.roboleague.shared.RoundId;
+import com.dps.roboleague.shared.RoundOrdinal;
+import com.dps.roboleague.shared.RuleViolationException;
+import com.dps.roboleague.shared.RulebookVersion;
+import com.dps.roboleague.shared.RunId;
+import com.dps.roboleague.shared.SeasonId;
+import com.dps.roboleague.shared.TeamId;
+import com.dps.roboleague.shared.TimeSlot;
 import com.dps.roboleague.support.RescueEditionFixture;
 import com.dps.roboleague.support.TeamFixtures;
 import com.dps.roboleague.support.TestEdition;
@@ -74,6 +83,9 @@ import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ApplicationFailurePathsTest {
 
@@ -127,7 +139,7 @@ class ApplicationFailurePathsTest {
         assertThrows(NotFoundException.class, () -> module.getStandingsUseCase()
                 .execute(new GetStandings.Command(COMPETITION_ID, CATEGORY_ID)));
         assertThrows(NotFoundException.class, () -> module.publishStandingsUseCase()
-                .execute(new com.dps.roboleague.domain.port.in.PublishStandings.Command(
+                .execute(new com.dps.roboleague.results.port.in.PublishStandings.Command(
                         COMPETITION_ID, CATEGORY_ID, ACTOR)));
         assertThrows(NotFoundException.class, () -> module.recalculateStandingsUseCase()
                 .execute(new RecalculateStandings.Command(COMPETITION_ID, CATEGORY_ID, "reason", ACTOR)));
@@ -159,7 +171,7 @@ class ApplicationFailurePathsTest {
         Competition competition = activeCompetition();
         competitions.save(competition);
 
-        RegisterTeamUseCase register = new RegisterTeamUseCase(competitions, rulebooks, registrations, ids, auditLog,
+        RegisterTeamUseCase register = new RegisterTeamUseCase(competitions, new RulebookEligibilityRequirements(rulebooks), registrations, ids, auditLog,
                 CLOCK);
         GenerateStandingsUseCase generate = new GenerateStandingsUseCase(competitions, rulebooks, standings, scoring,
                 auditLog, CLOCK);

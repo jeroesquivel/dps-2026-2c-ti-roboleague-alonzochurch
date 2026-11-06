@@ -1,12 +1,12 @@
 package com.dps.roboleague.demo;
 
-import com.dps.roboleague.domain.port.in.CaptureRunResult;
-import com.dps.roboleague.domain.port.in.CreateCompetition;
-import com.dps.roboleague.domain.port.in.CreateSeason;
-import com.dps.roboleague.domain.port.in.RegisterAutomaticMeasurements;
-import com.dps.roboleague.domain.port.in.RegisterPanelEvaluations;
-import com.dps.roboleague.domain.port.in.RegisterTeam;
-import com.dps.roboleague.domain.port.in.ScheduleRound;
+import com.dps.roboleague.enrollment.port.in.CreateSeason;
+import com.dps.roboleague.enrollment.port.in.RegisterTeam;
+import com.dps.roboleague.results.port.in.CaptureRunResult;
+import com.dps.roboleague.results.port.in.RegisterAutomaticMeasurements;
+import com.dps.roboleague.results.port.in.RegisterPanelEvaluations;
+import com.dps.roboleague.rules.port.in.CreateCompetition;
+import com.dps.roboleague.scheduling.port.in.ScheduleRound;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationRunner;

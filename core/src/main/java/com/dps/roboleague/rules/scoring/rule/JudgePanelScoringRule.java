@@ -1,0 +1,47 @@
+package com.dps.roboleague.rules.scoring.rule;
+
+import com.dps.roboleague.rules.challenge.MetricKey;
+import com.dps.roboleague.rules.scoring.JudgeEvaluation;
+import com.dps.roboleague.rules.scoring.PointsRate;
+import com.dps.roboleague.rules.scoring.ScoreContribution;
+import com.dps.roboleague.rules.scoring.ScoringContext;
+import com.dps.roboleague.rules.scoring.ScoringRule;
+import com.dps.roboleague.rules.scoring.ScoringRuleCode;
+import com.dps.roboleague.shared.Points;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+
+public record JudgePanelScoringRule(MetricKey criterion, PointsRate weight) implements ScoringRule {
+
+    public static final ScoringRuleCode CODE = ScoringRuleCode.of("JUDGES");
+
+    public JudgePanelScoringRule {
+        Objects.requireNonNull(criterion, "criterion is required");
+        Objects.requireNonNull(weight, "weight is required");
+    }
+
+    @Override
+    public List<ScoreContribution> apply(ScoringContext context) {
+        List<JudgeEvaluation> evaluations = context.evaluationsFor(criterion);
+        if (evaluations.isEmpty()) {
+            return List.of(ScoreContribution.earned(CODE,
+                    "no evaluations recorded for criterion " + criterion.value(), Points.ZERO));
+        }
+        BigDecimal sum = evaluations.stream()
+                .map(evaluation -> evaluation.score().value())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal average = sum.divide(BigDecimal.valueOf(evaluations.size()), Points.SCALE, RoundingMode.HALF_UP);
+        Points earned = weight.times(average);
+        String explanation = "average of %d evaluations for %s is %s weighted by %s".formatted(evaluations.size(),
+                criterion.value(), average.toPlainString(), weight);
+        return List.of(ScoreContribution.earned(CODE, explanation, earned));
+    }
+
+    @Override
+    public Set<MetricKey> referencedMetrics() {
+        return Set.of(criterion);
+    }
+}

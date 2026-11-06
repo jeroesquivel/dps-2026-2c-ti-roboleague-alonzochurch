@@ -1,10 +1,10 @@
 package com.dps.roboleague.infrastructure.memory;
 
-import com.dps.roboleague.domain.result.RunResult;
-import com.dps.roboleague.domain.result.RunResultRepository;
-import com.dps.roboleague.domain.shared.ConflictException;
-import com.dps.roboleague.domain.shared.RoundId;
-import com.dps.roboleague.domain.shared.RunId;
+import com.dps.roboleague.results.result.RunResult;
+import com.dps.roboleague.results.result.RunResultRepository;
+import com.dps.roboleague.shared.ConflictException;
+import com.dps.roboleague.shared.RoundId;
+import com.dps.roboleague.shared.RunId;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;

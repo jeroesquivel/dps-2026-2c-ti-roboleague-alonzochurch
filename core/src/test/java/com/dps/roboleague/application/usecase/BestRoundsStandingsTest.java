@@ -1,44 +1,44 @@
 package com.dps.roboleague.application.usecase;
 
-import com.dps.roboleague.domain.ranking.RoundSelection;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import com.dps.roboleague.domain.ranking.BestRounds;
-import com.dps.roboleague.domain.challenge.ChallengeSpec;
-import com.dps.roboleague.domain.port.in.AcceptAppeal;
-import com.dps.roboleague.domain.port.in.CalculateRunScore;
-import com.dps.roboleague.domain.port.in.GenerateStandings;
-import com.dps.roboleague.domain.port.in.RecalculateStandings;
-import com.dps.roboleague.domain.port.in.SubmitAppeal;
-import com.dps.roboleague.domain.ranking.Revision;
-import com.dps.roboleague.domain.ranking.RoundOutcome;
-import com.dps.roboleague.domain.ranking.RoundStatus;
-import com.dps.roboleague.domain.ranking.ScoreExplanation;
-import com.dps.roboleague.domain.ranking.ScoreSubtotal;
-import com.dps.roboleague.domain.ranking.StandingEntry;
-import com.dps.roboleague.domain.ranking.Standings;
-import com.dps.roboleague.domain.ranking.aggregation.BestAttempt;
-import com.dps.roboleague.domain.result.ResultAmendment;
-import com.dps.roboleague.domain.result.RunResult;
-import com.dps.roboleague.domain.rulebook.RulebookVersion;
-import com.dps.roboleague.domain.scoring.PointsRate;
-import com.dps.roboleague.domain.scoring.ScoringRule;
-import com.dps.roboleague.domain.scoring.rule.ObjectiveScoringRule;
-import com.dps.roboleague.domain.shared.Actor;
-import com.dps.roboleague.domain.shared.AppealId;
-import com.dps.roboleague.domain.shared.ChallengeId;
-import com.dps.roboleague.domain.shared.ConflictException;
-import com.dps.roboleague.domain.shared.Points;
-import com.dps.roboleague.domain.shared.RoundId;
-import com.dps.roboleague.domain.shared.RunId;
-import com.dps.roboleague.domain.shared.TeamId;
+import com.dps.roboleague.appeals.port.in.AcceptAppeal;
+import com.dps.roboleague.appeals.port.in.SubmitAppeal;
+import com.dps.roboleague.results.port.in.CalculateRunScore;
+import com.dps.roboleague.results.port.in.GenerateStandings;
+import com.dps.roboleague.results.port.in.RecalculateStandings;
+import com.dps.roboleague.results.ranking.Revision;
+import com.dps.roboleague.results.ranking.StandingEntry;
+import com.dps.roboleague.results.ranking.Standings;
+import com.dps.roboleague.results.result.ResultAmendment;
+import com.dps.roboleague.results.result.RunResult;
+import com.dps.roboleague.rules.challenge.ChallengeSpec;
+import com.dps.roboleague.rules.ranking.BestRounds;
+import com.dps.roboleague.rules.ranking.RoundOutcome;
+import com.dps.roboleague.rules.ranking.RoundSelection;
+import com.dps.roboleague.rules.ranking.RoundStatus;
+import com.dps.roboleague.rules.ranking.ScoreExplanation;
+import com.dps.roboleague.rules.ranking.ScoreSubtotal;
+import com.dps.roboleague.rules.ranking.aggregation.BestAttempt;
+import com.dps.roboleague.rules.scoring.PointsRate;
+import com.dps.roboleague.rules.scoring.ScoringRule;
+import com.dps.roboleague.rules.scoring.rule.ObjectiveScoringRule;
+import com.dps.roboleague.shared.Actor;
+import com.dps.roboleague.shared.AppealId;
+import com.dps.roboleague.shared.ChallengeId;
+import com.dps.roboleague.shared.ConflictException;
+import com.dps.roboleague.shared.Points;
+import com.dps.roboleague.shared.RoundId;
+import com.dps.roboleague.shared.RulebookVersion;
+import com.dps.roboleague.shared.RunId;
+import com.dps.roboleague.shared.TeamId;
 import com.dps.roboleague.support.RescueEditionFixture;
 import com.dps.roboleague.support.TestEdition;
 import java.util.List;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BestRoundsStandingsTest {
 

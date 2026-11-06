@@ -1,10 +1,10 @@
 package com.dps.roboleague.infrastructure.memory;
 
-import com.dps.roboleague.domain.schedule.Round;
-import com.dps.roboleague.domain.schedule.RoundRepository;
-import com.dps.roboleague.domain.shared.CategoryId;
-import com.dps.roboleague.domain.shared.CompetitionId;
-import com.dps.roboleague.domain.shared.RoundId;
+import com.dps.roboleague.scheduling.Round;
+import com.dps.roboleague.scheduling.RoundRepository;
+import com.dps.roboleague.shared.CategoryId;
+import com.dps.roboleague.shared.CompetitionId;
+import com.dps.roboleague.shared.RoundId;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;

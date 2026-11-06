@@ -416,3 +416,39 @@ o dependencia nueva deberá responder a un requisito o consumidor concreto.
 10. Una nueva tecnología se incorpora como adaptador, sin trasladar sus conceptos al núcleo.
 11. Se implementan verticales completas y verificables, guiadas por requisitos concretos.
 12. Todo cambio que altere una decisión arquitectónica se documenta también en `DESIGN.md`.
+
+## Bounded contexts del core
+
+El core se divide en seis contextos, cada uno con su paquete raíz. Dentro de cada contexto, las clases de dominio
+están en subpaquetes por agregado, los puertos de entrada en `port.in` y los casos de uso en `application`.
+
+```
+shared  <-  enrollment  <-  rules  <-  scheduling  <-  results  <-  appeals
+```
+
+| Contexto | Qué tiene | Conoce a |
+|---|---|---|
+| `shared` | Identificadores, `Points`, `TimeSlot`, `RoundOrdinal`, `RulebookVersion`, excepciones, `audit` | nadie |
+| `enrollment` | `competition` (temporada, competencia, categoría), `team` (inscripción), `eligibility` (reglas y `EligibilityRequirements`) | shared |
+| `rules` | `rulebook`, `challenge`, `scoring` y `ranking` (las políticas que el reglamento elige: selección de rondas, agregación de intentos, desempate) | shared, enrollment |
+| `scheduling` | Rondas, heats, conflictos de agenda | shared, enrollment, rules |
+| `results` | `result` (resultado de una corrida y sus correcciones), `ranking` (tablas de posiciones) | shared, enrollment, rules, scheduling |
+| `appeals` | Apelaciones | shared, rules, scheduling, results |
+
+Cada contexto solo conoce a los que están a su izquierda. Cuando necesita algo de uno que queda a su derecha,
+define un puerto y lo implementa el otro:
+
+- `enrollment.eligibility.EligibilityRequirementsSource`: la inscripción pide las exigencias de elegibilidad y las
+  implementa `rules.application.RulebookEligibilityRequirements` leyendo el reglamento.
+- `results.ranking.PendingAppeals`: la publicación de una tabla exige que no haya apelaciones pendientes y lo
+  implementa `appeals.application.AppealsPendingOnRuns`.
+
+Los límites los hace cumplir ArchUnit: `core/.../architecture/ContextBoundariesTest` (sin ciclos entre contextos,
+dependencias solo hacia abajo, el dominio no conoce los casos de uso ni frameworks) y
+`backend/.../architecture/BackendBoundariesTest` (el negocio no conoce el backend, los adaptadores web no forman
+ciclos ni tocan la infraestructura). Si un import cruza un límite, `mvn verify` falla.
+
+Los paquetes que aparecen como `domain/...` en `DESIGN.md` son los de antes de esta división: `domain/rulebook`,
+`domain/challenge`, `domain/scoring` pasaron a `rules`; `domain/competition`, `domain/team` y `domain/eligibility` a
+`enrollment`; `domain/schedule` a `scheduling`; `domain/result` y `domain/ranking` a `results` (las políticas de
+`ranking` a `rules.ranking`); `domain/appeal` a `appeals`; `domain/shared` y `domain/audit` a `shared`.

@@ -1,37 +1,37 @@
 package com.dps.roboleague.application.usecase;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import com.dps.roboleague.domain.challenge.AttemptNumber;
-import com.dps.roboleague.domain.challenge.MeasurementSet;
-import com.dps.roboleague.domain.challenge.MetricKey;
-import com.dps.roboleague.domain.challenge.MetricValue;
-import com.dps.roboleague.domain.port.in.CalculateRunScore;
-import com.dps.roboleague.domain.port.in.CaptureRunResult;
-import com.dps.roboleague.domain.result.RunResult;
-import com.dps.roboleague.domain.result.RunStatus;
-import com.dps.roboleague.domain.rulebook.RulebookVersion;
-import com.dps.roboleague.domain.scoring.ContributionKind;
-import com.dps.roboleague.domain.scoring.IncidentReport;
-import com.dps.roboleague.domain.scoring.JudgeEvaluation;
-import com.dps.roboleague.domain.scoring.JudgeEvaluations;
-import com.dps.roboleague.domain.scoring.JudgeScore;
-import com.dps.roboleague.domain.scoring.PenaltyCode;
-import com.dps.roboleague.domain.shared.ConflictException;
-import com.dps.roboleague.domain.shared.InvalidValueException;
-import com.dps.roboleague.domain.shared.JudgeId;
-import com.dps.roboleague.domain.shared.Points;
-import com.dps.roboleague.domain.shared.RoundId;
-import com.dps.roboleague.domain.shared.RuleViolationException;
-import com.dps.roboleague.domain.shared.RunId;
-import com.dps.roboleague.domain.shared.TeamId;
+import com.dps.roboleague.results.port.in.CalculateRunScore;
+import com.dps.roboleague.results.port.in.CaptureRunResult;
+import com.dps.roboleague.results.result.RunResult;
+import com.dps.roboleague.results.result.RunStatus;
+import com.dps.roboleague.rules.challenge.AttemptNumber;
+import com.dps.roboleague.rules.challenge.MeasurementSet;
+import com.dps.roboleague.rules.challenge.MetricKey;
+import com.dps.roboleague.rules.challenge.MetricValue;
+import com.dps.roboleague.rules.scoring.ContributionKind;
+import com.dps.roboleague.rules.scoring.IncidentReport;
+import com.dps.roboleague.rules.scoring.JudgeEvaluation;
+import com.dps.roboleague.rules.scoring.JudgeEvaluations;
+import com.dps.roboleague.rules.scoring.JudgeScore;
+import com.dps.roboleague.rules.scoring.PenaltyCode;
+import com.dps.roboleague.shared.ConflictException;
+import com.dps.roboleague.shared.InvalidValueException;
+import com.dps.roboleague.shared.JudgeId;
+import com.dps.roboleague.shared.Points;
+import com.dps.roboleague.shared.RoundId;
+import com.dps.roboleague.shared.RuleViolationException;
+import com.dps.roboleague.shared.RulebookVersion;
+import com.dps.roboleague.shared.RunId;
+import com.dps.roboleague.shared.TeamId;
 import com.dps.roboleague.support.RescueEditionFixture;
 import com.dps.roboleague.support.TestEdition;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CaptureRunResultUseCaseTest {
 

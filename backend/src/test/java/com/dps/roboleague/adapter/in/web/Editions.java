@@ -1,6 +1,6 @@
 package com.dps.roboleague.adapter.in.web;
 
-import com.dps.roboleague.domain.shared.DateRange;
+import com.dps.roboleague.shared.DateRange;
 import java.time.LocalDate;
 import java.util.concurrent.atomic.AtomicInteger;
 

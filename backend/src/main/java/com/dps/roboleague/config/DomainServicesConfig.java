@@ -1,11 +1,11 @@
 package com.dps.roboleague.config;
 
-import com.dps.roboleague.domain.ranking.CategoryScoringService;
-import com.dps.roboleague.domain.ranking.RankingService;
-import com.dps.roboleague.domain.result.RunResultRepository;
-import com.dps.roboleague.domain.rulebook.RulebookRepository;
-import com.dps.roboleague.domain.schedule.RoundRepository;
-import com.dps.roboleague.domain.schedule.ScheduleConflictDetector;
+import com.dps.roboleague.results.ranking.CategoryScoringService;
+import com.dps.roboleague.results.ranking.RankingService;
+import com.dps.roboleague.results.result.RunResultRepository;
+import com.dps.roboleague.rules.rulebook.RulebookRepository;
+import com.dps.roboleague.scheduling.RoundRepository;
+import com.dps.roboleague.scheduling.ScheduleConflictDetector;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

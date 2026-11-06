@@ -1,7 +1,7 @@
 package com.dps.roboleague.adapter.in.web.audit;
 
-import com.dps.roboleague.domain.port.in.FindAuditTrail;
-import com.dps.roboleague.domain.shared.Identifier;
+import com.dps.roboleague.shared.Identifier;
+import com.dps.roboleague.shared.port.in.FindAuditTrail;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;

@@ -1,10 +1,10 @@
 package com.dps.roboleague.infrastructure.memory;
 
-import com.dps.roboleague.domain.ranking.Revision;
-import com.dps.roboleague.domain.ranking.Standings;
-import com.dps.roboleague.domain.ranking.StandingsRepository;
-import com.dps.roboleague.domain.shared.CategoryId;
-import com.dps.roboleague.domain.shared.CompetitionId;
+import com.dps.roboleague.results.ranking.Revision;
+import com.dps.roboleague.results.ranking.Standings;
+import com.dps.roboleague.results.ranking.StandingsRepository;
+import com.dps.roboleague.shared.CategoryId;
+import com.dps.roboleague.shared.CompetitionId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;

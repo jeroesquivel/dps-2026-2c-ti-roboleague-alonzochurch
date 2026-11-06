@@ -1,11 +1,11 @@
 package com.dps.roboleague.adapter.in.web.error;
 
-import com.dps.roboleague.domain.schedule.ScheduleConflictException;
-import com.dps.roboleague.domain.shared.ConflictException;
-import com.dps.roboleague.domain.shared.DomainException;
-import com.dps.roboleague.domain.shared.InvalidValueException;
-import com.dps.roboleague.domain.shared.NotFoundException;
-import com.dps.roboleague.domain.shared.RuleViolationException;
+import com.dps.roboleague.scheduling.ScheduleConflictException;
+import com.dps.roboleague.shared.ConflictException;
+import com.dps.roboleague.shared.DomainException;
+import com.dps.roboleague.shared.InvalidValueException;
+import com.dps.roboleague.shared.NotFoundException;
+import com.dps.roboleague.shared.RuleViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;

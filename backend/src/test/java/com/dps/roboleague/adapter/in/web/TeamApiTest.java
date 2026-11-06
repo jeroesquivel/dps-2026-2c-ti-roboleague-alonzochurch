@@ -1,15 +1,11 @@
 package com.dps.roboleague.adapter.in.web;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import com.dps.roboleague.domain.port.in.CreateCompetition;
-import com.dps.roboleague.domain.port.in.CreateSeason;
-import com.dps.roboleague.domain.shared.Actor;
-import com.dps.roboleague.domain.shared.AgeRange;
-import com.dps.roboleague.domain.shared.DateRange;
-import com.dps.roboleague.domain.shared.SeasonId;
+import com.dps.roboleague.enrollment.port.in.CreateSeason;
+import com.dps.roboleague.rules.port.in.CreateCompetition;
+import com.dps.roboleague.shared.Actor;
+import com.dps.roboleague.shared.AgeRange;
+import com.dps.roboleague.shared.DateRange;
+import com.dps.roboleague.shared.SeasonId;
 import com.dps.roboleague.support.RescueEditionFixture;
 import com.dps.roboleague.support.TeamFixtures;
 import java.util.List;
@@ -29,6 +25,10 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class TeamApiTest {

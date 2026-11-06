@@ -1,0 +1,43 @@
+package com.dps.roboleague.rules.scoring.rule;
+
+import com.dps.roboleague.rules.challenge.MetricKey;
+import com.dps.roboleague.rules.scoring.PointsCap;
+import com.dps.roboleague.rules.scoring.ScoreContribution;
+import com.dps.roboleague.rules.scoring.ScoringContext;
+import com.dps.roboleague.rules.scoring.ScoringRule;
+import com.dps.roboleague.rules.scoring.ScoringRuleCode;
+import com.dps.roboleague.shared.Points;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+
+public record PrecisionScoringRule(MetricKey metric, PointsCap maximumPoints) implements ScoringRule {
+
+    public static final ScoringRuleCode CODE = ScoringRuleCode.of("PRECISION");
+
+    public PrecisionScoringRule {
+        Objects.requireNonNull(metric, "metric is required");
+        Objects.requireNonNull(maximumPoints, "maximum points are required");
+    }
+
+    @Override
+    public List<ScoreContribution> apply(ScoringContext context) {
+        return context.measurements().amountOf(metric)
+                .map(this::contributionFor)
+                .orElseGet(() -> List.of(ScoreContribution.earned(CODE,
+                        "no measurement recorded for " + metric.value(), Points.ZERO)));
+    }
+
+    @Override
+    public Set<MetricKey> referencedMetrics() {
+        return Set.of(metric);
+    }
+
+    private List<ScoreContribution> contributionFor(BigDecimal ratio) {
+        Points earned = maximumPoints.times(ratio);
+        String explanation = "precision ratio %s over a maximum of %s points".formatted(ratio.toPlainString(),
+                maximumPoints);
+        return List.of(ScoreContribution.earned(CODE, explanation, earned));
+    }
+}

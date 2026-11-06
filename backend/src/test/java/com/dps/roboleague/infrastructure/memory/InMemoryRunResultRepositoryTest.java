@@ -1,7 +1,7 @@
 package com.dps.roboleague.infrastructure.memory;
 
-import com.dps.roboleague.domain.result.RunResultRepository;
-import com.dps.roboleague.domain.result.RunResultRepositoryContractTest;
+import com.dps.roboleague.results.result.RunResultRepository;
+import com.dps.roboleague.results.result.RunResultRepositoryContractTest;
 
 class InMemoryRunResultRepositoryTest extends RunResultRepositoryContractTest {
 

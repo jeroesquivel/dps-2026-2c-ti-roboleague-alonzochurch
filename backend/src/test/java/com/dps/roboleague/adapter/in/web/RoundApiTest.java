@@ -1,19 +1,16 @@
 package com.dps.roboleague.adapter.in.web;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import com.dps.roboleague.domain.ranking.BestRounds;
-import com.dps.roboleague.domain.port.in.CreateCompetition;
-import com.dps.roboleague.domain.port.in.CreateSeason;
-import com.dps.roboleague.domain.port.in.RegisterTeam;
-import com.dps.roboleague.domain.rulebook.RulebookDraft;
-import com.dps.roboleague.domain.shared.Actor;
-import com.dps.roboleague.domain.shared.AgeRange;
-import com.dps.roboleague.domain.shared.DateRange;
-import com.dps.roboleague.domain.shared.SeasonId;
-import com.dps.roboleague.domain.team.Robot;
-import com.dps.roboleague.domain.team.TeamMembers;
+import com.dps.roboleague.enrollment.port.in.CreateSeason;
+import com.dps.roboleague.enrollment.port.in.RegisterTeam;
+import com.dps.roboleague.enrollment.team.Robot;
+import com.dps.roboleague.enrollment.team.TeamMembers;
+import com.dps.roboleague.rules.port.in.CreateCompetition;
+import com.dps.roboleague.rules.ranking.BestRounds;
+import com.dps.roboleague.rules.rulebook.RulebookDraft;
+import com.dps.roboleague.shared.Actor;
+import com.dps.roboleague.shared.AgeRange;
+import com.dps.roboleague.shared.DateRange;
+import com.dps.roboleague.shared.SeasonId;
 import com.dps.roboleague.support.RescueEditionFixture;
 import com.dps.roboleague.support.TeamFixtures;
 import java.time.LocalDate;
@@ -34,6 +31,9 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class RoundApiTest {
@@ -336,8 +336,8 @@ class RoundApiTest {
                 .map(member -> new RegisterTeam.MemberDraft(member.fullName(), member.birthDate(), member.role()))
                 .toList();
         return registerTeam.execute(new RegisterTeam.Command(
-                com.dps.roboleague.domain.shared.CompetitionId.of(target.competitionId()),
-                com.dps.roboleague.domain.shared.CategoryId.of(target.categoryId()), name, drafts, robot,
+                com.dps.roboleague.shared.CompetitionId.of(target.competitionId()),
+                com.dps.roboleague.shared.CategoryId.of(target.categoryId()), name, drafts, robot,
                 TeamFixtures.completeDocuments(), ACTOR)).teamId().value();
     }
 

@@ -1,30 +1,25 @@
 package com.dps.roboleague.application.usecase;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import com.dps.roboleague.domain.audit.AuditAction;
-import com.dps.roboleague.domain.audit.AuditDetail;
-import com.dps.roboleague.domain.audit.AuditEvent;
-import com.dps.roboleague.domain.competition.RobotClass;
-import com.dps.roboleague.domain.port.in.CreateCompetition;
-import com.dps.roboleague.domain.port.in.CreateSeason;
-import com.dps.roboleague.domain.port.in.FindAuditTrail;
-import com.dps.roboleague.domain.port.in.FindCompetition;
-import com.dps.roboleague.domain.rulebook.RulebookVersion;
-import com.dps.roboleague.domain.shared.Actor;
-import com.dps.roboleague.domain.shared.AgeRange;
-import com.dps.roboleague.domain.shared.ConflictException;
-import com.dps.roboleague.domain.shared.CompetitionId;
-import com.dps.roboleague.domain.shared.DateRange;
-import com.dps.roboleague.domain.shared.Identifier;
-import com.dps.roboleague.domain.shared.InvalidValueException;
-import com.dps.roboleague.domain.shared.NotFoundException;
-import com.dps.roboleague.domain.shared.RuleViolationException;
-import com.dps.roboleague.domain.shared.SeasonId;
+import com.dps.roboleague.enrollment.competition.RobotClass;
+import com.dps.roboleague.enrollment.port.in.CreateSeason;
+import com.dps.roboleague.enrollment.port.in.FindCompetition;
 import com.dps.roboleague.infrastructure.config.RoboLeagueCompositionRoot;
+import com.dps.roboleague.rules.port.in.CreateCompetition;
+import com.dps.roboleague.shared.Actor;
+import com.dps.roboleague.shared.AgeRange;
+import com.dps.roboleague.shared.CompetitionId;
+import com.dps.roboleague.shared.ConflictException;
+import com.dps.roboleague.shared.DateRange;
+import com.dps.roboleague.shared.Identifier;
+import com.dps.roboleague.shared.InvalidValueException;
+import com.dps.roboleague.shared.NotFoundException;
+import com.dps.roboleague.shared.RuleViolationException;
+import com.dps.roboleague.shared.RulebookVersion;
+import com.dps.roboleague.shared.SeasonId;
+import com.dps.roboleague.shared.audit.AuditAction;
+import com.dps.roboleague.shared.audit.AuditDetail;
+import com.dps.roboleague.shared.audit.AuditEvent;
+import com.dps.roboleague.shared.port.in.FindAuditTrail;
 import com.dps.roboleague.support.RescueEditionFixture;
 import java.time.Clock;
 import java.time.Instant;
@@ -32,6 +27,11 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EventConfigurationUseCaseTest {
 
