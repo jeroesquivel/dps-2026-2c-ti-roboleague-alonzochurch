@@ -11,6 +11,7 @@ import com.dps.roboleague.enrollment.port.in.CreateSeason;
 import com.dps.roboleague.enrollment.port.in.FindCategoryTeams;
 import com.dps.roboleague.enrollment.port.in.FindCompetition;
 import com.dps.roboleague.enrollment.port.in.FindTeamRegistration;
+import com.dps.roboleague.enrollment.port.in.FindTeamRegistrations;
 import com.dps.roboleague.enrollment.port.in.RegisterTeam;
 import com.dps.roboleague.enrollment.team.TeamRegistrationRepository;
 import com.dps.roboleague.results.port.in.CalculateRunScore;
@@ -57,7 +58,7 @@ class RoboLeagueApplicationTest {
     private static final List<Class<?>> INPUT_PORTS = List.of(AcceptAppeal.class, CalculateRunScore.class,
             CaptureRunResult.class, CreateCompetition.class, CreateSeason.class, FindAppeal.class,
             FindAuditTrail.class, FindCategoryRounds.class, FindCategoryTeams.class, FindCompetition.class, FindRound.class, FindRunResult.class,
-            FindTeamRegistration.class, GenerateStandings.class, GetStandings.class, PublishRulebook.class,
+            FindTeamRegistration.class, FindTeamRegistrations.class, GenerateStandings.class, GetStandings.class, PublishRulebook.class,
             PublishStandings.class, RecalculateStandings.class, RegisterAutomaticMeasurements.class,
             RegisterPanelEvaluations.class, RegisterTeam.class, RejectAppeal.class, ScheduleRound.class,
             SubmitAppeal.class);

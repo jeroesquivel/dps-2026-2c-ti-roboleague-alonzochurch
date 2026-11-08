@@ -8,6 +8,8 @@ import com.dps.roboleague.shared.CompetitionId;
 import com.dps.roboleague.shared.TeamId;
 import com.dps.roboleague.support.TeamFixtures;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,6 +33,21 @@ public abstract class TeamRegistrationRepositoryContractTest {
 
         assertEquals(saved.name(), repository.findById(TeamId.of("TEAM-1")).orElseThrow().name());
         assertTrue(repository.findById(TeamId.of("TEAM-404")).isEmpty());
+    }
+
+    @Test
+    void findsSeveralRegistrationsAtOnceLeavingOutTheOnesThatDoNotExist() {
+        TeamRegistrationRepository repository = repository();
+        repository.save(registration("TEAM-1", "Delta Bots", COMPETITION, JUNIOR));
+        repository.save(registration("TEAM-2", "Omega Crew", COMPETITION, SENIOR));
+        repository.save(registration("TEAM-3", "Kappa Labs", OTHER_COMPETITION, JUNIOR));
+
+        List<TeamRegistration> found = repository.findAllById(
+                Set.of(TeamId.of("TEAM-1"), TeamId.of("TEAM-3"), TeamId.of("TEAM-404")));
+
+        assertEquals(Set.of("Delta Bots", "Kappa Labs"),
+                found.stream().map(TeamRegistration::name).collect(Collectors.toSet()));
+        assertTrue(repository.findAllById(Set.of()).isEmpty());
     }
 
     @Test

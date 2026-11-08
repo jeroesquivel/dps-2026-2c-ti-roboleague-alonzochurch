@@ -14,6 +14,7 @@ import com.dps.roboleague.enrollment.application.CreateSeasonUseCase;
 import com.dps.roboleague.enrollment.application.FindCompetitionUseCase;
 import com.dps.roboleague.enrollment.application.FindCategoryTeamsUseCase;
 import com.dps.roboleague.enrollment.application.FindTeamRegistrationUseCase;
+import com.dps.roboleague.enrollment.application.FindTeamRegistrationsUseCase;
 import com.dps.roboleague.enrollment.application.RegisterTeamUseCase;
 import com.dps.roboleague.enrollment.competition.CompetitionRepository;
 import com.dps.roboleague.enrollment.competition.SeasonRepository;
@@ -21,6 +22,7 @@ import com.dps.roboleague.enrollment.port.in.CreateSeason;
 import com.dps.roboleague.enrollment.port.in.FindCompetition;
 import com.dps.roboleague.enrollment.port.in.FindCategoryTeams;
 import com.dps.roboleague.enrollment.port.in.FindTeamRegistration;
+import com.dps.roboleague.enrollment.port.in.FindTeamRegistrations;
 import com.dps.roboleague.enrollment.port.in.RegisterTeam;
 import com.dps.roboleague.enrollment.team.TeamRegistrationRepository;
 import com.dps.roboleague.infrastructure.id.SequentialIdGenerator;
@@ -203,6 +205,10 @@ public final class RoboLeagueCompositionRoot {
 
     public FindRound findRoundUseCase() {
         return new FindRoundUseCase(rounds);
+    }
+
+    public FindTeamRegistrations findTeamRegistrationsUseCase() {
+        return new FindTeamRegistrationsUseCase(registrations);
     }
 
     public FindCategoryTeams findCategoryTeamsUseCase() {

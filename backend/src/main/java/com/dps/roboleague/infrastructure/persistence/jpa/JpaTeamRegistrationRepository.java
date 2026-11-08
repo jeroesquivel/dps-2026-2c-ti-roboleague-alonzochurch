@@ -9,6 +9,7 @@ import com.dps.roboleague.shared.TeamId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public final class JpaTeamRegistrationRepository implements TeamRegistrationRepository {
 
@@ -29,6 +30,14 @@ public final class JpaTeamRegistrationRepository implements TeamRegistrationRepo
     @Override
     public Optional<TeamRegistration> findById(TeamId id) {
         return rows.findById(id.value()).map(row -> json.read(row.payload(), TeamRegistration.class));
+    }
+
+    /** Una sola consulta ({@code WHERE id IN (...)}), cualquiera sea la cantidad de ids. */
+    @Override
+    public List<TeamRegistration> findAllById(Set<TeamId> ids) {
+        return rows.findAllById(ids.stream().map(TeamId::value).toList()).stream()
+                .map(row -> json.read(row.payload(), TeamRegistration.class))
+                .toList();
     }
 
     @Override

@@ -14,6 +14,7 @@ import com.dps.roboleague.enrollment.application.CreateSeasonUseCase;
 import com.dps.roboleague.enrollment.application.FindCategoryTeamsUseCase;
 import com.dps.roboleague.enrollment.application.FindCompetitionUseCase;
 import com.dps.roboleague.enrollment.application.FindTeamRegistrationUseCase;
+import com.dps.roboleague.enrollment.application.FindTeamRegistrationsUseCase;
 import com.dps.roboleague.enrollment.application.RegisterTeamUseCase;
 import com.dps.roboleague.enrollment.competition.CompetitionRepository;
 import com.dps.roboleague.enrollment.competition.SeasonRepository;
@@ -22,6 +23,7 @@ import com.dps.roboleague.enrollment.port.in.CreateSeason;
 import com.dps.roboleague.enrollment.port.in.FindCategoryTeams;
 import com.dps.roboleague.enrollment.port.in.FindCompetition;
 import com.dps.roboleague.enrollment.port.in.FindTeamRegistration;
+import com.dps.roboleague.enrollment.port.in.FindTeamRegistrations;
 import com.dps.roboleague.enrollment.port.in.RegisterTeam;
 import com.dps.roboleague.enrollment.team.TeamRegistrationRepository;
 import com.dps.roboleague.results.application.CalculateRunScoreUseCase;
@@ -149,6 +151,9 @@ public class UseCasesConfig {
             CategoryScoringService scoring) { return new CalculateRunScoreUseCase(results, rounds, scoring); }
     @Bean FindCompetition findCompetition(CompetitionRepository repository) { return new FindCompetitionUseCase(repository); }
     @Bean FindTeamRegistration findTeamRegistration(TeamRegistrationRepository repository) { return new FindTeamRegistrationUseCase(repository); }
+    @Bean FindTeamRegistrations findTeamRegistrations(TeamRegistrationRepository repository) {
+        return new FindTeamRegistrationsUseCase(repository);
+    }
     @Bean FindRound findRound(RoundRepository repository) { return new FindRoundUseCase(repository); }
     @Bean FindCategoryTeams findCategoryTeams(CompetitionRepository competitions,
             TeamRegistrationRepository registrations) {

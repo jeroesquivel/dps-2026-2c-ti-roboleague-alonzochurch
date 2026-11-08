@@ -2,9 +2,8 @@ package com.dps.roboleague.adapter.in.graphql.round;
 
 import com.dps.roboleague.adapter.in.graphql.type.RoundGraph;
 import com.dps.roboleague.adapter.in.graphql.type.TeamGraph;
-import com.dps.roboleague.adapter.in.graphql.type.TeamGraphMapper;
-import com.dps.roboleague.enrollment.port.in.FindTeamRegistration;
-import com.dps.roboleague.shared.TeamId;
+import java.util.concurrent.CompletableFuture;
+import org.dataloader.DataLoader;
 import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.stereotype.Controller;
 
@@ -12,15 +11,9 @@ import org.springframework.stereotype.Controller;
 @Controller
 public final class HeatGraphController {
 
-    private final FindTeamRegistration findTeamRegistration;
-
-    public HeatGraphController(FindTeamRegistration findTeamRegistration) {
-        this.findTeamRegistration = findTeamRegistration;
-    }
-
-    /** Un equipo por turno: es el N+1 que la etapa siguiente resuelve con carga por lotes. */
+    /** No pide el equipo: lo encola en el {@code DataLoader}, que carga los de todos los turnos en un solo lote. */
     @SchemaMapping(typeName = "Heat", field = "team")
-    public TeamGraph team(RoundGraph.HeatGraph heat) {
-        return TeamGraphMapper.toGraph(findTeamRegistration.execute(TeamId.of(heat.teamId())));
+    public CompletableFuture<TeamGraph> team(RoundGraph.HeatGraph heat, DataLoader<String, TeamGraph> teams) {
+        return teams.load(heat.teamId());
     }
 }
