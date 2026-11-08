@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * fechas empiezan en 2026 y las edades de los integrantes de los fixtures siguen dentro de la
  * categoría de 12 a 17 años durante 2026 y 2027.
  */
-final class Editions {
+public final class Editions {
 
     private static final LocalDate FIRST_DAY = LocalDate.of(2026, 3, 1);
     private static final AtomicInteger NEXT = new AtomicInteger();
@@ -20,7 +20,7 @@ final class Editions {
     private Editions() {
     }
 
-    static DateRange nextPeriod() {
+    public static DateRange nextPeriod() {
         LocalDate start = FIRST_DAY.plusDays(2L * NEXT.getAndIncrement());
         return DateRange.of(start, start.plusDays(1));
     }

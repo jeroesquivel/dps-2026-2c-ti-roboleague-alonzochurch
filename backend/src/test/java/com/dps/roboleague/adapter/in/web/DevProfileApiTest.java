@@ -36,6 +36,14 @@ class DevProfileApiTest {
     }
 
     @Test
+    void servesTheGraphiqlConsoleForTheDemo() {
+        ResponseEntity<String> console = get("/graphiql?path=/graphql", String.class);
+
+        assertEquals(HttpStatus.OK, console.getStatusCode());
+        assertTrue(console.getBody().toLowerCase().contains("graphiql"), console.getBody());
+    }
+
+    @Test
     void theSeededResultsProduceExplainedStandingsWithAPendingRun() {
         ResponseEntity<StandingsResponse> created = post(STANDINGS, "{\"actor\":\"organizer\"}");
 

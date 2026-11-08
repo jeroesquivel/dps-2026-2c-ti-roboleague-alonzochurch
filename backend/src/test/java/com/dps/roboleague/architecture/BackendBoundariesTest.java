@@ -10,7 +10,8 @@ import com.tngtech.archunit.lang.ArchRule;
 
 /**
  * Los detalles apuntan al negocio, nunca al revés: el dominio no conoce los adaptadores, la configuración ni la
- * infraestructura del backend, y los adaptadores web de cada recurso no se enredan entre sí.
+ * infraestructura del backend, y los adaptadores web de cada recurso no se enredan entre sí. Los adaptadores de
+ * entrada (REST y GraphQL) no se conocen entre sí y sólo llegan al núcleo por sus puertos de entrada.
  */
 @AnalyzeClasses(packages = "com.dps.roboleague", importOptions = ImportOption.DoNotIncludeTests.class)
 class BackendBoundariesTest {
@@ -38,4 +39,27 @@ class BackendBoundariesTest {
             .that().resideInAPackage("com.dps.roboleague.adapter.in.web..")
             .should().dependOnClassesThat().resideInAnyPackage(
                     "com.dps.roboleague.infrastructure..", "com.dps.roboleague.config..");
+
+    @ArchTest
+    static final ArchRule theGraphQlAdaptersAreNotCyclic = slices()
+            .matching("com.dps.roboleague.adapter.in.graphql.(*)..")
+            .should().beFreeOfCycles();
+
+    @ArchTest
+    static final ArchRule theGraphQlAdaptersDoNotTouchInfrastructureOrConfiguration = noClasses()
+            .that().resideInAPackage("com.dps.roboleague.adapter.in.graphql..")
+            .should().dependOnClassesThat().resideInAnyPackage(
+                    "com.dps.roboleague.infrastructure..", "com.dps.roboleague.config..");
+
+    @ArchTest
+    static final ArchRule theEntryAdaptersDoNotKnowEachOther = slices()
+            .matching("com.dps.roboleague.adapter.in.(*)..")
+            .should().notDependOnEachOther();
+
+    @ArchTest
+    static final ArchRule theEntryAdaptersOnlyReachTheCoreThroughInputPorts = noClasses()
+            .that().resideInAPackage("com.dps.roboleague.adapter.in..")
+            .should().dependOnClassesThat().resideInAPackage("com.dps.roboleague.*.application..")
+            .orShould().dependOnClassesThat().haveSimpleNameEndingWith("UseCase")
+            .orShould().dependOnClassesThat().haveSimpleNameEndingWith("Repository");
 }

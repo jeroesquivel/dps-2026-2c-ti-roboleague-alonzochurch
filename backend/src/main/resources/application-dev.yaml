@@ -6,6 +6,14 @@
 # TEAM-4, ROUND-1…ROUND-6); al arrancar se registran en el log.
 #
 # Reglas del reglamento (desafíos RESCUE, SPRINT, PRECISION y SHOWCASE) en DemoRulebook.
+
+# Consola GraphiQL en http://localhost:8080/graphiql para la demo de la API GraphQL. Sólo en este perfil: en
+# los demás queda únicamente el endpoint POST /graphql.
+spring:
+  graphql:
+    graphiql:
+      enabled: true
+
 roboleague:
   dev-seed:
     actor: dev-seed

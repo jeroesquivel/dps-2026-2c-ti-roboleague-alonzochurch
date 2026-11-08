@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | In review |
+| **Status** | Approved |
 | **Author** | |
 | **Date** | 2026-11-08 |
 
@@ -204,13 +204,13 @@ Then todas pasan sin modificaciones.
 
 ## 6. Open questions
 
-Para resolver antes de implementar:
+Resueltas:
 
-- **OQ-1 — Equipos de una categoría.** ¿`Category.teams` devuelve todas las inscripciones con su
-  `status` o sólo las aceptadas? Propuesta: todas con `status`. Filtrar por "participa" sería una regla
-  en el adaptador, y una pantalla puede mostrar u ocultar según el estado.
-- **OQ-2 — GraphiQL.** ¿Se habilita sólo con el perfil `dev` o siempre? Propuesta: sólo con `dev`, que
-  es el que se usa en la demo con datos de demostración; en otros perfiles queda sólo `/graphql`.
-- **OQ-3 — Categoría sin tabla.** ¿`Category.standings` sin tabla generada responde `null` con un error
-  `NOT_FOUND` (AC-11) o `null` sin error? Propuesta: con error. Es la misma excepción de `GetStandings`
-  y el adaptador no decide en silencio qué ausencias son normales.
+- **OQ-1 — Equipos de una categoría.** `Category.teams` devuelve todas las inscripciones de la
+  categoría con su `status`. Filtrar por "participa" sería una regla en el adaptador; cada pantalla
+  muestra u oculta según el estado.
+- **OQ-2 — GraphiQL.** Se habilita sólo con el perfil `dev`, el de la demo con datos de demostración.
+  En los demás perfiles queda sólo `/graphql`.
+- **OQ-3 — Categoría sin tabla.** `Category.standings` sin tabla generada es `null` con un error
+  `NOT_FOUND` cuyo `path` identifica la categoría (AC-11): es la misma excepción de `GetStandings` y el
+  adaptador no decide en silencio qué ausencias son normales.

@@ -1,0 +1,39 @@
+"""
+API GraphQL de consulta de RoboLeague. Es de solo lectura: crear, capturar, corregir, publicar y apelar
+siguen siendo operaciones de la API REST. Los ids son los mismos que usa REST (COMPETITION-1, CATEGORY-2…).
+"""
+type Query {
+  "Una competencia con sus categorías."
+  competition(id: ID!): Competition
+}
+
+"Una competencia de la temporada."
+type Competition {
+  id: ID!
+  name: String!
+  period: Period!
+  "Versión del reglamento vigente, por ejemplo `v2`."
+  activeRulebookVersion: String!
+  categories: [Category!]!
+}
+
+"Un período de días, ambos inclusive, en formato ISO-8601 (`2026-03-01`)."
+type Period {
+  start: String!
+  end: String!
+}
+
+"Una categoría de la competencia."
+type Category {
+  id: ID!
+  name: String!
+  ageRange: AgeRange!
+  "Clase de robot admitida, por ejemplo `RESCUE_BOT`."
+  robotClass: String!
+}
+
+"Edades admitidas, en años cumplidos, ambas inclusive."
+type AgeRange {
+  minimumYears: Int!
+  maximumYears: Int!
+}
