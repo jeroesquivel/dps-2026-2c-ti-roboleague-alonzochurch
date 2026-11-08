@@ -481,3 +481,31 @@ Los repositorios, la bitácora y el generador de ids son puertos del dominio (`*
 
 Para correr con PostgreSQL: `docker compose up -d db` y arrancar el backend con `--spring.profiles.active=postgres`.
 Los tests usan H2 en modo PostgreSQL, así que no necesitan Docker.
+
+## API GraphQL de consulta
+
+GraphQL es un segundo adaptador de entrada que convive con REST y reutiliza los mismos puertos y
+adaptadores de persistencia:
+
+```text
+cliente --POST /graphql--> resolvers + tipos GraphQL
+                              |
+                              | puertos de entrada
+                              v
+                         application + domain
+```
+
+El contrato vive en `backend/src/main/resources/graphql/schema.graphqls`; los controllers, mappers y
+records propios viven bajo `adapter.in.graphql`. No importan DTOs REST, repositorios, infraestructura,
+configuración ni interactors concretos. `BackendBoundariesTest` verifica esos límites en ambos
+sentidos.
+
+Los resolvers se organizan por tipo (`competition`, `team`, `round`, `run`, `standings`) y sólo
+coordinan puertos y traducción. `DomainErrorResolver` unifica errores; `PointsScalar` conserva la
+precisión decimal. Para relaciones de equipo, `TeamBatchLoader` agrupa ids con
+`FindTeamRegistrations` y mantiene caché durante una única petición.
+
+El alcance es de sólo lectura: crear, capturar, corregir, publicar y apelar siguen siendo REST. No se
+incorporan mutaciones, subscriptions, paginación, autenticación ni cliente GraphQL en el frontend.
+Las diferencias prácticas entre ambos contratos están documentadas en
+`.docs/graphql-vs-rest.md`.

@@ -41,11 +41,12 @@ class TeamBatchLoadingTest {
               standings(competitionId: $competitionId, categoryId: $categoryId) { entries { team { name } } }
             }""";
 
-    /** El mismo equipo en dos niveles: en la tabla (nivel 3) y en los turnos de las rondas (nivel 5). */
-    private static final String TABLE_AND_HEATS = """
+    /** El mismo equipo en dos niveles: en la tabla y en las corridas anidadas de ese equipo. */
+    private static final String TABLE_AND_RUN_TEAMS = """
             query ($competitionId: ID!, $categoryId: ID!) {
-              standings(competitionId: $competitionId, categoryId: $categoryId) { entries { team { name } } }
-              competition(id: $competitionId) { categories { rounds { heats { team { name } } } } }
+              standings(competitionId: $competitionId, categoryId: $categoryId) {
+                entries { team { name results { runs { team { name } } } } }
+              }
             }""";
 
     @Autowired HttpGraphQlTester graphQl;
@@ -99,7 +100,7 @@ class TeamBatchLoadingTest {
 
     @Test
     void aTeamThatAppearsAgainInTheSameRequestIsNotLoadedTwice() {
-        query(TABLE_AND_HEATS).path("competition.categories[0].rounds[0].heats[*].team.name")
+        query(TABLE_AND_RUN_TEAMS).path("standings.entries[*].team.results[0].runs[0].team.name")
                 .entityList(String.class).containsExactly("Alpha Bots", "Delta Bots", "Omega Crew");
 
         assertEquals(List.of(teams), counting(batch).calls());

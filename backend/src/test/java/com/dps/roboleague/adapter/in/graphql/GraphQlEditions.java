@@ -13,6 +13,7 @@ import com.dps.roboleague.rules.challenge.AttemptNumber;
 import com.dps.roboleague.rules.challenge.MeasurementSet;
 import com.dps.roboleague.rules.challenge.MetricValue;
 import com.dps.roboleague.rules.port.in.CreateCompetition;
+import com.dps.roboleague.rules.port.in.PublishRulebook;
 import com.dps.roboleague.rules.rulebook.RulebookDraft;
 import com.dps.roboleague.rules.scoring.JudgeEvaluation;
 import com.dps.roboleague.rules.scoring.JudgeEvaluations;
@@ -52,6 +53,7 @@ final class GraphQlEditions {
 
     private final CreateSeason createSeason;
     private final CreateCompetition createCompetition;
+    private final PublishRulebook publishRulebook;
     private final RegisterTeam registerTeam;
     private final ScheduleRound scheduleRound;
     private final CaptureRunResult captureRunResult;
@@ -59,12 +61,13 @@ final class GraphQlEditions {
     private final RegisterAutomaticMeasurements registerAutomaticMeasurements;
     private final RegisterPanelEvaluations registerPanelEvaluations;
 
-    GraphQlEditions(CreateSeason createSeason, CreateCompetition createCompetition, RegisterTeam registerTeam,
-            ScheduleRound scheduleRound, CaptureRunResult captureRunResult, GenerateStandings generateStandings,
-            RegisterAutomaticMeasurements registerAutomaticMeasurements,
+    GraphQlEditions(CreateSeason createSeason, CreateCompetition createCompetition, PublishRulebook publishRulebook,
+            RegisterTeam registerTeam, ScheduleRound scheduleRound, CaptureRunResult captureRunResult,
+            GenerateStandings generateStandings, RegisterAutomaticMeasurements registerAutomaticMeasurements,
             RegisterPanelEvaluations registerPanelEvaluations) {
         this.createSeason = createSeason;
         this.createCompetition = createCompetition;
+        this.publishRulebook = publishRulebook;
         this.registerTeam = registerTeam;
         this.scheduleRound = scheduleRound;
         this.captureRunResult = captureRunResult;
@@ -145,6 +148,10 @@ final class GraphQlEditions {
 
     void generateStandings(Edition edition) {
         generateStandings.execute(new GenerateStandings.Command(edition.competitionId(), edition.junior(), ORGANIZER));
+    }
+
+    void publishRulebook(Edition edition, RulebookDraft rulebook) {
+        publishRulebook.execute(new PublishRulebook.Command(edition.competitionId(), rulebook, ORGANIZER));
     }
 
     private TeamId register(Edition edition, String name, Robot robot) {

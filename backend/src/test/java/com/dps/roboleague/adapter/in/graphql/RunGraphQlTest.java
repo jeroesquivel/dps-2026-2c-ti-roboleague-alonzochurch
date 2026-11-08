@@ -1,5 +1,6 @@
 package com.dps.roboleague.adapter.in.graphql;
 
+import com.dps.roboleague.adapter.in.web.run.RunScoreResponse;
 import com.dps.roboleague.rules.scoring.BonusCap;
 import com.dps.roboleague.shared.RoundId;
 import com.dps.roboleague.shared.RunId;
@@ -12,9 +13,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.graphql.test.autoconfigure.tester.AutoConfigureHttpGraphQlTester;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.graphql.test.tester.GraphQlTester;
 import org.springframework.graphql.execution.ErrorType;
 import org.springframework.graphql.test.tester.HttpGraphQlTester;
+import org.springframework.web.client.RestClient;
 
 /** Etapa 6: raíces de equipo/ronda/corrida y el recorrido anidado hasta el desglose del puntaje. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -24,6 +28,7 @@ class RunGraphQlTest {
 
     @Autowired HttpGraphQlTester graphQl;
     @Autowired GraphQlEditions editions;
+    @LocalServerPort int port;
 
     @Test
     void returnsTeamResultsGroupedAndOrderedByRoundWithEveryRunScore() {
@@ -33,8 +38,10 @@ class RunGraphQlTest {
         RoundId first = editions.scheduleRound(edition, 1, List.of(team));
         editions.capture(second, team, 1, 3);
         RunId run = editions.capture(first, team, 1, 5);
+        RunScoreResponse rest = RestClient.create("http://localhost:" + port).get()
+                .uri("/runs/{runId}/score", run.value()).retrieve().body(RunScoreResponse.class);
 
-        graphQl.document("""
+        GraphQlTester.Response response = graphQl.document("""
                         query ($id: ID!) {
                           team(id: $id) {
                             name category { name }
@@ -46,7 +53,8 @@ class RunGraphQlTest {
                             }
                           }
                         }""")
-                .variable("id", team.value()).execute()
+                .variable("id", team.value()).execute();
+        response
                 .path("team.name").entity(String.class).isEqualTo("Alpha Bots")
                 .path("team.category.name").entity(String.class).isEqualTo("Junior")
                 .path("team.results[*].round.ordinal").entityList(Integer.class).containsExactly(1, 2)
@@ -58,10 +66,23 @@ class RunGraphQlTest {
                 .path("team.results[0].runs[0].score.completionStatus").entity(String.class).isEqualTo("COMPLETE")
                 .path("team.results[0].runs[0].score.missingSources").entityList(String.class).hasSize(0)
                 .path("team.results[0].runs[0].score.rulebookVersion").entity(String.class).isEqualTo("v1")
-                .path("team.results[0].runs[0].score.total").entity(BigDecimal.class).satisfies(value -> {
-                    if (value.signum() <= 0) throw new AssertionError("the score must be positive");
+                .path("team.results[0].runs[0].score.total").entity(BigDecimal.class)
+                .satisfies(value -> assertAmount(rest.total().toPlainString(), value))
+                .path("team.results[0].runs[0].score.contributions[*].ruleCode").entityList(String.class)
+                .satisfies(values -> {
+                    List<String> expected = rest.contributions().stream()
+                            .map(RunScoreResponse.ContributionResponse::ruleCode).toList();
+                    if (!values.equals(expected)) throw new AssertionError("different contribution codes");
                 })
-                .path("team.results[0].runs[0].score.contributions").entityList(Object.class).hasSizeGreaterThan(0);
+                .path("team.results[0].runs[0].score.contributions[*].points").entityList(BigDecimal.class)
+                .satisfies(values -> {
+                    List<BigDecimal> expected = rest.contributions().stream()
+                            .map(RunScoreResponse.ContributionResponse::points).toList();
+                    if (values.size() != expected.size()) throw new AssertionError("different contribution count");
+                    for (int index = 0; index < values.size(); index++) {
+                        assertAmount(expected.get(index).toPlainString(), values.get(index));
+                    }
+                });
     }
 
     @Test
@@ -103,11 +124,12 @@ class RunGraphQlTest {
                 .path("run.score.bySource").valueIsNull();
 
         editions.registerPanel(round, team, 1);
-        graphQl.document("""
+        GraphQlTester.Response completed = graphQl.document("""
                         query ($id: ID!) { run(id: $id) { score { completionStatus total
                           bySource { sources { source subtotal contributions { points } }
                                      acrossSources { subtotal contributions { points } } } } } }
-                        """).variable("id", run.value()).execute()
+                        """).variable("id", run.value()).execute();
+        completed
                 .path("run.score.completionStatus").entity(String.class).isEqualTo("COMPLETE")
                 .path("run.score.bySource.sources[*].source").entityList(String.class)
                 .containsExactly("AUTOMATIC", "JUDGES")
@@ -116,6 +138,13 @@ class RunGraphQlTest {
                 .satisfies(value -> {
                     if (value.compareTo(BigDecimal.ZERO) != 0) throw new AssertionError("expected zero");
                 });
+        completed.path("run.score.total").entity(BigDecimal.class).satisfies(total ->
+                completed.path("run.score.bySource.sources[*].subtotal").entityList(BigDecimal.class)
+                        .satisfies(subtotals -> completed.path("run.score.bySource.acrossSources.subtotal")
+                                .entity(BigDecimal.class).satisfies(across -> {
+                                    BigDecimal recomposed = subtotals.stream().reduce(across, BigDecimal::add);
+                                    assertAmount(total.toPlainString(), recomposed);
+                                })));
     }
 
     @Test
@@ -146,6 +175,24 @@ class RunGraphQlTest {
                         && "NOT_FOUND".equals(error.getExtensions().get("code"))
                         && List.of("team").equals(error.getParsedPath())).verify()
                 .path("team").valueIsNull();
+    }
+
+    @Test
+    void scoresWithTheRulebookVersionFixedWhenTheRoundWasScheduled() {
+        GraphQlEditions.Edition edition = editions.create("Historical Rules Cup");
+        TeamId team = editions.registerEligible(edition, "Alpha Bots");
+        RoundId round = editions.scheduleRound(edition, 1, List.of(team));
+        RunId run = editions.capture(round, team, 1, 5);
+        editions.publishRulebook(edition, RescueEditionFixture.rulebook());
+
+        graphQl.document("query ($id: ID!) { run(id: $id) { score { rulebookVersion total } } }")
+                .variable("id", run.value()).execute()
+                .path("run.score.rulebookVersion").entity(String.class).isEqualTo("v1")
+                .path("run.score.total").entity(BigDecimal.class).satisfies(value -> {
+                    RunScoreResponse rest = RestClient.create("http://localhost:" + port).get()
+                            .uri("/runs/{runId}/score", run.value()).retrieve().body(RunScoreResponse.class);
+                    assertAmount(rest.total().toPlainString(), value);
+                });
     }
 
     private static void assertAmount(String expected, BigDecimal actual) {

@@ -53,6 +53,8 @@ Leer únicamente las skills relacionadas con el cambio solicitado:
   [`.agents/skills/core/evolve-core/SKILL.md`](.agents/skills/core/evolve-core/SKILL.md).
 - Endpoints y adaptación HTTP con Spring Boot:
   [`.agents/skills/backend/add-rest-endpoint/SKILL.md`](.agents/skills/backend/add-rest-endpoint/SKILL.md).
+- Consultas y resolvers GraphQL con Spring for GraphQL:
+  [`.agents/skills/backend/add-graphql-resolver/SKILL.md`](.agents/skills/backend/add-graphql-resolver/SKILL.md).
 - Flujos de interfaz web:
   [`.agents/skills/frontend/implement-flow/SKILL.md`](.agents/skills/frontend/implement-flow/SKILL.md).
 

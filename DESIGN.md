@@ -2136,3 +2136,47 @@ consulta que lo necesite); `@Transactional` en los interactors (acopla el núcle
 
 **Consecuencia:** sólo se puede buscar por las columnas que se extraen del documento; una consulta
 nueva por un dato interno del agregado exige una columna o un índice nuevo en una migración.
+
+## 11. API GraphQL de consulta
+
+**Patrón / principio:** adaptador de entrada hexagonal, Dependency Inversion, Interface Segregation,
+DataLoader con carga por lotes y caché por petición, y traducción centralizada de excepciones.
+
+**Dónde:** `backend/.../adapter/in/graphql`, `backend/src/main/resources/graphql/schema.graphqls` y
+los puertos de consulta de cada contexto. Los resolvers dependen exclusivamente de interfaces
+`port.in`; sus records y mappers son propios y no conocen los DTOs REST.
+
+**Schema first y sólo lectura.** Spring for GraphQL se eligió por su integración con Spring Boot y el
+esquema se define antes que los resolvers. GraphQL compone competencias, categorías, equipos, rondas,
+corridas, puntajes y posiciones; no expone mutaciones. REST conserva todas las escrituras. Se
+descartó reutilizar DTOs web o serializar agregados porque acoplaría dos adaptadores y expondría por
+accidente integrantes, documentos, auditoría y otros datos fuera del contrato.
+
+**Puertos orientados a consumidores concretos.** `FindCategoryTeams`, `FindCategoryRounds`,
+`FindRoundRuns` y `FindTeamRuns` existen porque un campo del esquema los consume. El puerto
+`FindTeamRegistrations` carga un conjunto tipado de ids y permite que el adaptador resuelva equipos
+sin consultar repositorios. No se creó un modelo de lectura separado: las consultas devuelven
+agregados inmutables y los mappers proyectan sólo los campos públicos. CQRS sigue descartado (5.2).
+
+**N+1 tratado en equipos.** `TeamBatchLoader` agrupa los equipos solicitados por
+`StandingEntry.team`, `Run.team` y `Heat.team` en una llamada a `FindTeamRegistrations`; con JPA se
+traduce a un `SELECT ... IN`. La caché pertenece al `DataLoader` de una petición: reutiliza un equipo
+que reaparece en otro nivel, pero nunca comparte datos entre clientes. `TeamBatchLoadingTest` usa
+decoradores contadores sobre los puertos y demuestra una llamada de lote y cero individuales. Se
+descartaron las estadísticas de Hibernate porque medirían un adaptador particular y no el contrato.
+
+**Deuda deliberada.** `Run.score` carga el reglamento por corrida y `Team.results → round` resuelve
+cada ronda por separado. No se agregaron lotes sin evidencia de necesidad adicional. Además, cada
+resolver abre su propia transacción: una consulta anidada no lee una única foto transaccional.
+
+**Errores y precisión.** `DomainErrorResolver` traduce la jerarquía del dominio al mismo `code` que
+REST y deja que GraphQL preserve datos parciales y el `path` del campo fallido. `PointsScalar`
+serializa `BigDecimal` directamente para no perder precisión pasando por `Float`.
+
+**Patrón no aplicado: Observer / subscriptions.** La actualización en vivo de posiciones era
+opcional y no hay eventos de dominio ni bus de publicación (5.3). Implementar una subscription sólo
+para la tecnología obligaría a inventar ese mecanismo y a definir entrega, reintentos y consistencia
+sin un requisito. Las consultas son bajo demanda y el frontend no incorpora un cliente GraphQL.
+
+La comparación de peticiones y sobre/subconsulta para dos clientes concretos está en
+`.docs/graphql-vs-rest.md`.

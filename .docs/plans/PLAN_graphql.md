@@ -103,7 +103,7 @@ rechazo, auditoría, temporadas, apelaciones ni paginación.
 | `FindTeamRegistrations` (lote) | enrollment | `TeamRegistrationRepository.findAllById(Set)` (nuevo) | DataLoader: `StandingEntry.team`, `Run.team` |
 | `FindCategoryRounds` | scheduling | `RoundRepository.findByCategory` (existe) | `Category.rounds` |
 | `FindRoundRuns` | results | `RunResultRepository.findByRound` (existe) | `Round.runs` |
-| `FindTeamRuns` | results | `RunResultRepository.findByTeam` (nuevo, índice en Flyway `V2`) | `Team.results` |
+| `FindTeamRuns` | results | `RunResultRepository.findByTeam` (nuevo, índice en Flyway `V3`) | `Team.results` |
 
 Cada método nuevo de repositorio se implementa en memoria y en JPA y se cubre con su test de contrato.
 

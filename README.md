@@ -72,6 +72,40 @@ Bots, Omega Crew y Sigma Works), rondas `ROUND-1` a `ROUND-6`. No se generan pos
 desde la API o la pantalla. La corrida de SHOWCASE de Omega Crew queda pendiente (falta el jurado), así
 que publicar da conflicto hasta que se complete. Sin el perfil `dev` no se carga nada.
 
+## API GraphQL de consulta
+
+Spec: [`.docs/specs/SPEC_api-graphql.md`](.docs/specs/SPEC_api-graphql.md). GraphQL convive con REST:
+atiende consultas de solo lectura en `POST /graphql`; las escrituras continúan en las rutas REST. El
+esquema está en [`schema.graphqls`](backend/src/main/resources/graphql/schema.graphqls) y permite
+consultar `competition`, `team`, `round`, `run` y `standings`, además de recorrer sus relaciones.
+
+Con el perfil `dev`, GraphiQL queda disponible en `http://localhost:8080/graphiql`. En los demás
+perfiles la consola está deshabilitada, pero `POST /graphql` continúa disponible.
+
+```graphql
+query TeamResults($teamId: ID!) {
+  team(id: $teamId) {
+    name
+    results {
+      round { ordinal }
+      runs {
+        attemptNumber
+        score { total contributions { ruleCode points } }
+      }
+    }
+  }
+}
+```
+
+Los puntos usan el escalar `Points`, que conserva el decimal sin convertirlo a `Float`. Una corrida
+mixta pendiente informa `completionStatus: PENDING` y `missingSources`; `total`, `contributions`,
+`bonusCap` y `bySource` son `null`. Los errores del dominio aparecen en `errors` con `message`, `path`,
+`extensions.classification` y el mismo `extensions.code` que REST.
+
+Las relaciones `StandingEntry.team`, `Run.team` y `Heat.team` usan un `DataLoader`: los equipos de un
+mismo nivel se solicitan por lote y la caché dura una petición. La comparación detallada de cantidad
+de peticiones y datos transferidos está en [GraphQL frente a REST](.docs/graphql-vs-rest.md).
+
 ## API: equipos
 
 Spec: [`.docs/specs/SPEC_registrar-equipo.md`](.docs/specs/SPEC_registrar-equipo.md). El controller
