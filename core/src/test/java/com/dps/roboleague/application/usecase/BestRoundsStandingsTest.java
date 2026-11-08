@@ -122,6 +122,21 @@ class BestRoundsStandingsTest {
     }
 
     @Test
+    void aRulebookPublishedBeforeGeneratingDoesNotChangeTheBestRoundsOfTheRoundsAlreadyPlayed() {
+        publishRescueCountingBestRounds(2, 3);
+        playRescueRounds(List.of(alpha), new int[] {5, 5, 1});
+        RulebookVersion bestThree = publishRescueCountingBestRounds(3, 3);
+
+        Standings standings = generate();
+
+        assertEquals(bestThree, standings.rulebookVersion());
+        assertEquals(Points.of(100), totalOf(standings, alpha));
+        assertEquals(List.of(RoundStatus.COUNTED, RoundStatus.COUNTED, RoundStatus.DISCARDED),
+                statusesOf(selectionOf(standings, alpha)));
+        assertEquals("the best 2 of 3 rounds of challenge RESCUE (rulebook v2)", selectionOf(standings, alpha).description());
+    }
+
+    @Test
     void theScoreOfARunInADiscardedRoundDoesNotChange() {
         publishRescueCountingBestRounds(2, 3);
         RunId discarded = playRescueRounds(List.of(alpha), new int[] {5, 5, 1}).getFirst().get(2);

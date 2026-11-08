@@ -15,13 +15,14 @@ aplicar junto con sus consecuencias.
 | Lado | Paquete | Contenido | Depende de |
 | --- | --- | --- | --- |
 | Núcleo: dominio | `<contexto>.*` (`shared`, `enrollment`, `rules`, `scheduling`, `results`, `appeals`) | Entidades, value objects, reglas, servicios de dominio y **todos los puertos**: los de entrada (`<contexto>.port.in`) y los de salida (repositorios, `AuditLog` e `IdGenerator`, en el paquete de cada agregado) | Nada fuera del dominio y del JDK |
-| Núcleo: aplicación | `application.usecase` | Interactors (`*UseCase`) que implementan los puertos de entrada y coordinan | Dominio |
-| Adaptadores de salida | `infrastructure.memory`, `infrastructure.id` | Repositorios y bitácora en memoria, generador de ids secuencial | Núcleo |
-| Adaptadores de entrada | `demo`, `Main` y los tests | Invocan los puertos de entrada | Núcleo |
-| Ensamblado | `infrastructure.config` | Composition root: elige los adaptadores y expone los puertos de entrada | Todo lo anterior |
+| Núcleo: aplicación | `<contexto>.application` | Interactors (`*UseCase`) que implementan los puertos de entrada y coordinan | Dominio |
+| Adaptadores de salida (módulo `backend`) | `infrastructure.memory`, `infrastructure.id`, `infrastructure.persistence` | Repositorios y bitácora en memoria o con JPA, generadores de ids (ver 10.7) | Núcleo |
+| Adaptadores de entrada (módulo `backend`) | `adapter.in.web`, `demo`, `Main` y los tests | Invocan los puertos de entrada | Núcleo |
+| Ensamblado (módulo `backend`) | `config` | Composition root de Spring: elige los adaptadores y expone los puertos de entrada (1.4) | Todo lo anterior |
 
 El núcleo es dueño de todos sus puertos y no importa ninguna clase de `infrastructure`, `demo` ni
-`Main`; dentro del núcleo, `domain` tampoco importa `application`. La dirección de las
+`Main`; dentro de cada contexto, el dominio tampoco importa sus casos de uso (`application`). Los
+contextos y sus límites se describen en 1.5. La dirección de las
 dependencias es siempre hacia el centro. Las reglas de negocio (puntaje, elegibilidad, desempates,
 conflictos de agenda, unicidad de intentos y de rondas, plazos de apelación, cierre de posiciones)
 quedan expresadas en clases que no conocen persistencia, frameworks ni una interfaz externa de
@@ -107,8 +108,9 @@ entrada, pero agregarle componentes también cambia su constructor y puede exigi
 y `CompetitionRepository`, `rules/rulebook/RulebookRepository`, `enrollment/team/TeamRegistrationRepository`,
 `scheduling/RoundRepository`, `results/result/RunResultRepository`,
 `results/ranking/StandingsRepository`, `appeals/AppealRepository`— igual que
-`shared/audit/AuditLog` y `shared/IdGenerator`. Las implementaciones están en
-`infrastructure/memory/*` e `infrastructure/id/*`.
+`shared/audit/AuditLog` y `shared/IdGenerator`. Las implementaciones están en el backend: en memoria
+(`infrastructure/memory/*`, `infrastructure/id/*`) y con JPA (`infrastructure/persistence/jpa/*`,
+`infrastructure/persistence/JdbcIdGenerator`), elegidas por configuración (ver 10.7).
 
 El gateway pertenece al negocio y sólo su implementación es un detalle: el dominio es dueño de sus
 repositorios. Por eso un servicio de dominio puede depender de ellos (`CategoryScoringService`, ver
@@ -124,9 +126,10 @@ Cuando el contrato de un puerto incluye una regla de negocio se verifica con un 
 abstracto que hereda cada adaptador:
 
 - `StandingsRepositoryContractTest` —"publicar reemplaza la revisión provisional, las anteriores no
-  se tocan"—, heredado por `InMemoryStandingsRepositoryTest`;
+  se tocan"—, heredado por `InMemoryStandingsRepositoryTest` y `JpaStandingsRepositoryTest`;
 - `RunResultRepositoryContractTest` —"no se guardan dos corridas para el mismo intento de un equipo
-  en una ronda"—, heredado por `InMemoryRunResultRepositoryTest` (ver 4.12).
+  en una ronda"—, heredado por `InMemoryRunResultRepositoryTest` y `JpaRunResultRepositoryTest` (ver
+  4.12).
 
 Un adaptador futuro debería reutilizarlos y sumar sus pruebas de integración. La firma del puerto
 por sí sola no impone esas políticas: el test fija el comportamiento esperado.
@@ -160,6 +163,54 @@ lo que sigue probando que el dominio funciona sin contenedor y permite usar un `
 
 **Alternativas descartadas:** conservar simultáneamente un composition root manual de producción y
 la configuración Spring; repositorios con estado mutable global o singletons fuera del contenedor.
+
+### 1.5 Contextos acotados dentro del núcleo, con límites verificados
+
+**Patrón / principio:** Bounded Context (DDD), principio de dependencias acíclicas, DIP entre
+contextos.
+
+**Dónde:** los paquetes raíz del módulo `core` y las pruebas de ArchUnit
+`core/.../architecture/ContextBoundariesTest` y `backend/.../architecture/BackendBoundariesTest`.
+
+La corrección de la Entrega 2 observó que separar `core` y `backend` en dos módulos Maven sólo
+controla una frontera (el backend importa el núcleo y no al revés) y no permite limitar los imports
+**entre partes del dominio**. Por eso el núcleo se dividió en seis contextos con un orden fijo:
+
+```text
+shared  <-  enrollment  <-  rules  <-  scheduling  <-  results  <-  appeals
+```
+
+| Contexto | Contiene |
+|---|---|
+| `shared` | Identificadores, `Points`, `TimeSlot`, `RulebookVersion`, excepciones y auditoría |
+| `enrollment` | Temporada, competencia y categorías; inscripción de equipos; elegibilidad |
+| `rules` | Reglamento, desafíos, reglas de puntaje y políticas de ranking (selección de rondas, agregación, desempates) |
+| `scheduling` | Rondas, turnos y conflictos de agenda |
+| `results` | Resultados de corridas y sus correcciones; tablas de posiciones |
+| `appeals` | Apelaciones |
+
+Cada contexto sólo conoce a los que están a su izquierda. Cuando necesita algo de uno que está a su
+derecha, declara un puerto y el otro lo implementa (DIP): `enrollment.eligibility.EligibilityRequirementsSource`
+lo implementa `rules.application.RulebookEligibilityRequirements`, y `results.ranking.PendingAppeals`
+lo implementa `appeals.application.AppealsPendingOnRuns`. Dentro de cada contexto, el dominio está en
+subpaquetes por agregado, los puertos de entrada en `port.in` y los interactors en `application`.
+
+Los límites son pruebas, no convenciones: `ContextBoundariesTest` exige que no haya ciclos entre
+contextos, que las dependencias vayan sólo hacia la izquierda, que el dominio no conozca los casos de
+uso y que el núcleo no conozca frameworks; `BackendBoundariesTest` exige que el negocio no conozca el
+backend y que los adaptadores web no formen ciclos ni toquen la infraestructura. Un import que cruza un
+límite hace fallar `mvn verify` y, por lo tanto, la integración continua.
+
+**Por qué:** la frontera de módulos Maven sigue siendo útil (Spring no está en el classpath del
+núcleo), pero no alcanza para los límites internos; ArchUnit los vuelve una garantía determinista en
+lugar de una instrucción.
+
+**Alternativas descartadas:** un módulo Maven por contexto (seis `pom.xml` más y la misma frontera que
+ArchUnit ya verifica, con más fricción de build); unir `core` y `backend` en un único módulo (los
+límites quedarían sólo en ArchUnit y se perdería la garantía de compilación de que el núcleo no ve
+Spring); dejar los límites como convención documentada (nada impide un import accidental). La
+correspondencia entre los paquetes anteriores (`domain/...`) y los contextos está en
+`architecture.md`.
 
 ## 2. Modelado del puntaje
 
@@ -856,10 +907,25 @@ agendar turnos en fechas ajenas al evento.
 `RunResult` guarda las mediciones e incidentes originales y un `CorrectionHistory`; las mediciones
 vigentes son las de la última corrección del historial. El historial exige orden cronológico: una
 corrección no puede ser anterior a la previa. Cada corrección registra momento, responsable (`Actor`),
-motivo y la apelación que la originó (`AppealId sourceAppeal`, obligatorio: hoy toda corrección nace
-de una apelación aceptada, así que no hace falta un `Optional` como campo). Una corrección no puede
-ser anterior a la captura. Las evaluaciones de jueces se conservan como fueron capturadas: el modelo
-de corrección actual modifica mediciones e incidentes, no esas evaluaciones.
+motivo, las mediciones, incidentes y evaluaciones vigentes a partir de ella y su origen
+(`CorrectionOrigin`, sellado): `AcceptedAppeal(appealId)` si la originó una apelación aceptada o
+`DataEntryError` si la organización corrige un error de carga sin reclamo. El origen siempre existe,
+así que no hace falta un `Optional<AppealId>` como campo. Una corrección no puede ser anterior a la
+captura.
+
+**Las evaluaciones de los jueces también se corrigen** (corrección de la Entrega 2: un error de carga
+del panel quedaba fijo para siempre). El pedido de corrección es un `ResultAmendment`: el conjunto
+completo de mediciones e incidentes y un `EvaluationsChange` sellado, `KeepEvaluations` o
+`ReplaceEvaluations`, que decide polimórficamente qué evaluaciones quedan vigentes. Las evaluaciones
+originales se conservan en la corrida, igual que las mediciones originales.
+
+**Dos vías de corrección, un solo mecanismo.** `AcceptAppealUseCase` corrige como consecuencia de una
+apelación aceptada; `CorrectResultUseCase` (puerto `CorrectResult`, `POST /runs/{runId}/corrections`)
+corrige un error de carga. Ambos delegan en `ResultCorrector`: validar la enmienda contra el
+reglamento de la corrida, guardar, auditar `RESULT_CORRECTED` con el origen y recalcular la tabla si
+existe. La corrección por error de carga procede sólo mientras la tabla de la categoría no sea final;
+lo decide `Standings.requireOpenToDataEntryCorrections` (ver 4.12). Después de publicada, el único
+camino para cambiar un resultado es una apelación, que deja un reclamo y una decisión trazables.
 
 **El agregado valida la captura y la corrección contra su desafío.**
 
@@ -868,10 +934,11 @@ de corrección actual modifica mediciones e incidentes, no esas evaluaciones.
   `ChallengeSpec` sea el de la ronda y valida límite de intentos, mediciones, incidentes y evaluaciones
   (`validateEvaluations(evaluations, heat.judges())`) antes de construirla, fijando ronda, turno y
   versión de reglamento. Antes esa secuencia de validaciones vivía en `CaptureRunResultUseCase`.
-- `RunResult.applyCorrection(correction, challenge)` rechaza el `ChallengeSpec` de otro desafío y
-  valida las mediciones e incidentes corregidos antes de devolver una corrida nueva con la corrección
-  en su historial (ver 4.11). Así no se puede corregir una corrida con datos que su propio desafío
-  rechazaría, aunque se llame al método por fuera de `AcceptAppealUseCase`.
+- `RunResult.applyCorrection(correction, challenge, round)` rechaza el `ChallengeSpec` de otro desafío
+  y valida las mediciones, incidentes y evaluaciones corregidos (estas, contra los jueces del turno)
+  antes de devolver una corrida nueva con la corrección en su historial (ver 4.11). Así no se puede
+  corregir una corrida con datos que su propio desafío rechazaría, aunque se llame al método por fuera
+  de los casos de uso de corrección.
 
 El constructor público de `RunResult` crea una corrida sin correcciones a partir de datos ya
 validados: es el que usaría un adaptador de persistencia para reconstituirla. El flujo de negocio
@@ -880,9 +947,8 @@ captura siempre con `RunResult.capture`.
 **Desafío mixto (4.13).** Un desafío mixto no se captura con `RunResult.capture`
 (`ChallengeSpec.requireSingleCapture`): la primera fuente abre la corrida con `RunResult.open` y la
 segunda la completa con `RunResult.receive`, ambas validadas contra el desafío antes de construir la
-corrida nueva. `RunResult.completion()` registra qué fuente llegó, quién la registró y cuándo; las
-evaluaciones del panel tampoco se corrigen en una corrida mixta y la corrección no puede ser anterior a
-la completitud.
+corrida nueva. `RunResult.completion()` registra qué fuente llegó, quién la registró y cuándo; la
+corrección de una corrida mixta sigue las mismas reglas y no puede ser anterior a la completitud.
 
 **Un intento se captura una sola vez.** `RoundResults`, la colección de corridas de una ronda,
 decide con `requireUnusedAttempt(teamId, attempt)` y lanza `ConflictException` si ese equipo ya tiene
@@ -1016,7 +1082,8 @@ Ningún concepto del dominio viaja como primitivo suelto:
 | `int ordinal` (ronda) / `int revision` (posiciones) | `RoundOrdinal` / `Revision` | positivos; `Revision.next()` |
 | `BigDecimal weightKg` | `Weight` | positivo, `exceeds(limit)` |
 | `String unit` + `boolean required` | `MetricUnit` + `MetricRequirement` | unidad no vacía; requerimiento con nombre |
-| `Optional<AppealId> sourceAppeal` en `ResultCorrection` | `AppealId` | toda corrección nace de una apelación |
+| `Optional<AppealId> sourceAppeal` en `ResultCorrection` | `CorrectionOrigin` (`AcceptedAppeal` / `DataEntryError`) | el origen siempre existe; desde la corrección por error de carga no siempre es una apelación (4.3) |
+| `Optional<SourcedScore>` y `Optional<BonusCapOutcome>` como campos de `CalculateRunScore.RunScore` | `RunScore` guarda el desafío y el contexto de puntaje; `bySource()` y `bonusCap()` devuelven `Optional` | sólo se guarda lo que siempre existe; lo que depende del desafío se obtiene de él |
 | `Optional<RulebookVersion>` en `Competition` y `FindCompetition.View` | `RulebookVersion` | la competencia nace con su reglamento (3.1) |
 | `boolean accepted` + `Optional<Correction>` en `ResolveAppeal.Command` | `AcceptAppeal` / `RejectAppeal` | la aceptación exige corrección (4.5) |
 | `Duration` suelta para el plazo de apelación | `AppealWindow` | positiva; `requireOpen(capturedAt, submittedAt)` |
@@ -1250,6 +1317,7 @@ Es el mismo criterio que ya seguía `Season.requireCompetitionPeriodInside` en `
 | Abrir o completar la corrida mixta del turno | (no existía) | `RoundResults.receive` → `RunResult.open` / `receive` |
 | Cada fuente una sola vez, completa y del desafío mixto | (no existía) | `RunCompletion.receive`, `ChallengeSpec.validateAutomaticSource` / `validatePanelSource`, `JudgeEvaluations.requireComplete` |
 | No puntuar, apelar ni publicar con corridas pendientes | (no existía) | `RunResult.requireCompletedAt`, `PendingRuns.requireNone` |
+| Con la tabla `FINAL`, un resultado sólo cambia por apelación | `if` en `CorrectResultUseCase` | `Standings.requireOpenToDataEntryCorrections` |
 
 **Concurrencia.** Verificar consultando el repositorio no escala a dos pedidos simultáneos: ambos
 pueden ver que el intento está libre y guardar. Por eso, además de la regla del dominio, el contrato
@@ -1260,7 +1328,10 @@ ronda, equipo e intento, el equivalente de una restricción única en una base d
 rechaza guardar una corrida que no conserve los recibos de fuente ya guardados, para que dos fuentes
 simultáneas de un desafío mixto nunca se pierdan en silencio (4.13). El ordinal de
 ronda, la superposición de temporadas, la generación única y las apelaciones duplicadas tienen la
-misma limitación; una persistencia real debería sumar restricciones equivalentes (ver sección 8).
+misma limitación. La persistencia JPA (10.7) suma restricciones únicas en el esquema para el intento
+(`uq_run_attempt`), la revisión de posiciones (`uq_standings_revision`) y la versión de reglamento
+(`uq_rulebook_version`); el ordinal de ronda, la superposición de temporadas y las apelaciones
+duplicadas siguen dependiendo sólo de la verificación del dominio.
 
 **Por qué:** los casos de uso coordinan y no deciden; las reglas quedan en el dominio, testeables sin
 repositorios, y los agregados dejan de ser anémicos en los bordes.
@@ -1367,9 +1438,9 @@ a sus posiciones. Generar y recalcular con pendientes está permitido (OQ-4); pu
 `ConflictException` contando cuántas corridas esperan cada fuente ("2 runs are still pending: 1
 waiting for AUTOMATIC, 1 waiting for JUDGES"), igual que con las apelaciones pendientes.
 
-**Correcciones y auditoría (FR-14, FR-15).** Una apelación aceptada corrige mediciones e incidentes
-como siempre; las evaluaciones del panel quedan como se registraron (4.3) y `validate` aplica a la
-corrección las reglas de la fuente automática. Cada registro deja un evento `RESULT_SOURCE_RECEIVED`
+**Correcciones y auditoría (FR-14, FR-15).** Una corrección, por apelación o por error de carga,
+reemplaza mediciones e incidentes y, si se pide, las evaluaciones del panel (4.3); `validate` aplica a
+la corrección las reglas de la fuente automática. Cada registro deja un evento `RESULT_SOURCE_RECEIVED`
 con `SOURCE`, los datos recibidos (`MEASUREMENTS`, o `EVALUATIONS` e `INCIDENTS`), `STATUS` y
 `RULEBOOK`; el `STATUS = COMPLETE` del evento de la segunda fuente es la constancia de que la corrida
 quedó completa.
@@ -1556,14 +1627,16 @@ testeables y depurables; un intérprete propio hubiera agregado una complejidad 
 necesita. La interfaz `ScoringRule` deja la puerta abierta a agregar un adaptador que construya reglas
 desde datos.
 
-### 5.8 Persistencia real, API REST y seguridad
+### 5.8 Autenticación y autorización
 
-Fuera del alcance de esta entrega según la consigna. Los adaptadores en memoria existen para poder
-ejecutar y probar el dominio de punta a punta.
+En la Entrega 1 esta sección dejaba fuera de alcance la persistencia real, la API REST y la
+seguridad. Las dos primeras se incorporaron en la Entrega 2 como adaptadores (sección 10 y 10.7).
+Sigue sin aplicarse seguridad: el `Actor` de auditoría llega como dato de la petición y no se
+autentica.
 
-**Consecuencia:** no hay transaccionalidad ni concurrencia global: un caso de uso que escribe en
-varios repositorios no es atómico. Los puertos existentes permiten sustituir el almacenamiento,
-pero una integración real también deberá resolver mapeo, transacciones, concurrencia y fallos.
+**Consecuencia:** cualquiera que acceda a la API puede operar en nombre de cualquier actor, y la
+auditoría registra quién dice ser, no quién es. Incorporarla cambiaría sólo la forma en que el
+adaptador web obtiene el `Actor` antes de crear el command; puertos, casos de uso y reglas no cambian.
 
 ### 5.9 Métodos en las interfaces "por si acaso"
 
@@ -2024,3 +2097,42 @@ intento) y el modo de captura son decisiones de `ChallengeSpec`.
 **Los identificadores de corrida se consumen aunque la captura se rechace.** Los casos de uso piden el
 `RunId` antes de validar, de modo que un rechazo deja un hueco en la secuencia. No se modificó el núcleo
 por esto: la spec exige que no se cree otra corrida, no que los ids sean contiguos.
+
+### 10.7 Persistencia con JPA
+
+**Patrón / principio:** Repository (adaptadores de salida), Decorator (una transacción por caso de
+uso), selección de adaptadores por configuración.
+
+**Dónde:** `backend/.../infrastructure/persistence/jpa/*` (`*Row`, `*Rows`, `Jpa*Repository`),
+`infrastructure/persistence/AggregateJson`, `JdbcIdGenerator` y `TransactionalUseCases`;
+`config/JpaPersistenceConfig` e `InMemoryPersistenceConfig`; `db/migration/V1__initial_schema.sql`.
+
+Corrige la observación de la Entrega 2 (faltaba persistencia real). La propiedad
+`roboleague.persistence` elige los adaptadores: `memory` (por defecto: desarrollo, demo y la mayoría de
+los tests) o `jpa`, que el perfil `postgres` activa contra PostgreSQL. Los tests de JPA usan H2 en modo
+PostgreSQL, así que no necesitan Docker.
+
+- **El dominio no tiene anotaciones.** Cada agregado se guarda como un documento JSON (`AggregateJson`)
+  en la columna `payload` de su tabla, junto con las columnas por las que se lo busca (`competition_id`,
+  `round_id`, `revision`…). Las entidades JPA y los repositorios de Spring Data son un detalle del
+  paquete `jpa`; los adaptadores `Jpa*Repository` traducen entre el dominio y las filas.
+- **El esquema lo crea Flyway** con SQL estándar que corre igual en PostgreSQL y en H2; Hibernate no
+  toca el esquema (`ddl-auto: none`).
+- **Cada caso de uso es una transacción.** `TransactionalUseCases` decora los puertos de entrada con un
+  proxy: si el caso de uso lanza una excepción del dominio se deshace todo lo guardado. Resuelve la
+  falta de atomicidad que 5.8 señalaba para los casos de uso que escriben en varios repositorios. El
+  núcleo no conoce `@Transactional`.
+- **Los ids sobreviven a un reinicio:** `JdbcIdGenerator` lleva los contadores en la tabla `id_counter`.
+- **Las reglas de los repositorios son las mismas:** los adaptadores JPA heredan los tests de contrato
+  de sus puertos (1.3) y el esquema suma restricciones únicas equivalentes (4.12).
+
+**Por qué:** el dominio ya era dueño de sus puertos (1.3); la persistencia real es un adaptador más y
+no cambió ninguna regla. Guardar el agregado completo evita mapear decenas de value objects a tablas y
+mantiene la reconstitución en un solo lugar.
+
+**Alternativas descartadas:** anotar el dominio con JPA (viola la regla de dependencia y obliga a
+constructores vacíos y campos mutables); un esquema normalizado por value object (mucho mapeo sin una
+consulta que lo necesite); `@Transactional` en los interactors (acopla el núcleo a Spring).
+
+**Consecuencia:** sólo se puede buscar por las columnas que se extraen del documento; una consulta
+nueva por un dato interno del agregado exige una columna o un índice nuevo en una migración.

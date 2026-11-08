@@ -315,8 +315,8 @@ estable.
 
 Spec: [`.docs/specs/SPEC_capturar-resultados.md`](.docs/specs/SPEC_capturar-resultados.md). `RunController`
 invoca los puertos `CaptureRunResult`, `RegisterAutomaticMeasurements`, `RegisterPanelEvaluations` y
-`FindRunResult`. Un desafío común se captura en una operación; uno mixto (F3) recibe sus dos fuentes por
-separado y en cualquier orden.
+`FindRunResult`; la corrección por error de carga, `CorrectResult`. Un desafío común se captura en una
+operación; uno mixto (F3) recibe sus dos fuentes por separado y en cualquier orden.
 
 | Operación | Ruta | Respuesta |
 | --- | --- | --- |
@@ -324,6 +324,7 @@ separado y en cualquier orden.
 | Fuente automática (desafío mixto) | `POST /runs/automatic-measurements` | `201` si abre la corrida, `200` si la completa |
 | Fuente de jueces (desafío mixto) | `POST /runs/panel-evaluations` | `201` si abre la corrida, `200` si la completa |
 | Consultar una corrida | `GET /runs/{runId}` | `200` |
+| Corregir un error de carga | `POST /runs/{runId}/corrections` | `200` con la corrida `CORRECTED` |
 
 Todas devuelven el mismo cuerpo que `GET /runs/{runId}` (ver [API: apelaciones y
 corridas](#api-apelaciones-y-corridas)), con `evaluations` además de mediciones e incidentes. Las dos
@@ -360,20 +361,44 @@ fuentes de un mismo equipo, ronda e intento operan sobre el mismo `runId`.
   completa en uno mixto) dan `422 RULE_VIOLATION`. Campos faltantes o valores inválidos dan
   `400 INVALID_VALUE`; una ronda o corrida inexistente, `404`.
 
+### Corrección por error de carga
+
+La organización corrige lo que se cargó mal (una medición, un incidente o la nota de un juez) sin que
+medie una apelación. Como en la aceptación de una apelación, `measurements` e `incidents` son el
+**conjunto completo** que reemplaza al vigente. `evaluations` es opcional: si falta, las evaluaciones
+de los jueces se conservan; si viene, es el conjunto completo que las reemplaza.
+
+```json
+// POST /runs/RUN-1/corrections
+{"reason": "a judge typed 8 instead of 10",
+ "measurements": {"TIME": 95.5, "OBJECTIVES": 4, "ENERGY": 42},
+ "incidents": [],
+ "evaluations": [{"judgeId": "J1", "criterion": "DESIGN", "score": 10},
+                 {"judgeId": "J2", "criterion": "DESIGN", "score": 9}],
+ "actor": "organizer"}
+```
+
+La corrección se agrega al historial de la corrida con origen `DATA_ENTRY_ERROR` (el original se
+conserva), se audita como `RESULT_CORRECTED` y, si la categoría ya tiene posiciones, genera una
+revisión `PROVISIONAL` nueva. Se valida contra el reglamento fijado en la corrida: una métrica,
+penalidad o juez fuera del desafío da `422 RULE_VIOLATION`. Una vez que las posiciones de la categoría
+son `FINAL`, un resultado sólo cambia por una apelación: la corrección da `409 CONFLICT`. Una corrida
+inexistente da `404`.
+
 ## API: apelaciones y corridas
 
 Spec: [`.docs/specs/SPEC_gestionar-apelaciones.md`](.docs/specs/SPEC_gestionar-apelaciones.md). Los
 controllers invocan los puertos `SubmitAppeal`, `FindAppeal`, `AcceptAppeal`, `RejectAppeal`,
 `FindRunResult` y `CalculateRunScore`. Aceptar y rechazar son recursos distintos (no hay un endpoint
-con un indicador que combine ambas decisiones) y la corrección de una corrida entra sólo por
-`AcceptAppeal`, que valida contra el reglamento fijado en la corrida y recalcula las posiciones si ya
-existen.
+con un indicador que combine ambas decisiones). Aceptar exige la corrección de la corrida, que se
+valida contra el reglamento fijado en ella y recalcula las posiciones si ya existen. La otra vía de
+corrección es un error de carga (ver [Corrección por error de carga](#corrección-por-error-de-carga)).
 
 | Operación | Ruta | Cuerpo | Respuesta |
 | --- | --- | --- | --- |
 | Presentar una apelación | `POST /appeals` | `{"runId", "teamId", "claim", "actor"}` | `201` `{"appealId"}` y `Location: /appeals/{appealId}` |
 | Consultar una apelación | `GET /appeals/{appealId}` | — | `200` con la apelación |
-| Aceptar | `POST /appeals/{appealId}/acceptance` | `{"rationale", "correctedMeasurements", "correctedIncidents", "reviewer"}` | `200` con la apelación `ACCEPTED` |
+| Aceptar | `POST /appeals/{appealId}/acceptance` | `{"rationale", "correctedMeasurements", "correctedIncidents", "correctedEvaluations"?, "reviewer"}` | `200` con la apelación `ACCEPTED` |
 | Rechazar | `POST /appeals/{appealId}/rejection` | `{"rationale", "reviewer"}` | `200` con la apelación `REJECTED` |
 | Consultar una corrida | `GET /runs/{runId}` | — | `200` con el detalle de la corrida |
 | Consultar su puntaje | `GET /runs/{runId}/score` | — | `200` con el puntaje explicado |
@@ -393,7 +418,9 @@ Una apelación tiene esta forma; `decision` es `null` mientras `status` es `SUBM
 ```
 
 Para aceptar se envía el **conjunto completo** de mediciones e incidentes que reemplaza al resultado
-vigente, no diferencias; `correctedIncidents` puede ser `[]` pero no puede faltar:
+vigente, no diferencias; `correctedIncidents` puede ser `[]` pero no puede faltar. `correctedEvaluations`
+es opcional: si falta, las evaluaciones de los jueces se conservan; si viene, es el conjunto completo
+que las reemplaza:
 
 ```json
 {
@@ -406,9 +433,10 @@ vigente, no diferencias; `correctedIncidents` puede ser `[]` pero no puede falta
 
 El detalle de una corrida (`GET /runs/{runId}`) trae `status` (`CAPTURED` o `CORRECTED`),
 `currentMeasurements`/`currentIncidents`, `originalMeasurements`/`originalIncidents` (el original se
-conserva siempre), `corrections` (cada una con `appliedAt`, `actor`, `reason`, sus mediciones e
-incidentes y la apelación de origen), `rulebookVersion`, `roundId`, `heatId`, `attemptNumber` y
-`evaluations` (las del panel, tal como se recibieron) y `completion` (`PENDING` o `COMPLETE`, fuentes esperadas, faltantes y recibidas). El puntaje se describe en [API: puntaje de una corrida](#api-puntaje-de-una-corrida).
+conserva siempre), `corrections` (cada una con `appliedAt`, `actor`, `reason`, sus mediciones,
+incidentes y evaluaciones, y su `origin`: `APPEAL` o `DATA_ENTRY_ERROR`), `rulebookVersion`, `roundId`,
+`heatId`, `attemptNumber`, `evaluations` (las vigentes) y `originalEvaluations` (las recibidas, que
+difieren sólo si una corrección las reemplazó) y `completion` (`PENDING` o `COMPLETE`, fuentes esperadas, faltantes y recibidas). El puntaje se describe en [API: puntaje de una corrida](#api-puntaje-de-una-corrida).
 
 Errores (mismo formato y tabla que el resto de la API): un equipo ajeno, una ventana vencida o una
 corrida incompleta dan `422 RULE_VIOLATION` y no guardan ni auditan nada; apelar dos veces la misma

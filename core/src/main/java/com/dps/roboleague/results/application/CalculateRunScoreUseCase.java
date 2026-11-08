@@ -4,7 +4,6 @@ import com.dps.roboleague.results.port.in.CalculateRunScore;
 import com.dps.roboleague.results.ranking.CategoryScoringService;
 import com.dps.roboleague.results.result.RunResult;
 import com.dps.roboleague.results.result.RunResultRepository;
-import com.dps.roboleague.rules.ranking.ScoredRun;
 import com.dps.roboleague.scheduling.Round;
 import com.dps.roboleague.scheduling.RoundRepository;
 import com.dps.roboleague.shared.NotFoundException;
@@ -28,9 +27,7 @@ public final class CalculateRunScoreUseCase implements CalculateRunScore {
                 .orElseThrow(() -> NotFoundException.of("RunResult", command.runId().value()));
         Round round = rounds.findById(run.roundId())
                 .orElseThrow(() -> NotFoundException.of("Round", run.roundId().value()));
-        ScoredRun scored = scoringService.scoreRun(run, round.competitionId());
-        return new RunScore(run.id(), run.teamId(), run.challengeId(), run.rulebookVersion(), scored.breakdown(),
-                run.completion(), scoringService.scoreBySource(run, round.competitionId()),
-                scoringService.bonusCapOutcome(run, round.competitionId()));
+        return new RunScore(run.id(), run.teamId(), run.rulebookVersion(), run.completion(),
+                scoringService.challengeOf(run, round.competitionId()), run.scoringContext());
     }
 }

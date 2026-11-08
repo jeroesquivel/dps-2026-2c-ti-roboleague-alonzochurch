@@ -6,7 +6,6 @@ import com.dps.roboleague.results.result.DataEntryError;
 import com.dps.roboleague.results.result.RunResult;
 import com.dps.roboleague.results.result.RunResultRepository;
 import com.dps.roboleague.scheduling.Round;
-import com.dps.roboleague.shared.ConflictException;
 import com.dps.roboleague.shared.NotFoundException;
 
 /**
@@ -32,11 +31,7 @@ public final class CorrectResultUseCase implements CorrectResult {
                 .orElseThrow(() -> NotFoundException.of("RunResult", command.runId().value()));
         Round round = corrector.roundOf(run);
         standings.findLatest(round.competitionId(), round.categoryId())
-                .filter(current -> current.isFinal())
-                .ifPresent(current -> {
-                    throw new ConflictException("the standings of category " + round.categoryId().value()
-                            + " are final: result " + run.id().value() + " can only be changed by an appeal");
-                });
+                .ifPresent(current -> current.requireOpenToDataEntryCorrections(run.id()));
 
         DataEntryError origin = new DataEntryError();
         RunResult corrected = corrector.correct(run, command.amendment(), origin, command.reason(),

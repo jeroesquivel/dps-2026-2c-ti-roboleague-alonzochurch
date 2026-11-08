@@ -5,6 +5,7 @@ import com.dps.roboleague.shared.CompetitionId;
 import com.dps.roboleague.shared.ConflictException;
 import com.dps.roboleague.shared.Points;
 import com.dps.roboleague.shared.RulebookVersion;
+import com.dps.roboleague.shared.RunId;
 import com.dps.roboleague.shared.TeamId;
 import java.time.Instant;
 import java.util.List;
@@ -46,6 +47,16 @@ class StandingsTest {
         assertEquals(PublicationStatus.PROVISIONAL, recalculated.status());
         assertEquals(RulebookVersion.first(), recalculated.rulebookVersion());
         assertEquals(1, recalculated.entryFor(TeamId.of("TEAM-2")).orElseThrow().position());
+    }
+
+    @Test
+    void aDataEntryErrorCanBeCorrectedOnlyWhileTheStandingsAreProvisional() {
+        RunId run = RunId.of("RUN-1");
+
+        provisional.requireOpenToDataEntryCorrections(run);
+        ConflictException refused = assertThrows(ConflictException.class,
+                () -> provisional.publish().requireOpenToDataEntryCorrections(run));
+        assertTrue(refused.getMessage().contains("RUN-1 can only be changed by an appeal"));
     }
 
     private List<StandingEntry> entries(String... teams) {

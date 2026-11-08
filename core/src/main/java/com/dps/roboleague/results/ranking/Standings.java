@@ -4,6 +4,7 @@ import com.dps.roboleague.shared.CategoryId;
 import com.dps.roboleague.shared.CompetitionId;
 import com.dps.roboleague.shared.ConflictException;
 import com.dps.roboleague.shared.RulebookVersion;
+import com.dps.roboleague.shared.RunId;
 import com.dps.roboleague.shared.TeamId;
 import java.time.Instant;
 import java.util.List;
@@ -51,6 +52,14 @@ public final class Standings {
     public Standings supersede(List<StandingEntry> newEntries, PendingRuns newPendingRuns, Instant recalculatedAt) {
         return new Standings(competitionId, categoryId, rulebookVersion, revision.next(),
                 PublicationStatus.PROVISIONAL, recalculatedAt, newEntries, newPendingRuns);
+    }
+
+
+    public void requireOpenToDataEntryCorrections(RunId runId) {
+        if (isFinal()) {
+            throw new ConflictException("the standings of category " + categoryId.value() + " are final: result "
+                    + runId.value() + " can only be changed by an appeal");
+        }
     }
 
     public boolean isFinal() {

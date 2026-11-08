@@ -3,13 +3,11 @@ package com.dps.roboleague.results.ranking;
 import com.dps.roboleague.results.result.RunResult;
 import com.dps.roboleague.results.result.RunResultRepository;
 import com.dps.roboleague.rules.challenge.ChallengeSpec;
-import com.dps.roboleague.rules.challenge.SourcedScore;
 import com.dps.roboleague.rules.ranking.PlayedRound;
 import com.dps.roboleague.rules.ranking.ScoredRun;
 import com.dps.roboleague.rules.ranking.TeamScoreSummary;
 import com.dps.roboleague.rules.rulebook.Rulebook;
 import com.dps.roboleague.rules.rulebook.RulebookRepository;
-import com.dps.roboleague.rules.scoring.BonusCapOutcome;
 import com.dps.roboleague.scheduling.Round;
 import com.dps.roboleague.scheduling.RoundRepository;
 import com.dps.roboleague.shared.CategoryId;
@@ -21,7 +19,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 public final class CategoryScoringService {
 
@@ -78,15 +75,7 @@ public final class CategoryScoringService {
                 challengeOf(run, competitionId).score(run.scoringContext()));
     }
 
-    public Optional<SourcedScore> scoreBySource(RunResult run, CompetitionId competitionId) {
-        return challengeOf(run, competitionId).scoreBySource(run.scoringContext());
-    }
-
-    public Optional<BonusCapOutcome> bonusCapOutcome(RunResult run, CompetitionId competitionId) {
-        return challengeOf(run, competitionId).bonusCapOutcome(run.scoringContext());
-    }
-
-    private ChallengeSpec challengeOf(RunResult run, CompetitionId competitionId) {
+    public ChallengeSpec challengeOf(RunResult run, CompetitionId competitionId) {
         return rulebookOf(competitionId, run.rulebookVersion()).challenge(run.challengeId());
     }
 
