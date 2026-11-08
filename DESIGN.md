@@ -699,21 +699,13 @@ desempates sí consultan).
 **Patrón / principio:** Value Object de configuración, First-Class Collection, Open/Closed sobre las
 reglas de puntaje, explicación como valor (extiende 2.3 al total de la tabla).
 
-**Dónde:** `rules/ranking/BestRounds`, `ChallengeSpec.bestRounds` /
-`requireRoomForAnotherRound`, `Rulebook.bestRoundsOf`, `CompetitionSchedule.requireRoomForRound`,
+**Dónde:** `rules/ranking/BestRounds`, `ChallengeSpec.roundSelection` /
+`requireRoomForAnotherRound`, `Rulebook.roundPolicyOf`, `CompetitionSchedule.requireRoomForRound`,
 `rules/ranking/{PlayedRound, RoundScore, RoundScores, RoundOutcome, RoundStatus, ScoreSubtotal,
 ScoreExplanation}`, `results/ranking/TeamRounds`, `TeamScoreSummary.explanation` y `StandingEntry.explanation`.
 
-**Configuración.** `BestRounds(counted, outOf)` es N y M; su única invariante es `1 ≤ N ≤ M`
-(`InvalidValueException`). Es un componente opcional de `ChallengeSpec`
-(`Optional<BestRounds>`): el constructor anterior de seis argumentos sigue existiendo y equivale a
-"sin configuración". Vive en `challenge`, no en `ranking`, porque `ranking` ya depende de
-`challenge`; por eso `BestRounds` sólo sabe cuántas rondas cuentan (`countedOutOf`) y cuántas se
-admiten (`admitsAnotherRound`), sin conocer corridas ni puntajes. Como es parte del `ChallengeSpec`,
-viaja en la versión del reglamento: una tabla se genera con N y M del reglamento activo y se
-recalcula con los de su versión (3.3). `Rulebook.bestRoundsOf` devuelve vacío también para un
-desafío que esa versión no define, así una ronda de un desafío retirado sigue contando como "sin
-configuración" en lugar de romper la tabla.
+**Configuración.** `ChallengeSpec.roundSelection` define si cuentan todas las rondas o las mejores N de M.
+Cada ronda conserva la selección y la agregación de intentos de su versión del reglamento.
 
 **Programación.** `CompetitionSchedule.requireRoomForRound(categoría, desafío)` cuenta las rondas de
 ese desafío ya programadas en la categoría (de cualquier versión) y le pide a
@@ -721,12 +713,22 @@ ese desafío ya programadas en la categoría (de cualquier versión) y le pide a
 nombrando desafío, categoría y M. `ScheduleRoundUseCase` sólo invoca la regla antes de crear la
 ronda, por lo que un rechazo no guarda ni audita nada.
 
+**Publicación de una revisión.** `PublishStandingsUseCase` calcula las posiciones actuales con la versión
+de desempates de la revisión. `Standings.publish` exige que coincidan las entradas (incluida su explicación)
+y los pendientes con la revisión que el organizador revisó. Una revisión desactualizada permanece provisional:
+el recálculo explícito conserva la anterior en el historial y crea otra antes de publicar.
+
+**Selección entre versiones.** El cupo de mejores rondas se aplica una vez por desafío y configuración N/M.
+Cada ronda conserva su fórmula y su agregación de intentos históricas. Un subtotal puede citar varias versiones;
+publicar un reglamento con la misma selección no habilita otro cupo. Cuando cambia N/M, cada configuración
+tiene su propio subtotal. Para desafíos sin selección, los intentos siguen agrupados por versión.
+
 **Cálculo.** `CategoryScoringService.collect` ya no aplana las corridas: agrupa los intentos de cada
 equipo por ronda en `PlayedRound(ordinal, desafío, intentos)` (al menos un intento, todos del mismo
 desafío) y los reúne en `TeamRounds`, ordenados por ordinal. `TeamRounds` produce dos cosas:
 
 - `runs(política)`: el `TeamRuns` con **todas** las corridas, para los desempates (FR-12).
-- `explain(política, bestRoundsOf)`: separa los desafíos sin configuración, cuyas corridas suman en
+- `explain()`: separa los desafíos sin configuración, cuyas corridas suman en
   un único `TeamRuns` (subtotal de la `AttemptAggregation`, siempre presente aunque valga 0), de los
   configurados. Para cada uno de éstos, `RoundScores` (puntajes de ronda con ordinal único) ordena por
   puntaje descendente y, ante empate, por menor ordinal; cuenta las primeras `min(N, jugadas)` y
@@ -768,12 +770,8 @@ siempre.
   ronda, y agregarle el ordinal cambiaría la interfaz y sus implementaciones.
 - **Agregar el ordinal a `ScoredRun`.** Obligaba a inventar un ordinal para los usos actuales.
   `PlayedRound` agrupa por ronda sin tocar la corrida puntuada.
-- **Un Strategy de "política de rondas" con un Null Object "todas las rondas".** Los desafíos sin
-  configuración no se puntúan por ronda: sus corridas se agregan **juntas** con la
-  `AttemptAggregation` (con `BestAttempt` cuenta un único intento de toda la categoría). Una política
-  por desafío que aplicara "todas las rondas" cambiaría los totales actuales (FR-8). Por eso la
-  ausencia de configuración se modela con `Optional<BestRounds>` y `TeamRounds` separa los dos grupos
-  con `ifPresentOrElse`, no con un `if` sobre tipos.
+- **Sumar por ronda los desafíos sin selección.** `AllRounds` reúne sus intentos en el subtotal
+  común de la versión y conserva la agregación de intentos del reglamento (FR-8).
 - **Tipos distintos de subtotal detrás de una interfaz.** Mostrar las rondas habría exigido
   `instanceof` en cada consumidor, o un método `rounds()` vacío en las partes que no tienen rondas.
 - **Validar la cantidad de rondas al generar la tabla.** El límite es una regla de programación: se
@@ -1681,7 +1679,7 @@ sublista, sin cambiar la interfaz. El mismo criterio se aplicó a la elegibilida
 | Cálculo explicable | `CalculateRunScoreUseCase`, `ScoreBreakdown`, `ScoreContribution`, `ContributionKind` |
 | Ranking | `CategoryScoringService`, `RankingService`, `TeamRuns`, `TeamRounds`, `AttemptAggregation`, `rules/ranking/aggregation/*`, `TiebreakRule`, `rules/ranking/rule/*` y `AppliedTiebreak` |
 | Tope global de bonificaciones (F2) | `BonusCap`, `ChallengeSpec.bonusCap`, `ChallengeSpec.score` |
-| Mejores N de M rondas (F1) | `BestRounds`, `ChallengeSpec.bestRounds`, `CompetitionSchedule.requireRoomForRound`, `PlayedRound`, `RoundScores`, `ScoreExplanation`, `ScoreSubtotal`, `RoundOutcome`, `StandingEntry.explanation` |
+| Mejores N de M rondas (F1) | `BestRounds`, `ChallengeSpec.roundSelection`, `CompetitionSchedule.requireRoomForRound`, `PlayedRound`, `RoundScores`, `ScoreExplanation`, `ScoreSubtotal`, `RoundOutcome`, `StandingEntry.explanation` |
 | Publicación | `Standings`, `StandingsHistory`, `PublicationStatus`, `PendingRuns`, `GenerateStandingsUseCase`, `PublishStandingsUseCase`, `GetStandingsUseCase` |
 | Apelaciones | `Appeal`, `AppealWindow`, `Appeals`, `SubmitAppealUseCase`, `AcceptAppealUseCase`, `RejectAppealUseCase` |
 | Recálculo | `RecalculateStandingsUseCase` (también disparado por `AcceptAppealUseCase`), `CategoryScoringService` |

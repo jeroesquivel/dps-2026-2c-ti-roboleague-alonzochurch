@@ -42,7 +42,8 @@
 **Estado: Resuelta** — cada ronda jugada lleva la `RoundPolicy` (selección de rondas y agregación de
 intentos) de la versión del reglamento con que se capturaron sus corridas:
 `CategoryScoringService.collect` carga el reglamento por la versión de cada corrida y
-`TeamRounds.explain` agrupa por desafío **y versión**. El reglamento vigente sólo aporta los
+`TeamRounds.explain` agrupa por desafío y selección histórica N/M. La misma selección conserva un solo cupo entre versiones;
+`BestRoundsStandingsTest.theSameBestRoundsSelectionSpansRulebookVersions` verifica 50 + 50 + 10 → 100. El reglamento vigente sólo aporta los
 desempates. Ver `DESIGN.md` 3.6.
 
 - Test del caso exacto de la corrección (rondas 5/5/1 con "mejores 2 de 3", "mejores 3 de 3" publicada

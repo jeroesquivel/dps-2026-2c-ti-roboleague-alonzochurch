@@ -32,15 +32,15 @@ class StandingsTest {
 
     @Test
     void becomesFinalOnlyOnce() {
-        Standings published = provisional.publish();
+        Standings published = provisional.publish(provisional.entries(), PendingRuns.none());
 
         assertTrue(published.isFinal());
-        assertThrows(ConflictException.class, published::publish);
+        assertThrows(ConflictException.class, () -> published.publish(published.entries(), PendingRuns.none()));
     }
 
     @Test
     void aRecalculationOpensANewProvisionalRevisionWithTheSameRulebook() {
-        Standings recalculated = provisional.publish().supersede(entries("TEAM-2", "TEAM-1"),
+        Standings recalculated = provisional.publish(provisional.entries(), PendingRuns.none()).supersede(entries("TEAM-2", "TEAM-1"),
                 PendingRuns.none(), GENERATED_AT.plusSeconds(3600));
 
         assertEquals(Revision.of(2), recalculated.revision());
@@ -55,7 +55,7 @@ class StandingsTest {
 
         provisional.requireOpenToDataEntryCorrections(run);
         ConflictException refused = assertThrows(ConflictException.class,
-                () -> provisional.publish().requireOpenToDataEntryCorrections(run));
+                () -> provisional.publish(provisional.entries(), PendingRuns.none()).requireOpenToDataEntryCorrections(run));
         assertTrue(refused.getMessage().contains("RUN-1 can only be changed by an appeal"));
     }
 

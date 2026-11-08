@@ -35,7 +35,8 @@ descartadas, motivos y subtotales según la spec F1.
 anteriores de la categoría, preservando estado y explicación de cada una.
 
 **FR-6 — Publicar definitiva.** Una revisión provisional puede publicarse como final sólo si no hay
-corridas ni apelaciones pendientes.
+corridas ni apelaciones pendientes y sus entradas reflejan los resultados actuales. Si quedó
+desactualizada, la publicación devuelve conflicto. El organizador debe recalcular antes de publicar.
 
 **FR-7 — Cierre ordinario.** Después de publicar standings finales, las capturas ordinarias no pueden
 modificar la categoría.

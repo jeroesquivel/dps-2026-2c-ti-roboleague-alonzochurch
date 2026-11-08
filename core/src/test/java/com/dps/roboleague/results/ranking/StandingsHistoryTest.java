@@ -46,7 +46,7 @@ class StandingsHistoryTest {
 
     @Test
     void aCategoryWithFinalStandingsAcceptsNoNewResultsEvenAfterARecalculationReopensIt() {
-        Standings published = provisional.publish();
+        Standings published = provisional.publish(ENTRIES, PendingRuns.none());
         Standings reopened = published.supersede(ENTRIES, PendingRuns.none(), NOW.plusSeconds(60));
 
         assertDoesNotThrow(() -> history().requireOpenForResults());

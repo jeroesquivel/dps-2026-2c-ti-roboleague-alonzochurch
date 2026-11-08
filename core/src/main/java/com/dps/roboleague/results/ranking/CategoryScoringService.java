@@ -39,6 +39,10 @@ public final class CategoryScoringService {
         return rankingService.rank(collect(competitionId, categoryId, rulebook), rulebook.tiebreakRules());
     }
 
+    public List<StandingEntry> rank(CompetitionId competitionId, CategoryId categoryId, RulebookVersion version) {
+        return rank(competitionId, categoryId, rulebookOf(competitionId, version));
+    }
+
     public List<TeamScoreSummary> collect(CompetitionId competitionId, CategoryId categoryId, Rulebook rulebook) {
         Map<TeamId, List<PlayedRound>> roundsByTeam = new LinkedHashMap<>();
         for (Round round : rounds.findByCategory(competitionId, categoryId)) {

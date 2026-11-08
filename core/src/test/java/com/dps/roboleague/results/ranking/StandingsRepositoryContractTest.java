@@ -32,7 +32,7 @@ public abstract class StandingsRepositoryContractTest {
         Standings provisional = provisional();
         repository.save(provisional);
 
-        repository.save(provisional.publish());
+        repository.save(provisional.publish(provisional.entries(), PendingRuns.none()));
 
         assertEquals(1, repository.findHistory(COMPETITION, CATEGORY).size());
         assertEquals(PublicationStatus.FINAL, repository.findLatest(COMPETITION, CATEGORY).orElseThrow().status());
@@ -41,7 +41,7 @@ public abstract class StandingsRepositoryContractTest {
     @Test
     void aRecalculationKeepsTheRevisionsThatCameBefore() {
         StandingsRepository repository = repository();
-        Standings published = provisional().publish();
+        Standings published = provisional().publish(List.of(entry(1, "DELTA")), PendingRuns.none());
         repository.save(published);
 
         repository.save(published.supersede(List.of(entry(1, "OMEGA")), PendingRuns.none(), NOW.plusSeconds(60)));
@@ -77,7 +77,7 @@ public abstract class StandingsRepositoryContractTest {
     void competitionsKeepIndependentHistoriesEvenWhenTheirCategoryAndRevisionMatch() {
         StandingsRepository repository = repository();
         CompetitionId otherCompetition = CompetitionId.of("COMP-2");
-        Standings firstCompetition = provisional().publish();
+        Standings firstCompetition = provisional().publish(List.of(entry(1, "DELTA")), PendingRuns.none());
         Standings secondCompetition = Standings.provisional(otherCompetition, CATEGORY, RulebookVersion.first(),
                 NOW, List.of(entry(1, "OMEGA")), PendingRuns.none());
         Standings recalculatedSecond = secondCompetition.supersede(List.of(entry(1, "SIGMA")),

@@ -137,6 +137,39 @@ class BestRoundsStandingsTest {
     }
 
     @Test
+    void theSameBestRoundsSelectionSpansRulebookVersions() {
+        RulebookVersion first = publishRescueCountingBestRounds(2, 3);
+        playRescueRounds(List.of(alpha), new int[] {5, 5});
+        RulebookVersion second = publishRescueCountingBestRounds(2, 3);
+        RoundId third = edition.scheduleRoundFor(RESCUE, 3, List.of(alpha));
+        edition.capture(third, alpha, "95.5", 1, "42", List.of(), List.of());
+
+        Standings standings = generate();
+        ScoreSubtotal selection = selectionOf(standings, alpha);
+        assertEquals(Points.of(100), totalOf(standings, alpha));
+        assertEquals(List.of(RoundStatus.COUNTED, RoundStatus.COUNTED, RoundStatus.DISCARDED),
+                statusesOf(selection));
+        assertEquals("the best 2 of 3 rounds of challenge RESCUE (rulebook " + first + ", " + second + ")",
+                selection.description());
+    }
+
+    @Test
+    void differentBestRoundsSelectionsKeepTheirHistoricalLimits() {
+        publishRescueCountingBestRounds(1, 3);
+        playRescueRounds(List.of(alpha), new int[] {5, 4});
+        publishRescueCountingBestRounds(2, 3);
+        RoundId third = edition.scheduleRoundFor(RESCUE, 3, List.of(alpha));
+        edition.capture(third, alpha, "95.5", 1, "42", List.of(), List.of());
+
+        Standings standings = generate();
+        assertEquals(Points.of(60), totalOf(standings, alpha));
+        List<ScoreSubtotal> selections = standings.entryFor(alpha).orElseThrow().explanation().subtotals()
+                .stream().filter(subtotal -> subtotal.code().equals(BestRounds.CODE)).toList();
+        assertEquals(List.of(RoundStatus.COUNTED, RoundStatus.DISCARDED), statusesOf(selections.getFirst()));
+        assertEquals(List.of(RoundStatus.COUNTED), statusesOf(selections.getLast()));
+    }
+
+    @Test
     void theScoreOfARunInADiscardedRoundDoesNotChange() {
         publishRescueCountingBestRounds(2, 3);
         RunId discarded = playRescueRounds(List.of(alpha), new int[] {5, 5, 1}).getFirst().get(2);

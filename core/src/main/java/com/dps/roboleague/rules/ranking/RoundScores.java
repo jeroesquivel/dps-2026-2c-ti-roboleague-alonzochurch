@@ -8,6 +8,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public record RoundScores(List<RoundScore> scores) {
@@ -27,7 +28,7 @@ public record RoundScores(List<RoundScore> scores) {
                 });
     }
 
-    public ScoreSubtotal bestOf(BestRounds rule, ChallengeId challengeId, RulebookVersion version) {
+    public ScoreSubtotal bestOf(BestRounds rule, ChallengeId challengeId, List<RulebookVersion> versions) {
         List<RoundScore> ranked = scores.stream().sorted(BEST_FIRST).toList();
         int counted = rule.countedOutOf(ranked.size());
         List<RoundOutcome> outcomes = IntStream.range(0, ranked.size())
@@ -37,8 +38,9 @@ public record RoundScores(List<RoundScore> scores) {
                                 discardReason(ranked.get(index), ranked.get(counted - 1), rule)))
                 .sorted(Comparator.comparing(RoundOutcome::ordinal))
                 .toList();
+        String versionNames = versions.stream().map(RulebookVersion::toString).collect(Collectors.joining(", "));
         return ScoreSubtotal.ofRounds(BestRounds.CODE,
-                rule.description() + " of challenge " + challengeId.value() + " (rulebook " + version + ")", outcomes);
+                rule.description() + " of challenge " + challengeId.value() + " (rulebook " + versionNames + ")", outcomes);
     }
 
     private static String discardReason(RoundScore discarded, RoundScore lastCounted, BestRounds rule) {

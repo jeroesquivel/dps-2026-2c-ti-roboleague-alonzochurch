@@ -518,6 +518,35 @@ class MixedChallengeTest {
                 "the timer started late", Actor.of("captain")));
     }
 
+    @Test
+    void publishingRequiresRecalculationWhenThePanelCompletesAPreviouslyPendingRun() {
+        RoundId round = mixedRound(1);
+        automatic(round, delta, 1, ShowcaseFixture.exampleMeasurements());
+        Standings provisional = generate();
+        panel(round, delta, 1, ShowcaseFixture.exampleEvaluations());
+
+        assertTrue(assertThrows(ConflictException.class, this::publish).getMessage().contains("recalculate"));
+        assertEquals(PublicationStatus.PROVISIONAL, edition.latestStandings().status());
+        assertEquals(provisional.revision(), edition.latestStandings().revision());
+
+        edition.module().recalculateStandingsUseCase().execute(new RecalculateStandings.Command(
+                edition.competitionId(), edition.categoryId(), "panel completed", TestEdition.ACTOR));
+        Standings published = publish();
+        assertEquals(PublicationStatus.FINAL, published.status());
+        assertTrue(published.pendingRuns().runs().isEmpty());
+        assertEquals(Points.of(57), published.entryFor(delta).orElseThrow().totalPoints());
+    }
+
+    @Test
+    void publishingRefusesToOmitANewCompleteRun() {
+        RoundId round = mixedRound(1);
+        generate();
+        completeExampleRun(round, delta, 1);
+
+        assertTrue(assertThrows(ConflictException.class, this::publish).getMessage().contains("recalculate"));
+        assertEquals(PublicationStatus.PROVISIONAL, edition.latestStandings().status());
+    }
+
     private Standings generate() {
         return edition.module().generateStandingsUseCase().execute(new GenerateStandings.Command(
                 edition.competitionId(), edition.categoryId(), TestEdition.ACTOR));

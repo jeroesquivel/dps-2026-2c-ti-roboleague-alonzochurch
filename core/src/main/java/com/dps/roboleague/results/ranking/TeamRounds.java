@@ -4,11 +4,10 @@ import com.dps.roboleague.rules.ranking.AttemptAggregation;
 import com.dps.roboleague.rules.ranking.ChallengeRounds;
 import com.dps.roboleague.rules.ranking.ExplanationDraft;
 import com.dps.roboleague.rules.ranking.PlayedRound;
-import com.dps.roboleague.rules.ranking.RoundPolicy;
+import com.dps.roboleague.rules.ranking.RoundSelection;
 import com.dps.roboleague.rules.ranking.ScoreExplanation;
 import com.dps.roboleague.rules.ranking.TeamRuns;
 import com.dps.roboleague.shared.ChallengeId;
-import com.dps.roboleague.shared.RulebookVersion;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,17 +30,14 @@ public record TeamRounds(List<PlayedRound> rounds) {
      */
     public ScoreExplanation explain() {
         ExplanationDraft draft = new ExplanationDraft();
+        rounds.forEach(round -> draft.track(round.policy()));
         rounds.stream()
-                .collect(Collectors.groupingBy(round -> new Played(round.challengeId(), round.policy().version()),
+                .collect(Collectors.groupingBy(round -> new Played(round.challengeId(), round.policy().selection()),
                         LinkedHashMap::new, Collectors.toList()))
-                .forEach((played, grouped) -> {
-                    RoundPolicy policy = grouped.getFirst().policy();
-                    draft.track(policy);
-                    policy.selection().explain(new ChallengeRounds(played.challengeId(), policy, grouped), draft);
-                });
+                .forEach((key, grouped) -> key.selection().explain(new ChallengeRounds(key.challengeId(), grouped), draft));
         return draft.explanation();
     }
 
-    private record Played(ChallengeId challengeId, RulebookVersion version) {
+    private record Played(ChallengeId challengeId, RoundSelection selection) {
     }
 }

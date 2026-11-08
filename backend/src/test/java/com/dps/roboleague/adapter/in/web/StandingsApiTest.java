@@ -195,6 +195,26 @@ class StandingsApiTest {
         assertEquals("PROVISIONAL", get(edition.path(), StandingsResponse.class).getBody().status());
     }
 
+    @Test
+    void aCompletedRunRequiresRefreshingTheProvisionalBeforePublication() {
+        Edition edition = newEdition(ShowcaseFixture.rulebook(ShowcaseFixture.mixedShowcase()));
+        TeamId team = register(edition, "Delta Bots");
+        RoundId round = schedule(edition, ShowcaseFixture.CHALLENGE_ID, 1, 9, team);
+        automatic(round, team);
+        post(edition.path(), ORGANIZER, StandingsResponse.class);
+        panel(round, team);
+
+        ResponseEntity<String> stale = post(edition.path() + "/publication", ORGANIZER, String.class);
+        assertEquals(HttpStatus.CONFLICT, stale.getStatusCode());
+        assertTrue(stale.getBody().contains("recalculate"));
+        post(edition.path() + "/recalculation", "{\"reason\":\"panel completed\",\"actor\":\"organizer\"}",
+                StandingsResponse.class);
+        StandingsResponse published = post(edition.path() + "/publication", ORGANIZER, StandingsResponse.class).getBody();
+        assertEquals("FINAL", published.status());
+        assertTrue(published.pendingRuns().isEmpty());
+        assertEquals(team.value(), published.entries().getFirst().teamId());
+    }
+
     // ---- AC-4 y AC-5: publicación ---------------------------------------------------------------------
 
     @Test

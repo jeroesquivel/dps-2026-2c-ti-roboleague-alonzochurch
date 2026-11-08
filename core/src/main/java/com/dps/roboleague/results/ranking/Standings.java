@@ -41,9 +41,13 @@ public final class Standings {
                 generatedAt, entries, pendingRuns);
     }
 
-    public Standings publish() {
+    public Standings publish(List<StandingEntry> currentEntries, PendingRuns currentPending) {
         if (status == PublicationStatus.FINAL) {
             throw new ConflictException("standings revision " + revision + " is already final");
+        }
+        currentPending.requireNone();
+        if (!pendingRuns.equals(currentPending) || !entries.equals(currentEntries)) {
+            throw new ConflictException("standings have changed: recalculate before publishing");
         }
         return new Standings(competitionId, categoryId, rulebookVersion, revision, PublicationStatus.FINAL,
                 generatedAt, entries, pendingRuns);

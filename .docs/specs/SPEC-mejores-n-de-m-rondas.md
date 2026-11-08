@@ -54,8 +54,8 @@ las mejores N de M rondas. N y M son enteros con `1 ≤ N ≤ M`. Cualquier otro
 configurar el desafío con `InvalidValueException`.
 
 **FR-2 — Configuración versionada.** N y M forman parte de la versión del reglamento. Dos versiones
-pueden tener N y M distintos para el mismo desafío. Una tabla se genera con los valores del
-reglamento activo y se recalcula con los de la versión con la que fue generada.
+pueden tener N y M distintos para el mismo desafío. Cada ronda se puntúa con su reglamento histórico. Las rondas del mismo desafío con igual N y M
+comparten una selección, aunque cambie la versión. Configuraciones N y M distintas generan selecciones separadas.
 
 **FR-3 — Límite de rondas al programar.** Si un desafío está configurado con "mejores N de M", no se
 puede programar en una categoría una ronda más de ese desafío cuando ya hay M. La programación se

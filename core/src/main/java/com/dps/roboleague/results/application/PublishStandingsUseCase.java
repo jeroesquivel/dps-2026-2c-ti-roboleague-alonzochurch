@@ -39,9 +39,9 @@ public final class PublishStandingsUseCase implements PublishStandings {
                 .orElseThrow(() -> NotFoundException.of("Standings", command.categoryId().value()));
         List<RunResult> runs = scoringService.runsOf(command.competitionId(), command.categoryId());
         appeals.requireNoneOn(runs.stream().map(RunResult::id).toList());
-        PendingRuns.among(runs).requireNone();
-
-        Standings published = provisional.publish();
+        Standings published = provisional.publish(
+                scoringService.rank(command.competitionId(), command.categoryId(), provisional.rulebookVersion()),
+                PendingRuns.among(runs));
         standings.save(published);
         auditLog.record(new AuditEvent(clock.instant(), AuditAction.STANDINGS_PUBLISHED,
                 command.categoryId(), command.actor(),
