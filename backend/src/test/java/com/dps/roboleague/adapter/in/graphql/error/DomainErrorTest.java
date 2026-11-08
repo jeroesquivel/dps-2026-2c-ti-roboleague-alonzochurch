@@ -25,7 +25,7 @@ class DomainErrorTest {
                 Arguments.of(new InvalidValueException("bad"), "INVALID_VALUE", ErrorType.BAD_REQUEST),
                 Arguments.of(NotFoundException.of("Team", "TEAM-9"), "NOT_FOUND", ErrorType.NOT_FOUND),
                 Arguments.of(new ConflictException("taken"), "CONFLICT", ErrorType.BAD_REQUEST),
-                Arguments.of(new ScheduleConflictException(List.of()), "CONFLICT", ErrorType.BAD_REQUEST),
+                Arguments.of(new ScheduleConflictException(List.of()), "SCHEDULE_CONFLICT", ErrorType.BAD_REQUEST),
                 Arguments.of(new RuleViolationException("broken"), "RULE_VIOLATION", ErrorType.BAD_REQUEST),
                 Arguments.of(new DomainException("other") { }, "DOMAIN_ERROR", ErrorType.BAD_REQUEST));
     }

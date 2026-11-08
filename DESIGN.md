@@ -135,8 +135,9 @@ Un adaptador futuro debería reutilizarlos y sumar sus pruebas de integración. 
 por sí sola no impone esas políticas: el test fija el comportamiento esperado.
 
 **Por qué:** el dominio define los contratos que necesita en sus propios términos, y la
-infraestructura los implementa. Las pruebas de integración ejercitan adaptadores en memoria reales,
-sin base de datos; también hay un escenario con dobles manuales (ver 5.5).
+infraestructura los implementa. Las pruebas de integración ejercitan adaptadores en memoria reales; los
+mismos contratos se ejecutan contra los adaptadores JPA sobre H2 en modo PostgreSQL (ver 10.7). También hay un
+escenario con dobles manuales (ver 5.5).
 
 **Alternativas descartadas:** un `Repository<T, ID>` genérico con CRUD uniforme, para no imponer
 operaciones que estos casos de uso no necesitan. Un repositorio genérico no rompe la arquitectura
@@ -147,7 +148,8 @@ implementaciones concretas directamente en los casos de uso, que ataría el nego
 
 **Patrón / principio:** Composition Root, Inyección de dependencias por constructor.
 
-**Dónde:** `backend/config/InfrastructureConfig`, `DomainServicesConfig` y `UseCasesConfig`.
+**Dónde:** `backend/config/InfrastructureConfig`, `DomainServicesConfig`, `UseCasesConfig` y, según
+`roboleague.persistence`, `InMemoryPersistenceConfig` o `JpaPersistenceConfig` (ver 10.7).
 
 Estas configuraciones son el composition root de producción: seleccionan adaptadores concretos,
 colaboradores de dominio y casos de uso, que Spring conserva como instancias singleton compartidas.
@@ -1792,9 +1794,10 @@ Recorrido:
 Cuando se incorporen la regla compuesta y los tipos de regla faltantes, se agregan a `DemoRulebook` y
 `DemoScenario`, junto con sus aserciones en `DemoScenarioTest`.
 
-**Alternativas descartadas:** un script o un fixture externo (JSON o SQL). No hay persistencia real
-(ver 5.8), y el demo recorre los mismos puertos de entrada que usará la API, así que sirve también
-como prueba de integración del composition root.
+**Alternativas descartadas:** un script o un fixture externo (JSON o SQL). Con persistencia JPA un script SQL
+quedaría atado al esquema y se saltearía las reglas del dominio; el demo recorre los mismos puertos de entrada
+que usa la API, así que valida esas reglas y sirve también como prueba de integración del composition root.
+Corre igual sobre los repositorios en memoria y sobre los JPA (`DemoScenarioTest` y `JpaDemoScenarioTest`).
 
 ## 8. Evolución: qué cambia cuando cambia una dependencia o una regla
 
@@ -1910,20 +1913,21 @@ no existen; tendrán pruebas propias cuando se incorporen.
 ## 10. Bootstrap de la aplicación web
 
 El build es un reactor Maven con dos módulos. `core` contiene `domain` y `application` y sólo
-depende del JDK en producción. `backend` depende de `core` y contiene Spring Boot, la demo, el
-composition root manual y los adaptadores de salida en memoria. `frontend` queda reservado sin
-elegir tecnología. Esta separación física hace comprobable la dirección `backend → core` y evita
-que Spring, HTTP, Jackson o Jakarta entren al núcleo.
+depende del JDK en producción. `backend` depende de `core` y contiene Spring Boot, la configuración, los
+adaptadores de entrada (REST y GraphQL), la demo y los adaptadores de salida (en memoria y JPA). `frontend`
+es una aplicación React independiente que consume la API REST. Esta separación física hace comprobable la
+dirección `backend → core` y evita que Spring, HTTP, Jackson o Jakarta entren al núcleo.
 
-Spring es el composition root de la ejecución web. `RoboLeagueConfiguration` declara explícitamente
-los repositorios, `AuditLog`, `IdGenerator`, `Clock`, los servicios de dominio y los 22 puertos de
-entrada mediante métodos `@Bean`. Los interactors permanecen sin anotaciones de framework y
-`AcceptAppealUseCase` recibe `RecalculateStandings` por su interfaz. Los adaptadores en memoria son
-singletons del contexto y sus datos se pierden al reiniciar, una limitación deliberada de esta etapa.
+Spring es el composition root de la ejecución web. `UseCasesConfig` declara con métodos `@Bean` los
+puertos de entrada, `DomainServicesConfig` los servicios de dominio e `InfrastructureConfig` el `Clock`. Los
+repositorios, `AuditLog` e `IdGenerator` los declara `InMemoryPersistenceConfig` o `JpaPersistenceConfig`,
+según `roboleague.persistence` (ver 10.7). Los interactors permanecen sin anotaciones de framework y
+`AcceptAppealUseCase` recibe `RecalculateStandings` por su interfaz. Con `memory` los adaptadores son
+singletons del contexto y sus datos se pierden al reiniciar; con `jpa` persisten en la base configurada.
 
-El composition root manual se conserva en el backend para la demo y para fixtures integrados. Los
-tests del core usan una copia de esos adaptadores únicamente como infraestructura de test, lo que
-permite verificar el núcleo y exigir su cobertura sin introducir una dependencia circular. Los
+No hay un composition root manual en el backend. El único ensamblado manual, `RoboLeagueCompositionRoot`,
+vive en `core/src/test` junto con una copia de los adaptadores en memoria, únicamente como infraestructura de
+test: permite verificar el núcleo y exigir su cobertura sin una dependencia circular con el backend. Los
 contratos abstractos de repositorio se publican en el `test-jar` de `core` y los tests de los
 adaptadores productivos del backend los reutilizan sin duplicarlos.
 
@@ -1938,7 +1942,8 @@ adaptadores al core (invierte la frontera), duplicar contract tests (permite div
 demo durante cada arranque (contamina estado normal y tests), agregar Actuator para un único estado
 técnico y crear un módulo Maven o stack de frontend antes de tomar esa decisión.
 
-Verificación del bootstrap el 12 de octubre de 2026: **324 tests, 0 fallos, 0 errores y 0 omitidos**
+Verificación del bootstrap el 12 de octubre de 2026 (cifras de esa fecha, anteriores a la persistencia JPA,
+GraphQL y la división en contextos): **324 tests, 0 fallos, 0 errores y 0 omitidos**
 (303 en `core` y 21 en `backend`). JaCoCo 0.8.15 mantiene **100 %** de instrucciones, ramas, líneas,
 complejidad, métodos y clases del código productivo de `core`. La prueba del backend cubre el
 arranque completo y la infraestructura HTTP real.

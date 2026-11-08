@@ -72,7 +72,7 @@ corrida se resuelven en una sola petición.
 
 **FR-13 — Errores.** Un error de una consulta se informa en `errors` con `message`, `path` y
 `extensions.classification`, y con `extensions.code` igual al código de la API REST para la misma
-excepción (`NOT_FOUND`, `INVALID_VALUE`, `RULE_VIOLATION`, `CONFLICT`, `DOMAIN_ERROR`). Un campo que no
+excepción (`NOT_FOUND`, `INVALID_VALUE`, `RULE_VIOLATION`, `SCHEDULE_CONFLICT`, `CONFLICT`, `DOMAIN_ERROR`). Un campo que no
 existe en el esquema se rechaza antes de ejecutar la consulta.
 
 **FR-14 — Consola de demostración.** GraphiQL está disponible para escribir y ejecutar consultas

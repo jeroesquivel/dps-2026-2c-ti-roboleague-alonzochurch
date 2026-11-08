@@ -1,5 +1,6 @@
 package com.dps.roboleague.adapter.in.graphql.error;
 
+import com.dps.roboleague.scheduling.ScheduleConflictException;
 import com.dps.roboleague.shared.ConflictException;
 import com.dps.roboleague.shared.DomainException;
 import com.dps.roboleague.shared.InvalidValueException;
@@ -18,6 +19,7 @@ enum DomainError {
 
     INVALID_VALUE(InvalidValueException.class, ErrorType.BAD_REQUEST),
     NOT_FOUND(NotFoundException.class, ErrorType.NOT_FOUND),
+    SCHEDULE_CONFLICT(ScheduleConflictException.class, ErrorType.BAD_REQUEST),
     CONFLICT(ConflictException.class, ErrorType.BAD_REQUEST),
     RULE_VIOLATION(RuleViolationException.class, ErrorType.BAD_REQUEST),
     DOMAIN_ERROR(DomainException.class, ErrorType.BAD_REQUEST);

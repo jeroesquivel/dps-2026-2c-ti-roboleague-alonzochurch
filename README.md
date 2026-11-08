@@ -1,24 +1,40 @@
 # RoboLeague
 
 RoboLeague modela una plataforma de competencias de robótica con arquitectura hexagonal. El
-repositorio separa el núcleo Java puro de una aplicación web Spring Boot preparada para incorporar
-los flujos funcionales de `.docs/specs/` en entregas posteriores.
+repositorio separa el núcleo Java puro de una aplicación web Spring Boot que expone una API REST (escrituras y
+consultas) y una API GraphQL (consultas), con persistencia en PostgreSQL y un frontend React. Cada flujo
+funcional tiene su spec en `.docs/specs/`.
 
 ## Requisitos
 
 - JDK 21 o superior
 - Maven 3.9 o superior
+- Node.js 20 o superior (el CI usa 22) para el frontend
+- Docker, sólo si se quiere correr con PostgreSQL
 
 ## Estructura
 
 ```text
 core/       dominio, puertos e interactors; no depende de Spring ni de HTTP
-backend/    Spring Boot, composición, adaptadores en memoria y API HTTP
-frontend/   directorio reservado; la tecnología aún no fue elegida
+backend/    Spring Boot: composición, API REST y GraphQL, y adaptadores de persistencia (memoria y JPA)
+frontend/   React + TypeScript + Vite (ver frontend/README.md)
 ```
 
 El `pom.xml` raíz es un agregador Maven. `backend` depende de `core`; el núcleo no conoce al
-backend. Los repositorios actuales son adaptadores en memoria y su contenido se pierde al reiniciar.
+backend. Los límites entre contextos del núcleo y entre el negocio y los adaptadores los verifica ArchUnit
+durante `mvn verify`.
+
+### Persistencia
+
+Los repositorios, la bitácora de auditoría y el generador de identificadores tienen dos implementaciones,
+y la propiedad `roboleague.persistence` elige cuál se usa:
+
+| Valor | Dónde se guardan los datos | Cómo se activa |
+| --- | --- | --- |
+| `memory` (por defecto) | En memoria; se pierden al reiniciar | Sin configuración adicional |
+| `jpa` | En la base de `spring.datasource`, vía Spring Data JPA; el esquema lo crea Flyway (`db/migration`) | Perfil `postgres` (o `--roboleague.persistence=jpa`) |
+
+Los agregados se guardan como documentos JSON en tablas propias; ver [DESIGN.md](DESIGN.md) 10.7.
 
 ## Compilar y verificar
 
@@ -43,10 +59,31 @@ mvn -pl backend -am -Dtest=RoboLeagueApplicationTest test
 
 ## Ejecutar el backend
 
+Sin base de datos (repositorios en memoria):
+
 ```bash
 mvn -pl backend -am package
 java -jar backend/target/roboleague-backend-1.0-SNAPSHOT.jar
 ```
+
+### Con PostgreSQL (perfil `postgres`)
+
+```bash
+docker compose up -d db          # PostgreSQL 16 en localhost:5432 (base, usuario y clave: roboleague)
+mvn -pl backend -am package
+java -jar backend/target/roboleague-backend-1.0-SNAPSHOT.jar --spring.profiles.active=postgres
+```
+
+Flyway crea el esquema al arrancar y Hibernate no lo modifica (`ddl-auto: none`). Para apuntar a otra base se
+definen `ROBOLEAGUE_DB_URL`, `ROBOLEAGUE_DB_USER` y `ROBOLEAGUE_DB_PASSWORD`. Los datos sobreviven a reinicios
+mientras exista el volumen de Docker; para empezar de cero: `docker compose down -v`.
+
+Los perfiles se pueden combinar: `--spring.profiles.active=postgres,dev` carga además los datos de
+demostración. El seed no es idempotente: sobre una base que ya los tiene, la temporada repetida se rechaza, así
+que para volver a cargarlos hay que vaciar la base con `docker compose down -v`.
+
+Las pruebas (`mvn verify`) no necesitan Docker: los tests de repositorio JPA usan H2 en modo PostgreSQL con el
+mismo esquema de Flyway.
 
 La comprobación técnica no consulta repositorios:
 
@@ -57,9 +94,10 @@ GET http://localhost:8080/technical/health
 
 ### Datos de demostración (perfil `dev`)
 
-Con los repositorios en memoria, el backend arranca vacío y ninguna API crea competencias todavía. Para
-usar el frontend de punta a punta se puede arrancar con el perfil `dev`, que carga una competencia con
-una categoría, cuatro equipos, seis rondas y sus resultados:
+El backend arranca vacío. Aunque la API permite crear temporadas, competencias y reglamentos (ver
+[API: configuración del evento](#api-configuración-del-evento)), para usar el frontend de punta a punta se puede
+arrancar con el perfil `dev`, que carga una competencia con una categoría, cuatro equipos, seis rondas y sus
+resultados:
 
 ```bash
 java -jar backend/target/roboleague-backend-1.0-SNAPSHOT.jar --spring.profiles.active=dev

@@ -7,8 +7,11 @@ hacia la aplicación web ver [architecture.md](architecture.md).
 ## Proyecto
 
 RoboLeague modela una plataforma de competencias de robótica con arquitectura hexagonal. El núcleo
-está formado por `domain` y `application`; Spring Boot y el frontend se incorporan como adaptadores
-externos. Los repositorios en memoria son los adaptadores de salida actuales.
+(`core`) se divide en seis contextos acotados —`shared`, `enrollment`, `rules`, `scheduling`, `results` y
+`appeals`, en ese orden de dependencia— y cada uno tiene su dominio, sus puertos de entrada (`port.in`) y sus
+interactors (`application`). Spring Boot (REST y GraphQL), la persistencia y el frontend son adaptadores
+externos. Los repositorios tienen dos implementaciones, en memoria y JPA/PostgreSQL, elegidas con
+`roboleague.persistence` (`memory` por defecto; el perfil `postgres` activa `jpa`).
 
 Antes de implementar un flujo funcional, leer su spec en `.docs/specs/`. No agregar funcionalidad
 fuera de la spec ni resolver una pregunta abierta mediante una suposición que cambie el contrato.
@@ -22,11 +25,15 @@ mvn -pl core -Dtest=ScoringRulesTest test        # una clase del core
 mvn -pl core -Dtest=ScoringRulesTest#method test # un método del core
 mvn verify                              # tests + controles de cobertura
 mvn -pl backend -am package exec:java -DskipTests # ejecutar la demo actual
+docker compose up -d db                           # PostgreSQL local para el perfil `postgres`
+java -jar backend/target/roboleague-backend-1.0-SNAPSHOT.jar --spring.profiles.active=postgres,dev
+(cd frontend && npm test && npm run build)        # pruebas y build del frontend
 ```
 
 Antes de terminar un cambio, `mvn verify` debe pasar. JaCoCo exige 100 % de instrucciones, ramas,
-líneas, complejidad, métodos y clases; todo código nuevo necesita pruebas para sus caminos exitosos
-y de error. El informe se genera en `core/target/site/jacoco/index.html`.
+líneas, complejidad, métodos y clases en `core`; todo código nuevo necesita pruebas para sus caminos
+exitosos y de error. El informe se genera en `core/target/site/jacoco/index.html`. `mvn verify` también
+ejecuta las pruebas de arquitectura (ArchUnit) de `core` y `backend`.
 
 ## Límites arquitectónicos
 
@@ -34,7 +41,12 @@ y de error. El informe se genera en `core/target/site/jacoco/index.html`.
   frameworks.
 - `application` depende de puertos y tipos del dominio, nunca de adaptadores concretos.
 - El núcleo es dueño de sus puertos. Los adaptadores dependen del núcleo, no al revés.
-- Los controllers invocan puertos de entrada y nunca repositorios ni interactors concretos.
+- Los controllers REST y los resolvers GraphQL invocan puertos de entrada y nunca repositorios ni
+  interactors concretos. GraphQL es de solo lectura; las escrituras son REST.
+- Los contextos del núcleo no forman ciclos: un contexto sólo depende de los anteriores en el orden de
+  arriba. `ContextBoundariesTest` y `BackendBoundariesTest` lo verifican.
+- Un repositorio nuevo implementa el puerto del dominio en memoria y en JPA, y ambos pasan el mismo test de
+  contrato. Un cambio de esquema es una migración Flyway nueva (`db/migration`); no se edita una ya aplicada.
 - Spring, HTTP, JSON y conceptos del frontend no aparecen dentro del núcleo.
 - Los adaptadores traducen; no contienen reglas de negocio ni se conocen entre sí.
 - Los casos de uso coordinan: cargan, delegan en el dominio, persisten y auditan. Las decisiones de
