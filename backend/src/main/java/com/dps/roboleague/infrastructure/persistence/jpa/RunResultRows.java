@@ -8,6 +8,8 @@ public interface RunResultRows extends JpaRepository<RunResultRow, String> {
 
     List<RunResultRow> findByRoundIdOrderByAttemptNumberAsc(String roundId);
 
+    List<RunResultRow> findByTeamIdOrderByRoundIdAscAttemptNumberAsc(String teamId);
+
     boolean existsByRoundIdAndTeamIdAndAttemptNumberAndIdNot(String roundId, String teamId, int attemptNumber,
             String id);
 }

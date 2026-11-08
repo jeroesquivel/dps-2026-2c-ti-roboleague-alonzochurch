@@ -10,6 +10,7 @@ public final class TeamGraphMapper {
 
     public static TeamGraph toGraph(TeamRegistration registration) {
         return new TeamGraph(registration.id().value(), registration.name(), registration.status().name(),
-                new TeamGraph.RobotGraph(registration.robot().name(), registration.robot().robotClass().code()));
+                new TeamGraph.RobotGraph(registration.robot().name(), registration.robot().robotClass().code()),
+                registration.competitionId().value(), registration.categoryId().value());
     }
 }

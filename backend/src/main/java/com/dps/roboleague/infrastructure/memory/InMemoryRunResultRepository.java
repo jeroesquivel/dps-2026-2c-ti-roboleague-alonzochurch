@@ -5,6 +5,7 @@ import com.dps.roboleague.results.result.RunResultRepository;
 import com.dps.roboleague.shared.ConflictException;
 import com.dps.roboleague.shared.RoundId;
 import com.dps.roboleague.shared.RunId;
+import com.dps.roboleague.shared.TeamId;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -44,6 +45,15 @@ public final class InMemoryRunResultRepository implements RunResultRepository {
         return results.values().stream()
                 .filter(result -> result.roundId().equals(roundId))
                 .sorted(Comparator.comparing(RunResult::attemptNumber))
+                .toList();
+    }
+
+    @Override
+    public synchronized List<RunResult> findByTeam(TeamId teamId) {
+        return results.values().stream()
+                .filter(result -> result.teamId().equals(teamId))
+                .sorted(Comparator.comparing((RunResult result) -> result.roundId().value())
+                        .thenComparing(RunResult::attemptNumber))
                 .toList();
     }
 }

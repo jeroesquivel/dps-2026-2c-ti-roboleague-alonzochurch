@@ -6,6 +6,7 @@ import com.dps.roboleague.results.result.RunResultRepository;
 import com.dps.roboleague.shared.ConflictException;
 import com.dps.roboleague.shared.RoundId;
 import com.dps.roboleague.shared.RunId;
+import com.dps.roboleague.shared.TeamId;
 import java.util.List;
 import java.util.Optional;
 
@@ -46,6 +47,13 @@ public final class JpaRunResultRepository implements RunResultRepository {
     @Override
     public List<RunResult> findByRound(RoundId roundId) {
         return rows.findByRoundIdOrderByAttemptNumberAsc(roundId.value()).stream()
+                .map(row -> json.read(row.payload(), RunResult.class))
+                .toList();
+    }
+
+    @Override
+    public List<RunResult> findByTeam(TeamId teamId) {
+        return rows.findByTeamIdOrderByRoundIdAscAttemptNumberAsc(teamId.value()).stream()
                 .map(row -> json.read(row.payload(), RunResult.class))
                 .toList();
     }

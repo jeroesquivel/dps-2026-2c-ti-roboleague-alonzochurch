@@ -62,6 +62,9 @@ public abstract class RunResultRepositoryContractTest {
         assertDoesNotThrow(() -> repository.save(run("RUN-3", "ROUND-1", "TEAM-2", 1)));
         assertDoesNotThrow(() -> repository.save(run("RUN-4", "ROUND-2", "TEAM-1", 1)));
         assertEquals(3, repository.findByRound(RoundId.of("ROUND-1")).size());
+        assertEquals(List.of(RunId.of("RUN-1"), RunId.of("RUN-2"), RunId.of("RUN-4")),
+                repository.findByTeam(TeamId.of("TEAM-1")).stream().map(RunResult::id).toList());
+        assertEquals(List.of(), repository.findByTeam(TeamId.of("TEAM-404")));
     }
 
     @Test

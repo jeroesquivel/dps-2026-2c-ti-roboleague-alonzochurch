@@ -5,6 +5,9 @@ siguen siendo operaciones de la API REST. Los ids son los mismos que usa REST (C
 type Query {
   "Una competencia con sus categorías."
   competition(id: ID!): Competition
+  team(id: ID!): Team
+  round(id: ID!): Round
+  run(id: ID!): Run
   "La última revisión de las posiciones de una categoría."
   standings(competitionId: ID!, categoryId: ID!): Standings
 }
@@ -58,6 +61,8 @@ type Team {
   name: String!
   status: RegistrationStatus!
   robot: Robot!
+  category: Category!
+  results: [RoundResult!]!
 }
 
 enum RegistrationStatus {
@@ -79,6 +84,76 @@ type Round {
   challengeId: String!
   rulebookVersion: String!
   heats: [Heat!]!
+  runs: [Run!]!
+}
+
+type RoundResult {
+  round: Round!
+  runs: [Run!]!
+}
+
+type Run {
+  id: ID!
+  attemptNumber: Int!
+  status: RunStatus!
+  team: Team!
+  round: Round!
+  score: ScoreBreakdown!
+}
+
+enum RunStatus {
+  CAPTURED
+  CORRECTED
+}
+
+type ScoreBreakdown {
+  completionStatus: CompletionStatus!
+  missingSources: [ResultSource!]!
+  rulebookVersion: String!
+  total: Points
+  contributions: [Contribution!]
+  bonusCap: BonusCap
+  bySource: BySource
+}
+
+enum CompletionStatus {
+  PENDING
+  COMPLETE
+}
+
+enum ResultSource {
+  AUTOMATIC
+  JUDGES
+}
+
+type Contribution {
+  ruleCode: String!
+  kind: String!
+  explanation: String!
+  points: Points!
+}
+
+type BonusCap {
+  obtained: Points!
+  cap: Points!
+  trimmed: Points!
+  applied: Points!
+}
+
+type BySource {
+  sources: [SourceBreakdown!]!
+  acrossSources: ContributionGroup!
+}
+
+type SourceBreakdown {
+  source: ResultSource!
+  subtotal: Points!
+  contributions: [Contribution!]!
+}
+
+type ContributionGroup {
+  subtotal: Points!
+  contributions: [Contribution!]!
 }
 
 "El turno de un equipo en una ronda. Los horarios son locales, en formato ISO-8601 (`2026-03-02T09:00:00`)."

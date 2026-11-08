@@ -30,6 +30,8 @@ import com.dps.roboleague.results.application.CalculateRunScoreUseCase;
 import com.dps.roboleague.results.application.CaptureRunResultUseCase;
 import com.dps.roboleague.results.application.CorrectResultUseCase;
 import com.dps.roboleague.results.application.FindRunResultUseCase;
+import com.dps.roboleague.results.application.FindRoundRunsUseCase;
+import com.dps.roboleague.results.application.FindTeamRunsUseCase;
 import com.dps.roboleague.results.application.GenerateStandingsUseCase;
 import com.dps.roboleague.results.application.GetStandingsUseCase;
 import com.dps.roboleague.results.application.PublishStandingsUseCase;
@@ -41,6 +43,8 @@ import com.dps.roboleague.results.port.in.CalculateRunScore;
 import com.dps.roboleague.results.port.in.CaptureRunResult;
 import com.dps.roboleague.results.port.in.CorrectResult;
 import com.dps.roboleague.results.port.in.FindRunResult;
+import com.dps.roboleague.results.port.in.FindRoundRuns;
+import com.dps.roboleague.results.port.in.FindTeamRuns;
 import com.dps.roboleague.results.port.in.GenerateStandings;
 import com.dps.roboleague.results.port.in.GetStandings;
 import com.dps.roboleague.results.port.in.PublishStandings;
@@ -163,6 +167,8 @@ public class UseCasesConfig {
         return new FindCategoryRoundsUseCase(competitions, rounds);
     }
     @Bean FindRunResult findRunResult(RunResultRepository repository) { return new FindRunResultUseCase(repository); }
+    @Bean FindRoundRuns findRoundRuns(RunResultRepository repository) { return new FindRoundRunsUseCase(repository); }
+    @Bean FindTeamRuns findTeamRuns(RunResultRepository repository) { return new FindTeamRunsUseCase(repository); }
     @Bean FindAppeal findAppeal(AppealRepository repository) { return new FindAppealUseCase(repository); }
     @Bean GetStandings getStandings(StandingsRepository repository) { return new GetStandingsUseCase(repository); }
     @Bean FindAuditTrail findAuditTrail(AuditLog auditLog) { return new FindAuditTrailUseCase(auditLog); }
