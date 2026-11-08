@@ -1,16 +1,5 @@
 package com.dps.roboleague.adapter.in.graphql;
 
-import com.dps.roboleague.adapter.in.web.Editions;
-import com.dps.roboleague.enrollment.competition.RobotClass;
-import com.dps.roboleague.enrollment.port.in.CreateSeason;
-import com.dps.roboleague.rules.port.in.CreateCompetition;
-import com.dps.roboleague.shared.Actor;
-import com.dps.roboleague.shared.AgeRange;
-import com.dps.roboleague.shared.DateRange;
-import com.dps.roboleague.shared.SeasonId;
-import com.dps.roboleague.support.RescueEditionFixture;
-import com.dps.roboleague.support.TeamFixtures;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -18,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.graphql.test.autoconfigure.tester.AutoConfigureHttpGraphQlTester;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Import;
 import org.springframework.graphql.ResponseError;
 import org.springframework.graphql.execution.ErrorType;
 import org.springframework.graphql.test.tester.HttpGraphQlTester;
@@ -34,24 +24,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureHttpGraphQlTester
+@Import(GraphQlEditions.class)
 class CompetitionGraphQlTest {
 
-    private static final Actor ORGANIZER = Actor.of("organizer");
-
     @Autowired HttpGraphQlTester graphQl;
-    @Autowired CreateSeason createSeason;
-    @Autowired CreateCompetition createCompetition;
+    @Autowired GraphQlEditions editions;
     @LocalServerPort int port;
 
     // ---- AC-1: competencia con categorías --------------------------------------------------------------
 
     @Test
     void returnsOnlyTheRequestedFieldsOfACompetitionAndItsCategories() {
-        Edition edition = createEdition("National Open");
+        GraphQlEditions.Edition edition = editions.create("National Open");
 
         graphQl.document("""
                         query ($id: ID!) { competition(id: $id) { name categories { name } } }""")
-                .variable("id", edition.competitionId())
+                .variable("id", edition.competitionId().value())
                 .execute()
                 .path("competition").entity(Map.class)
                 .satisfies(competition -> assertEquals(Set.of("name", "categories"), competition.keySet()))
@@ -63,7 +51,7 @@ class CompetitionGraphQlTest {
 
     @Test
     void exposesTheCompetitionWithTheSameValuesAsTheRestApi() {
-        Edition edition = createEdition("Regional Cup");
+        GraphQlEditions.Edition edition = editions.create("Regional Cup");
 
         graphQl.document("""
                         query ($id: ID!) {
@@ -72,14 +60,14 @@ class CompetitionGraphQlTest {
                             categories { id name robotClass ageRange { minimumYears maximumYears } }
                           }
                         }""")
-                .variable("id", edition.competitionId())
+                .variable("id", edition.competitionId().value())
                 .execute()
-                .path("competition.id").entity(String.class).isEqualTo(edition.competitionId())
+                .path("competition.id").entity(String.class).isEqualTo(edition.competitionId().value())
                 .path("competition.activeRulebookVersion").entity(String.class).isEqualTo("v1")
                 .path("competition.period.start").entity(String.class).isEqualTo(edition.period().start().toString())
                 .path("competition.period.end").entity(String.class).isEqualTo(edition.period().end().toString())
                 .path("competition.categories[*].id").entityList(String.class)
-                .containsExactly(edition.juniorId(), edition.seniorId())
+                .containsExactly(edition.junior().value(), edition.senior().value())
                 .path("competition.categories[0].robotClass").entity(String.class).isEqualTo("RESCUE_BOT")
                 .path("competition.categories[0].ageRange.minimumYears").entity(Integer.class).isEqualTo(12)
                 .path("competition.categories[0].ageRange.maximumYears").entity(Integer.class).isEqualTo(17)
@@ -139,23 +127,5 @@ class CompetitionGraphQlTest {
                 .toBodilessEntity().getStatusCode();
 
         assertEquals(HttpStatus.NOT_FOUND, status);
-    }
-
-    // ---- datos ------------------------------------------------------------------------------------------
-
-    private record Edition(String competitionId, DateRange period, String juniorId, String seniorId) {
-    }
-
-    private Edition createEdition(String name) {
-        DateRange period = Editions.nextPeriod();
-        SeasonId season = createSeason.execute(new CreateSeason.Command("Season " + period.start(),
-                period.start().getYear(), period, ORGANIZER));
-        CreateCompetition.Result created = createCompetition.execute(new CreateCompetition.Command(season, name,
-                period, List.of(
-                        new CreateCompetition.CategoryDraft("Junior", AgeRange.between(12, 17), TeamFixtures.RESCUE_BOT),
-                        new CreateCompetition.CategoryDraft("Senior", AgeRange.between(18, 30), RobotClass.of("SUMO"))),
-                RescueEditionFixture.rulebook(), ORGANIZER));
-        return new Edition(created.competitionId().value(), period, created.categoryIds().get(0).value(),
-                created.categoryIds().get(1).value());
     }
 }

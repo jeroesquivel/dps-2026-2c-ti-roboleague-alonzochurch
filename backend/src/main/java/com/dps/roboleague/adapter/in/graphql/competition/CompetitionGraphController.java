@@ -1,5 +1,7 @@
 package com.dps.roboleague.adapter.in.graphql.competition;
 
+import com.dps.roboleague.adapter.in.graphql.type.CompetitionGraph;
+import com.dps.roboleague.adapter.in.graphql.type.CompetitionGraphMapper;
 import com.dps.roboleague.enrollment.port.in.FindCompetition;
 import com.dps.roboleague.shared.CompetitionId;
 import org.springframework.graphql.data.method.annotation.Argument;

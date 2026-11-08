@@ -5,7 +5,12 @@ siguen siendo operaciones de la API REST. Los ids son los mismos que usa REST (C
 type Query {
   "Una competencia con sus categorías."
   competition(id: ID!): Competition
+  "La última revisión de las posiciones de una categoría."
+  standings(competitionId: ID!, categoryId: ID!): Standings
 }
+
+"Puntos de un puntaje, con decimales exactos (por ejemplo `60.75`). Sólo se usa como salida."
+scalar Points
 
 "Una competencia de la temporada."
 type Competition {
@@ -30,10 +35,112 @@ type Category {
   ageRange: AgeRange!
   "Clase de robot admitida, por ejemplo `RESCUE_BOT`."
   robotClass: String!
+  "Todas las inscripciones de la categoría, con su estado, ordenadas por nombre."
+  teams: [Team!]!
+  "Las rondas programadas, ordenadas por ordinal."
+  rounds: [Round!]!
+  "La última revisión de las posiciones; `null` con un error `NOT_FOUND` si todavía no se generaron."
+  standings: Standings
 }
 
 "Edades admitidas, en años cumplidos, ambas inclusive."
 type AgeRange {
   minimumYears: Int!
   maximumYears: Int!
+}
+
+"""
+Un equipo inscripto. No expone a sus integrantes (son menores), su documentación ni los motivos de un
+rechazo.
+"""
+type Team {
+  id: ID!
+  name: String!
+  status: RegistrationStatus!
+  robot: Robot!
+}
+
+enum RegistrationStatus {
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+}
+
+type Robot {
+  name: String!
+  "Clase del robot, por ejemplo `RESCUE_BOT`."
+  robotClass: String!
+}
+
+"Una ronda de un desafío, con la versión del reglamento que quedó fijada al programarla."
+type Round {
+  id: ID!
+  ordinal: Int!
+  challengeId: String!
+  rulebookVersion: String!
+  heats: [Heat!]!
+}
+
+"El turno de un equipo en una ronda. Los horarios son locales, en formato ISO-8601 (`2026-03-02T09:00:00`)."
+type Heat {
+  team: Team!
+  arena: String!
+  start: String!
+  end: String!
+  judges: [String!]!
+}
+
+"Una revisión de las posiciones de una categoría."
+type Standings {
+  revision: Int!
+  status: PublicationStatus!
+  rulebookVersion: String!
+  "Instante en que se generó o recalculó, en formato ISO-8601 UTC."
+  generatedAt: String!
+  "Las posiciones, en orden: el núcleo ya aplicó los desempates."
+  entries: [StandingEntry!]!
+}
+
+enum PublicationStatus {
+  PROVISIONAL
+  FINAL
+}
+
+type StandingEntry {
+  position: Int!
+  team: Team!
+  totalPoints: Points!
+  "Desempates que decidieron esta posición frente a un equipo con el mismo puntaje."
+  appliedTiebreaks: [AppliedTiebreak!]!
+  explanation: ScoreExplanation!
+}
+
+type AppliedTiebreak {
+  code: String!
+  description: String!
+}
+
+"Cómo se llegó al total: un subtotal por política del reglamento."
+type ScoreExplanation {
+  subtotals: [ScoreSubtotal!]!
+}
+
+type ScoreSubtotal {
+  code: String!
+  description: String!
+  points: Points!
+  "Las rondas que se contaron o descartaron, si el subtotal sale de una selección de rondas."
+  rounds: [RoundOutcome!]!
+}
+
+type RoundOutcome {
+  ordinal: Int!
+  points: Points!
+  status: RoundStatus!
+  reason: String!
+}
+
+enum RoundStatus {
+  COUNTED
+  DISCARDED
 }

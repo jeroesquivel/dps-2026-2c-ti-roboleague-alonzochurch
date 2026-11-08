@@ -3,7 +3,11 @@ package com.dps.roboleague.infrastructure.persistence.jpa;
 import com.dps.roboleague.enrollment.team.TeamRegistration;
 import com.dps.roboleague.enrollment.team.TeamRegistrationRepository;
 import com.dps.roboleague.infrastructure.persistence.AggregateJson;
+import com.dps.roboleague.shared.CategoryId;
+import com.dps.roboleague.shared.CompetitionId;
 import com.dps.roboleague.shared.TeamId;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 
 public final class JpaTeamRegistrationRepository implements TeamRegistrationRepository {
@@ -25,5 +29,13 @@ public final class JpaTeamRegistrationRepository implements TeamRegistrationRepo
     @Override
     public Optional<TeamRegistration> findById(TeamId id) {
         return rows.findById(id.value()).map(row -> json.read(row.payload(), TeamRegistration.class));
+    }
+
+    @Override
+    public List<TeamRegistration> findByCategory(CompetitionId competitionId, CategoryId categoryId) {
+        return rows.findByCompetitionIdAndCategoryId(competitionId.value(), categoryId.value()).stream()
+                .map(row -> json.read(row.payload(), TeamRegistration.class))
+                .sorted(Comparator.comparing(TeamRegistration::name))
+                .toList();
     }
 }

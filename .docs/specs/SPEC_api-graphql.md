@@ -36,7 +36,8 @@ sigue en sus rutas actuales.
 `activeRulebookVersion` y sus `categories`.
 
 **FR-4 — Categoría.** Una categoría informa `id`, `name`, `ageRange`, `robotClass`, sus `teams`, sus
-`rounds` ordenadas por ordinal y su tabla de posiciones vigente (`standings`).
+`rounds` ordenadas por ordinal y su tabla de posiciones vigente (`standings`). Los equipos son todas
+las inscripciones de la categoría, cualquiera sea su estado, ordenadas por nombre (OQ-1).
 
 **FR-5 — Equipo.** Un equipo informa `id`, `name`, `status` de la inscripción, su `robot` (`name` y
 `robotClass`), su `category` y sus `results`.

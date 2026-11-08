@@ -12,12 +12,14 @@ import com.dps.roboleague.appeals.port.in.RejectAppeal;
 import com.dps.roboleague.appeals.port.in.SubmitAppeal;
 import com.dps.roboleague.enrollment.application.CreateSeasonUseCase;
 import com.dps.roboleague.enrollment.application.FindCompetitionUseCase;
+import com.dps.roboleague.enrollment.application.FindCategoryTeamsUseCase;
 import com.dps.roboleague.enrollment.application.FindTeamRegistrationUseCase;
 import com.dps.roboleague.enrollment.application.RegisterTeamUseCase;
 import com.dps.roboleague.enrollment.competition.CompetitionRepository;
 import com.dps.roboleague.enrollment.competition.SeasonRepository;
 import com.dps.roboleague.enrollment.port.in.CreateSeason;
 import com.dps.roboleague.enrollment.port.in.FindCompetition;
+import com.dps.roboleague.enrollment.port.in.FindCategoryTeams;
 import com.dps.roboleague.enrollment.port.in.FindTeamRegistration;
 import com.dps.roboleague.enrollment.port.in.RegisterTeam;
 import com.dps.roboleague.enrollment.team.TeamRegistrationRepository;
@@ -64,8 +66,10 @@ import com.dps.roboleague.rules.port.in.PublishRulebook;
 import com.dps.roboleague.rules.rulebook.RulebookRepository;
 import com.dps.roboleague.scheduling.RoundRepository;
 import com.dps.roboleague.scheduling.ScheduleConflictDetector;
+import com.dps.roboleague.scheduling.application.FindCategoryRoundsUseCase;
 import com.dps.roboleague.scheduling.application.FindRoundUseCase;
 import com.dps.roboleague.scheduling.application.ScheduleRoundUseCase;
+import com.dps.roboleague.scheduling.port.in.FindCategoryRounds;
 import com.dps.roboleague.scheduling.port.in.FindRound;
 import com.dps.roboleague.scheduling.port.in.ScheduleRound;
 import com.dps.roboleague.shared.IdGenerator;
@@ -199,6 +203,14 @@ public final class RoboLeagueCompositionRoot {
 
     public FindRound findRoundUseCase() {
         return new FindRoundUseCase(rounds);
+    }
+
+    public FindCategoryTeams findCategoryTeamsUseCase() {
+        return new FindCategoryTeamsUseCase(competitions, registrations);
+    }
+
+    public FindCategoryRounds findCategoryRoundsUseCase() {
+        return new FindCategoryRoundsUseCase(competitions, rounds);
     }
 
     public FindRunResult findRunResultUseCase() {
