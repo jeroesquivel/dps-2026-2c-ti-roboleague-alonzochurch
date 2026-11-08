@@ -123,9 +123,9 @@ Resueltas:
   estado; además su cuerpo de error no tiene un campo estructurado para las fuentes faltantes.
   `FindRunResult` informa el estado de completitud y sólo una corrida completa se pasa a
   `CalculateRunScore`.
-- **Tope de bonificaciones.** `CalculateRunScore.RunScore` incorpora `Optional<BonusCapOutcome>`
-  (obtenidas, tope y recorte), calculado por el desafío histórico con la misma cuenta que la
-  contribución `BONUS_CAP`. La API lo expone como `bonusCap {obtained, cap, trimmed, applied}`
+- **Tope de bonificaciones.** `CalculateRunScore.RunScore.bonusCap()` devuelve un
+  `Optional<BonusCapOutcome>` (obtenidas, tope y recorte), calculado por el desafío histórico con la
+  misma cuenta que la contribución `BONUS_CAP`. La API lo expone como `bonusCap {obtained, cap, trimmed, applied}`
   (`null` si el desafío no tiene tope) y la contribución `BONUS_CAP` sigue apareciendo en la lista.
   Así el tope y el recorte no dependen de interpretar el texto de una explicación, que no es parte
   del contrato.
