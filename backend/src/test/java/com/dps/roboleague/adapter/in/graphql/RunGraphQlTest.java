@@ -2,6 +2,8 @@ package com.dps.roboleague.adapter.in.graphql;
 
 import com.dps.roboleague.adapter.in.web.run.RunScoreResponse;
 import com.dps.roboleague.rules.scoring.BonusCap;
+import com.dps.roboleague.rules.scoring.PointsRate;
+import com.dps.roboleague.rules.scoring.rule.ObjectiveScoringRule;
 import com.dps.roboleague.shared.RoundId;
 import com.dps.roboleague.shared.RunId;
 import com.dps.roboleague.shared.TeamId;
@@ -178,19 +180,31 @@ class RunGraphQlTest {
     }
 
     @Test
-    void scoresWithTheRulebookVersionFixedWhenTheRoundWasScheduled() {
+    void scoresEachRunWithItsOwnRulebookVersionAfterANewOneIsPublished() {
         GraphQlEditions.Edition edition = editions.create("Historical Rules Cup");
         TeamId team = editions.registerEligible(edition, "Alpha Bots");
-        RoundId round = editions.scheduleRound(edition, 1, List.of(team));
-        RunId run = editions.capture(round, team, 1, 5);
-        editions.publishRulebook(edition, RescueEditionFixture.rulebook());
+        RunId underFirst = editions.capture(editions.scheduleRound(edition, 1, List.of(team)), team, 1, 5);
+        editions.publishRulebook(edition, RescueEditionFixture.rulebook(RescueEditionFixture.challengeScoredBy(
+                List.of(new ObjectiveScoringRule(RescueEditionFixture.OBJECTIVES, PointsRate.of(100), 5)))));
+        RunId underSecond = editions.capture(editions.scheduleRound(edition, 2, List.of(team)), team, 1, 5);
 
-        graphQl.document("query ($id: ID!) { run(id: $id) { score { rulebookVersion total } } }")
-                .variable("id", run.value()).execute()
-                .path("run.score.rulebookVersion").entity(String.class).isEqualTo("v1")
-                .path("run.score.total").entity(BigDecimal.class).satisfies(value -> {
+        graphQl.document("""
+                        query ($first: ID!, $second: ID!) {
+                          first: run(id: $first) { score { rulebookVersion total contributions { ruleCode } } }
+                          second: run(id: $second) { score { rulebookVersion total contributions { ruleCode } } }
+                        }""")
+                .variable("first", underFirst.value()).variable("second", underSecond.value()).execute()
+                .path("first.score.rulebookVersion").entity(String.class).isEqualTo("v1")
+                .path("first.score.total").entity(BigDecimal.class).satisfies(value -> assertAmount("85.75", value))
+                .path("first.score.contributions[*].ruleCode").entityList(String.class)
+                .containsExactly("TIME", "OBJECTIVES", "JUDGES", "RESOURCE", "BONUS", "PENALTIES")
+                .path("second.score.rulebookVersion").entity(String.class).isEqualTo("v2")
+                .path("second.score.total").entity(BigDecimal.class).satisfies(value -> assertAmount("500", value))
+                .path("second.score.contributions[*].ruleCode").entityList(String.class)
+                .containsExactly("OBJECTIVES", "PENALTIES")
+                .path("first.score.total").entity(BigDecimal.class).satisfies(value -> {
                     RunScoreResponse rest = RestClient.create("http://localhost:" + port).get()
-                            .uri("/runs/{runId}/score", run.value()).retrieve().body(RunScoreResponse.class);
+                            .uri("/runs/{runId}/score", underFirst.value()).retrieve().body(RunScoreResponse.class);
                     assertAmount(rest.total().toPlainString(), value);
                 });
     }
